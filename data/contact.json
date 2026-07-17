@@ -1,0 +1,148 @@
+{
+  "_readme": "SINGLE SOURCE OF TRUTH for every contact detail in ReviewHub. No email, phone, address, officer name, or social/platform handle may exist as a literal anywhere else in this repo — not in the footer, not in a page, not in the privacy policy, not in a form fallback. src/lib/contact.js is the ONLY file that reads this. Everything else imports from there.",
+  "_version": "1.0.0",
+  "_owner": "TODO — name + role of the person who approves changes to this file",
+  "_lastReviewed": "2026-07-17",
+
+  "brand": {
+    "productName": "ReviewHub",
+    "tagline": "TODO — one line, must survive the sentence 'we don't pay for reviews'",
+    "legalEntity": "TODO — registered company name Pvt. Ltd.",
+    "cin": "TODO — Corporate Identity Number",
+    "gstin": "TODO",
+    "website": "TODO — https://yourdomain.com",
+    "_note": "website domain MUST match the domain of emails.support / emails.sales. Mismatched domains are the #1 rejection reason on the Google Business Profile API access request."
+  },
+
+  "emails": {
+    "support": "TODO — support@yourdomain.com",
+    "sales": "TODO — sales@yourdomain.com",
+    "billing": "TODO — billing@yourdomain.com",
+    "privacy": "TODO — privacy@yourdomain.com",
+    "grievance": "TODO — grievance@yourdomain.com",
+    "legal": "TODO — legal@yourdomain.com",
+    "security": "TODO — security@yourdomain.com",
+    "careers": "TODO — careers@yourdomain.com",
+    "affiliates": "TODO — affiliates@yourdomain.com",
+    "press": "TODO — press@yourdomain.com",
+    "noreply": "TODO — noreply@yourdomain.com"
+  },
+
+  "phones": {
+    "support": {
+      "e164": "TODO — +91XXXXXXXXXX",
+      "display": "TODO — +91 XXXXX XXXXX",
+      "_note": "Business & Enterprise entitlement only. Do not render on pages visible to Starter/Growth."
+    },
+    "sales": {
+      "e164": "TODO — +91XXXXXXXXXX",
+      "display": "TODO — +91 XXXXX XXXXX"
+    }
+  },
+
+  "addresses": {
+    "registered": {
+      "line1": "TODO",
+      "line2": "TODO",
+      "city": "TODO",
+      "state": "TODO",
+      "postalCode": "TODO",
+      "country": "India",
+      "full": "TODO — single-line rendering for footer, invoice, and GBP listing"
+    },
+    "operations": {
+      "sameAs": "registered"
+    }
+  },
+
+  "people": {
+    "grievanceOfficer": {
+      "name": "TODO",
+      "designation": "Grievance Officer",
+      "email": "TODO",
+      "phone": "TODO",
+      "_note": "MANDATORY. Name, email and address must be published on the site — IT Rules 2021 and Consumer Protection (E-Commerce) Rules 2020. Site cannot launch in India without this."
+    },
+    "nodalOfficer": {
+      "name": "TODO",
+      "designation": "Nodal Officer",
+      "email": "TODO"
+    },
+    "dataProtectionOfficer": {
+      "name": "TODO",
+      "designation": "Data Protection Officer",
+      "email": "TODO",
+      "_note": "Required only if notified as a Significant Data Fiduciary under the DPDP Act 2023."
+    }
+  },
+
+  "social": {
+    "linkedin": "TODO",
+    "x": "TODO",
+    "youtube": "TODO",
+    "instagram": "TODO",
+    "facebook": "TODO"
+  },
+
+  "platforms": {
+    "_readme": "ReviewHub's OWN presence on each platform — where customers find and review US. This is contact data: 'where to find us'. It is NOT the platform registry (which platforms the product supports, API endpoints, capabilities, scopes) — that belongs in a separate platforms.json and must never live here. contact.json is imported by the footer and the privacy policy; API config has no business in that blast radius.",
+
+    "googleBusinessProfile": {
+      "label": "Google Business Profile",
+      "profileUrl": "TODO",
+      "placeId": "TODO",
+      "reviewUrl": "TODO — direct 'write a review' link",
+      "claimed": false,
+      "verified": false,
+      "verifiedOn": "TODO — YYYY-MM-DD",
+      "_note": "★ CRITICAL PATH. The GBP API access request requires a verified profile that is 60+ days old. Newer listings are auto-rejected on age. This field is the clock — set verifiedOn the day it verifies, and do not submit the API request before verifiedOn + 60 days. Nothing can compress this."
+    },
+
+    "trustpilot": {
+      "label": "Trustpilot",
+      "profileUrl": "TODO",
+      "status": "not_claimed"
+    },
+
+    "g2": {
+      "label": "G2",
+      "profileUrl": "TODO",
+      "status": "not_claimed"
+    },
+
+    "capterra": {
+      "label": "Capterra",
+      "profileUrl": "TODO",
+      "status": "not_claimed"
+    },
+
+    "ambitionbox": {
+      "label": "AmbitionBox",
+      "profileUrl": "TODO",
+      "status": "not_claimed",
+      "_note": "Employer profile. Monitoring only — we never solicit or incentivise employee reviews."
+    },
+
+    "glassdoor": {
+      "label": "Glassdoor",
+      "profileUrl": "TODO",
+      "status": "not_claimed",
+      "_note": "Employer profile. Monitoring only."
+    }
+  },
+
+  "support": {
+    "hours": "TODO — e.g. Mon–Fri 10:00–19:00 IST",
+    "timezone": "Asia/Kolkata",
+    "channels": ["email", "in-app chat", "phone (Business & Enterprise only)"],
+    "sla": {
+      "starter": { "firstResponseHours": 48, "display": "48 hours" },
+      "growth": { "firstResponseHours": 24, "display": "24 hours" },
+      "business": { "firstResponseHours": 8, "display": "8 hours" },
+      "enterprise": { "firstResponseHours": 4, "display": "4 hours" }
+    },
+    "grievanceAckDays": 2,
+    "grievanceResolutionDays": 30,
+    "_note": "SLA values are quoted publicly on /pricing and become contractual the moment someone pays. plan.json references these by key — it must never copy the numbers. Changing one is a major version bump."
+  }
+}

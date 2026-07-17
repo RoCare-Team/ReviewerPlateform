@@ -1,0 +1,173 @@
+{
+  "_readme": "Pricing plans and entitlements. Read by src/lib/plans.js. Support SLAs are NOT duplicated here — each plan references a key in contact.json via supportSlaRef, because contact.json is the single source of truth for SLA figures.",
+  "_version": "1.0.0",
+  "_lastReviewed": "2026-07-17",
+
+  "currency": "INR",
+  "currencySymbol": "₹",
+  "gstPercent": 18,
+  "pricesIncludeGst": false,
+  "_gstNote": "Total price including GST must be shown BEFORE the payment step, not at the last screen. Showing it late is drip pricing — a named dark pattern under the Guidelines for Prevention and Regulation of Dark Patterns, 2023.",
+
+  "annualDiscountPercent": null,
+  "_annualNote": "TODO. State the % plainly on /pricing. No 'save big', no fake urgency, no countdown timers.",
+
+  "trial": {
+    "days": 14,
+    "cardRequired": false,
+    "featureLevel": "growth",
+    "onExpiry": "read_only",
+    "_note": "Never delete data on trial expiry or non-payment. Read-only, export still available."
+  },
+
+  "plans": [
+    {
+      "id": "starter",
+      "name": "Starter",
+      "priceMonthly": 999,
+      "priceDisplay": "₹999",
+      "billingPeriod": "month",
+      "blurb": "TODO — one line for the pricing card",
+      "popular": false,
+      "supportSlaRef": "contact.support.sla.starter",
+      "cta": { "label": "Start Free Trial", "href": "/demo" },
+      "limits": {
+        "campaigns": 1,
+        "feedbackResponsesPerMonth": 100,
+        "locations": 1,
+        "teamSeats": 2,
+        "platformsMonitored": ["google"]
+      },
+      "features": {
+        "analytics": "basic",
+        "aiSentiment": false,
+        "aiReplyDrafting": false,
+        "phoneSupport": false,
+        "whiteLabel": false,
+        "apiAccess": false
+      }
+    },
+    {
+      "id": "growth",
+      "name": "Growth",
+      "priceMonthly": 4999,
+      "priceDisplay": "₹4,999",
+      "billingPeriod": "month",
+      "blurb": "TODO",
+      "popular": true,
+      "supportSlaRef": "contact.support.sla.growth",
+      "cta": { "label": "Start Free Trial", "href": "/demo" },
+      "limits": {
+        "campaigns": 10,
+        "feedbackResponsesPerMonth": 1000,
+        "locations": 5,
+        "teamSeats": 10,
+        "platformsMonitored": ["google"],
+        "_platformsNote": "Spec says Google +2 platforms. Phase 1 is GMB-only, so this is Google alone until platform #2 ships. Do not advertise entitlements that don't exist yet — that's a refund request in month two."
+      },
+      "features": {
+        "analytics": "advanced",
+        "aiSentiment": true,
+        "aiReplyDrafting": false,
+        "phoneSupport": false,
+        "whiteLabel": false,
+        "apiAccess": false
+      }
+    },
+    {
+      "id": "business",
+      "name": "Business",
+      "priceMonthly": 14999,
+      "priceDisplay": "₹14,999",
+      "billingPeriod": "month",
+      "blurb": "TODO",
+      "popular": false,
+      "supportSlaRef": "contact.support.sla.business",
+      "cta": { "label": "Start Free Trial", "href": "/demo" },
+      "limits": {
+        "campaigns": null,
+        "campaignsDisplay": "Unlimited",
+        "feedbackResponsesPerMonth": null,
+        "feedbackResponsesDisplay": "Unlimited",
+        "feedbackResponsesFairUseCap": "TODO — state the actual number",
+        "locations": 25,
+        "teamSeats": 25,
+        "platformsMonitored": ["google"]
+      },
+      "features": {
+        "analytics": "advanced_plus_custom",
+        "aiSentiment": true,
+        "aiReplyDrafting": true,
+        "phoneSupport": true,
+        "whiteLabel": false,
+        "apiAccess": "read"
+      },
+      "_fairUseNote": "'Unlimited' with no published cap is a support-ticket generator and arguably a dark pattern under the 2023 Guidelines. Fill in feedbackResponsesFairUseCap and print it on /pricing as a footnote.",
+      "_removedNote": "The original spec listed 'AI Verification' as the Business-tier feature. Removed — it verified screenshots of paid reviews. Replaced with aiSentiment + aiReplyDrafting, which are real. AI replies are SUGGESTED, never auto-posted."
+    },
+    {
+      "id": "enterprise",
+      "name": "Enterprise",
+      "priceMonthly": null,
+      "priceDisplay": "Custom",
+      "billingPeriod": null,
+      "blurb": "TODO",
+      "popular": false,
+      "supportSlaRef": "contact.support.sla.enterprise",
+      "cta": { "label": "Contact Sales", "href": "/demo", "emailRef": "contact.emails.sales" },
+      "limits": {
+        "campaigns": null,
+        "campaignsDisplay": "Unlimited",
+        "feedbackResponsesPerMonth": null,
+        "feedbackResponsesDisplay": "Unlimited",
+        "feedbackResponsesFairUseCap": "Custom",
+        "locations": null,
+        "locationsDisplay": "Custom",
+        "teamSeats": null,
+        "teamSeatsDisplay": "Custom",
+        "platformsMonitored": ["google"]
+      },
+      "features": {
+        "analytics": "advanced_plus_bi_export",
+        "aiSentiment": true,
+        "aiReplyDrafting": true,
+        "aiCustomModels": true,
+        "phoneSupport": true,
+        "dedicatedManager": true,
+        "whiteLabel": true,
+        "apiAccess": "full",
+        "msa": true,
+        "dpa": true,
+        "securityReview": true,
+        "slaCredits": true
+      }
+    }
+  ],
+
+  "comparisonRows": [
+    { "key": "campaigns", "label": "Campaigns" },
+    { "key": "feedbackResponsesPerMonth", "label": "Feedback responses / month" },
+    { "key": "locations", "label": "Locations" },
+    { "key": "teamSeats", "label": "Team seats" },
+    { "key": "platformsMonitored", "label": "Platforms monitored" },
+    { "key": "analytics", "label": "Analytics" },
+    { "key": "aiSentiment", "label": "Sentiment analysis" },
+    { "key": "aiReplyDrafting", "label": "AI reply drafting" },
+    { "key": "supportSlaRef", "label": "Support" },
+    { "key": "whiteLabel", "label": "White label" },
+    { "key": "apiAccess", "label": "API access" }
+  ],
+  "_comparisonNote": "The metered unit is 'feedback responses', not 'reviews'. We don't sell reviews. Keep this wording everywhere — it is the difference between a product and a liability.",
+
+  "billing": {
+    "gateway": "razorpay",
+    "cancelSelfServe": true,
+    "autoRenewalDisclosedAtPurchase": true,
+    "autoRenewalReminderBeforeCharge": true,
+    "preTickedAddons": false,
+    "_darkPatternNote": "Cancel must be as easy as subscribe — in-app, self-serve, no 'call us'. We are selling trust. Getting caught with a dark pattern on the checkout page is not a survivable brand story.",
+    "invoiceEmailRef": "contact.emails.billing",
+    "refundPolicyUrl": "/legal/refund",
+    "_refundNote": "The refund policy must match what's registered with Razorpay. A mismatch here is a common cause of gateway disputes."
+  }
+}

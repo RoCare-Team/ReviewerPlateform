@@ -1,0 +1,55 @@
+{
+  "$comment": "RBAC matrix — single source of truth. Read ONLY via src/lib/auth/roles.js and src/lib/auth/permissions.js. Never string-literal a role or permission elsewhere.",
+
+  "roles": {
+    "reviewer": {
+      "name": "Reviewer",
+      "signup": "open",
+      "auth": ["google", "credentials"],
+      "otp": true,
+      "totp": false,
+      "home": "/reviewer",
+      "sessionMaxAgeSeconds": 2592000
+    },
+    "business_owner": {
+      "name": "Business Owner",
+      "signup": "open",
+      "auth": ["google", "credentials"],
+      "otp": true,
+      "totp": false,
+      "home": "/business",
+      "sessionMaxAgeSeconds": 2592000
+    },
+    "admin": {
+      "$comment": "signup:closed is enforced server-side in src/app/api/auth/signup/route.js — admin is seeded, never self-registered. No google: an OAuth compromise must not reach the admin panel. Session is 8h, deliberately shorter than a user's 30d.",
+      "$comment_totp": "★ DEV ONLY — totp was switched off by request for local testing. This is the account that can read every business's private feedback and touch wallets, and otp:false means email is not a factor either, so a leaked password is now the ONLY thing standing between an attacker and the admin panel. Set this back to true before pointing at any cluster with real data, and restore requireTotp on src/app/admin/login/page.jsx.",
+      "name": "Administrator",
+      "signup": "closed",
+      "auth": ["credentials"],
+      "otp": false,
+      "totp": false,
+      "home": "/admin",
+      "sessionMaxAgeSeconds": 28800
+    }
+  },
+
+  "permissions": {
+    "$comment": "reviewer is deliberately scoped to feedback:submit (private, first-party feedback) — NOT review:post-external, NOT reward:withdraw. Nothing here conditions money on something appearing publicly on Google. This array is where the compliance posture actually lives; changing it is a product decision, not a refactor.",
+    "reviewer": [
+      "feedback:submit",
+      "profile:read",
+      "profile:update"
+    ],
+    "business_owner": [
+      "campaign:*",
+      "review:read",
+      "review:reply",
+      "wallet:*",
+      "team:*",
+      "profile:read",
+      "profile:update",
+      "connection:google:manage"
+    ],
+    "admin": ["*"]
+  }
+}
