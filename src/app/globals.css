@@ -22,31 +22,35 @@
    the dark-mode saturation drop predictable instead of guesswork.
    -------------------------------------------------------------------------- */
 @theme {
-  /* Brand blue — trust, stability. Primary actions, links, active nav. */
-  --color-brand-50:  oklch(0.971 0.014 254);
-  --color-brand-100: oklch(0.941 0.032 254);
-  --color-brand-200: oklch(0.885 0.062 254);
-  --color-brand-300: oklch(0.812 0.104 254);
-  --color-brand-400: oklch(0.714 0.152 254);
-  --color-brand-500: oklch(0.623 0.188 254);
-  --color-brand-600: oklch(0.541 0.208 254);  /* primary action */
-  --color-brand-700: oklch(0.462 0.186 254);
-  --color-brand-800: oklch(0.394 0.148 254);
-  --color-brand-900: oklch(0.334 0.110 254);
-  --color-brand-950: oklch(0.223 0.072 254);
+  /* Brand indigo — trust, stability, technical maturity. Primary actions, links,
+     active nav. Anchored on #4F46E5 (Tailwind indigo-600) as the primary action;
+     Stripe/Salesforce/Zoom sit in this family. Values are Tailwind v4's oklch. */
+  --color-brand-50:  oklch(0.962 0.018 272.314);
+  --color-brand-100: oklch(0.930 0.034 272.788);
+  --color-brand-200: oklch(0.870 0.065 274.039);
+  --color-brand-300: oklch(0.785 0.115 274.713);
+  --color-brand-400: oklch(0.673 0.182 276.935);
+  --color-brand-500: oklch(0.585 0.233 277.117);
+  --color-brand-600: oklch(0.511 0.262 276.966);  /* primary action — #4F46E5 */
+  --color-brand-700: oklch(0.457 0.240 277.023);
+  --color-brand-800: oklch(0.398 0.195 277.366);
+  --color-brand-900: oklch(0.359 0.144 278.697);
+  --color-brand-950: oklch(0.257 0.090 281.288);
 
-  /* Verified green — approved, positive delta. Semantic only. */
-  --color-verified-50:  oklch(0.972 0.020 156);
-  --color-verified-100: oklch(0.944 0.043 156);
-  --color-verified-200: oklch(0.893 0.078 156);
-  --color-verified-300: oklch(0.822 0.115 156);
-  --color-verified-400: oklch(0.740 0.146 156);
-  --color-verified-500: oklch(0.665 0.155 156);
-  --color-verified-600: oklch(0.573 0.140 156);  /* the "verified" token */
-  --color-verified-700: oklch(0.484 0.117 156);
-  --color-verified-800: oklch(0.408 0.094 156);
-  --color-verified-900: oklch(0.348 0.076 156);
-  --color-verified-950: oklch(0.230 0.050 156);
+  /* Verified emerald — approved, verified status, growth, rewards/earnings.
+     Semantic only. Anchored on #10B981 (emerald-500) / #059669 (emerald-600).
+     This is the colour on wallet balances, reward points, and Approved badges. */
+  --color-verified-50:  oklch(0.979 0.021 166.113);
+  --color-verified-100: oklch(0.950 0.052 163.051);
+  --color-verified-200: oklch(0.905 0.093 164.150);
+  --color-verified-300: oklch(0.845 0.143 164.978);
+  --color-verified-400: oklch(0.765 0.177 163.223);
+  --color-verified-500: oklch(0.696 0.170 162.480);
+  --color-verified-600: oklch(0.596 0.145 163.225);  /* the "verified" token — #059669 */
+  --color-verified-700: oklch(0.508 0.118 165.612);
+  --color-verified-800: oklch(0.432 0.095 166.913);
+  --color-verified-900: oklch(0.378 0.077 168.940);
+  --color-verified-950: oklch(0.262 0.051 172.552);
 
   /* Amber — pending, needs attention, low balance. */
   --color-warn-50:  oklch(0.980 0.022 84);
@@ -74,19 +78,20 @@
   --color-danger-900: oklch(0.348 0.120 26);
   --color-danger-950: oklch(0.230 0.078 25);
 
-  /* Neutral — cool-tinted so it sits with the blue instead of fighting it.
-     Carries ~90% of the UI. */
-  --color-ink-50:  oklch(0.985 0.002 254);
-  --color-ink-100: oklch(0.968 0.004 254);
-  --color-ink-200: oklch(0.925 0.006 254);
-  --color-ink-300: oklch(0.868 0.009 254);
-  --color-ink-400: oklch(0.712 0.013 254);
-  --color-ink-500: oklch(0.560 0.015 254);
-  --color-ink-600: oklch(0.448 0.014 254);
-  --color-ink-700: oklch(0.372 0.013 254);
-  --color-ink-800: oklch(0.283 0.011 254);
-  --color-ink-900: oklch(0.215 0.010 254);
-  --color-ink-950: oklch(0.146 0.008 254);
+  /* Neutral — Tailwind Slate. Cool-tinted so it sits with the indigo instead of
+     fighting it. Carries ~90% of the UI: page bg #F8FAFC (50), body text #0F172A
+     (900), card borders #E2E8F0 (200). Values are Tailwind v4's oklch. */
+  --color-ink-50:  oklch(0.984 0.003 247.858);
+  --color-ink-100: oklch(0.968 0.007 247.896);
+  --color-ink-200: oklch(0.929 0.013 255.508);
+  --color-ink-300: oklch(0.869 0.022 252.894);
+  --color-ink-400: oklch(0.704 0.040 256.788);
+  --color-ink-500: oklch(0.554 0.046 257.417);
+  --color-ink-600: oklch(0.446 0.043 257.281);
+  --color-ink-700: oklch(0.372 0.044 257.287);
+  --color-ink-800: oklch(0.279 0.041 260.031);
+  --color-ink-900: oklch(0.208 0.042 265.755);
+  --color-ink-950: oklch(0.129 0.042 264.695);
 
   /* Type. Swap the stack when you pick a real family —
      it MUST carry Devanagari (design doc §5.3). Most don't. Check first. */
@@ -115,10 +120,11 @@
 :root {
   color-scheme: light;
 
-  /* Surfaces — clean white default */
-  --surface:            oklch(1 0 0);              /* page background */
-  --surface-raised:     oklch(1 0 0);              /* cards */
-  --surface-sunken:     var(--color-ink-50);       /* wells, table stripes */
+  /* Surfaces — off-white slate page (#F8FAFC) with white cards raised on top,
+     so dashboards read as premium rather than flat white-on-white. */
+  --surface:            var(--color-ink-50);       /* page background — #F8FAFC */
+  --surface-raised:     oklch(1 0 0);              /* cards — pure white, pops */
+  --surface-sunken:     var(--color-ink-100);      /* wells, table stripes */
   --surface-inverse:    var(--color-ink-900);
 
   /* Text */
@@ -153,6 +159,11 @@
   --glass-bg:           oklch(1 0 0 / 0.72);
   --glass-border:       oklch(1 0 0 / 0.5);
   --glass-blur:         12px;
+
+  /* Sticky header height. The hero subtracts this from the viewport so the two
+     together fill exactly one screen. Keep it in sync with SiteHeader's padding
+     if that ever changes — it's the single source both sides read. */
+  --header-h:           3.75rem;
 }
 
 .dark {
@@ -173,15 +184,15 @@
   --border:             oklch(0.305 0.011 254);
   --border-strong:      oklch(0.392 0.013 254);
 
-  /* Saturation drops. The blue that reads as trustworthy on white
+  /* Saturation drops. The indigo that reads as trustworthy on white
      reads as neon on charcoal — step up in lightness, down in chroma. */
   --accent:             var(--color-brand-400);
   --accent-hover:       var(--color-brand-300);
-  --accent-subtle:      oklch(0.541 0.208 254 / 0.16);
-  --accent-border:      oklch(0.541 0.208 254 / 0.35);
+  --accent-subtle:      oklch(0.511 0.262 277 / 0.16);
+  --accent-border:      oklch(0.511 0.262 277 / 0.35);
 
   --verified:           var(--color-verified-400);
-  --verified-subtle:    oklch(0.573 0.140 156 / 0.16);
+  --verified-subtle:    oklch(0.596 0.145 163 / 0.16);
   --pending:            var(--color-warn-400);
   --pending-subtle:     oklch(0.646 0.156 51 / 0.16);
   --danger:             var(--color-danger-400);
@@ -329,6 +340,24 @@
   .pill-pending  { background-color: var(--pending-subtle);  color: var(--pending); }
   .pill-danger   { background-color: var(--danger-subtle);   color: var(--danger); }
   .pill-accent   { background-color: var(--accent-subtle);   color: var(--accent); }
+}
+
+/* Logo marquee. The track is duplicated in the markup, so it scrolls exactly
+   one copy's width (-50%) and loops seamlessly. Reduced-motion is handled in
+   section 5 — the forced near-zero duration parks it, which is the correct
+   behaviour for someone who asked the OS not to animate. */
+@layer utilities {
+  .marquee-track {
+    animation: marquee 32s linear infinite;
+  }
+  .marquee-mask {
+    -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+    mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+  }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
 }
 
 /* --------------------------------------------------------------------------
