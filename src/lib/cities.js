@@ -68,7 +68,7 @@ const CITIES = [
   },
   {
     slug: "pune",
-    image: "/img/cities/pune.jpg",
+    image: "/img/cities/pune.webp",
     name: "Pune",
     region: "Maharashtra",
     emoji: "🎓",

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { User, Mail } from "lucide-react";
 import { Label, Input, FieldError, FormError, SubmitButton } from "./Field";
 import PasswordField from "./PasswordField";
 
@@ -69,7 +70,7 @@ export default function SignupForm({ role }) {
           <Label htmlFor="name">
             {role === "business_owner" ? "Your name" : "Full name"}
           </Label>
-          <Input id="name" name="name" autoComplete="name" required error={fieldErrors.name?.[0]} />
+          <Input id="name" name="name" autoComplete="name" required icon={User} error={fieldErrors.name?.[0]} />
           <FieldError id="name-error">{fieldErrors.name?.[0]}</FieldError>
         </div>
 
@@ -81,6 +82,7 @@ export default function SignupForm({ role }) {
             type="email"
             autoComplete="email"
             required
+            icon={Mail}
             error={fieldErrors.email?.[0]}
           />
           <FieldError id="email-error">{fieldErrors.email?.[0]}</FieldError>

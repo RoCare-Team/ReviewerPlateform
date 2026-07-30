@@ -1,4 +1,11 @@
-import { ArrowRight, Check, ShieldCheck, TrendingUp, Users, Star } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ShieldCheck,
+  TrendingUp,
+  Users,
+  Star,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import Container from "./Container";
@@ -18,16 +25,38 @@ const CHIPS = [
   { Icon: TrendingUp, label: "Drive more sales" },
 ];
 
-const TRUST = ["No credit card required", "14-day free trial", "Cancel anytime"];
+const TRUST = [
+  "No credit card required",
+  "14-day free trial",
+  "Cancel anytime",
+];
 
 // Real platform logos shipped in public/img. Only the icons we actually have
 // are listed — no placeholders.
 const LOGOS = [
   // `cls` tunes each logo's rendered height: the PNGs have different intrinsic
   // aspect ratios and transparent padding, so a single height looks uneven.
-  { src: "/img/google.png", alt: "Google", width: 512, height: 512, cls: "h-6" },
-  { src: "/img/trustpilot.png", alt: "Trustpilot", width: 3840, height: 2160, cls: "h-9" },
-  { src: "/img/Capterra.png", alt: "Capterra", width: 820, height: 189, cls: "h-5" },
+  {
+    src: "/img/google.png",
+    alt: "Google",
+    width: 512,
+    height: 512,
+    cls: "h-6",
+  },
+  {
+    src: "/img/trustpilot.png",
+    alt: "Trustpilot",
+    width: 3840,
+    height: 2160,
+    cls: "h-9",
+  },
+  {
+    src: "/img/Capterra.png",
+    alt: "Capterra",
+    width: 820,
+    height: 189,
+    cls: "h-5",
+  },
 ];
 
 export default function Hero() {
@@ -49,16 +78,16 @@ export default function Hero() {
           </p>
 
           {/* Title — "verified" highlighted in the brand accent */}
-<h1 className="mt-6 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.75rem] lg:leading-[1.1]">
-  Grow your reputation with{" "}
-  <span className="text-accent">verified</span> customer reviews
-</h1>
+          <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.75rem] lg:leading-[1.1]">
+            Grow Your Reputation with{" "}
+            <span className="text-accent">Verified</span> Customer Reviews
+          </h1>
 
           {/* Subtext */}
           <p className="mt-5 max-w-xl text-base leading-relaxed text-secondary sm:text-lg">
-            Collect authentic reviews across Google Business Profile, Play Store, Trustpilot, G2 and
-            100+ platforms — with reviewers rewarded for verified participation, not for saying nice
-            things.
+            Collect authentic reviews across Google Business Profile, Play
+            Store, Trustpilot, G2 and 100+ platforms — with reviewers rewarded
+            for verified participation, not for saying nice things.
           </p>
 
           {/* Feature chips */}
@@ -97,7 +126,10 @@ export default function Hero() {
           {/* Trust indicators */}
           <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2">
             {TRUST.map((t) => (
-              <li key={t} className="inline-flex items-center gap-1.5 text-sm font-medium text-secondary">
+              <li
+                key={t}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-secondary"
+              >
                 <Check className="h-4 w-4 text-verified" aria-hidden="true" />
                 {t}
               </li>
@@ -106,12 +138,17 @@ export default function Hero() {
 
           {/* Trusted-by social proof */}
           <div className="mt-10 w-full border-t border-default/60 pt-6">
-            <p className="text-xs font-medium text-muted">Trusted by 2,500+ businesses worldwide</p>
+            <p className="text-xs font-medium text-muted">
+              Trusted by 2,500+ businesses worldwide
+            </p>
             <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
               <span className="inline-flex items-center gap-2">
                 <span className="flex" aria-hidden="true">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
+                    <Star
+                      key={i}
+                      className="h-4 w-4 fill-amber-400 text-amber-400"
+                    />
                   ))}
                 </span>
                 <span className="text-sm font-bold text-primary">4.8/5</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Mail } from "lucide-react";
 import { Label, Input, SubmitButton } from "./Field";
 
 export default function ForgotPasswordForm() {
@@ -37,7 +38,7 @@ export default function ForgotPasswordForm() {
     <form onSubmit={onSubmit} noValidate>
       <div>
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
+        <Input id="email" name="email" type="email" autoComplete="email" required icon={Mail} />
       </div>
       <div className="mt-6">
         <SubmitButton pending={pending}>Send reset link</SubmitButton>

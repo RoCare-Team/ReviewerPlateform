@@ -1,0 +1,52 @@
+import { requireRole } from "../../../../lib/auth/guards";
+import { ROLES } from "../../../../lib/auth/roles";
+import dbConnect from "../../../../lib/db";
+import User from "../../../../models/User";
+import WalletTransaction from "../../../../models/WalletTransaction";
+import ProfileForm from "../../../../components/reviewer/ProfileForm";
+import WalletCard from "../../../../components/business/WalletCard";
+
+export const metadata = { title: "Settings · ReviewHub Business" };
+
+export default async function BusinessSettingsPage() {
+  const sessionUser = await requireRole(ROLES.BUSINESS_OWNER);
+
+  await dbConnect();
+  const doc = await User.findById(sessionUser.id).select("name email phone bio walletBalance").lean();
+  const txns = await WalletTransaction.find({ user: sessionUser.id }).sort({ createdAt: -1 }).limit(10).lean();
+
+  const initial = {
+    name: doc?.name ?? "",
+    email: doc?.email ?? sessionUser.email,
+    phone: doc?.phone ?? "",
+    bio: doc?.bio ?? "",
+  };
+
+  const transactions = txns.map((t) => ({
+    id: String(t._id),
+    amount: t.amount,
+    type: t.type,
+    note: t.note,
+    at: t.createdAt.toISOString(),
+  }));
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold tracking-tight text-primary">Settings</h1>
+      <p className="mt-2 text-secondary">Manage your account and billing.</p>
+
+      {/* Wallet */}
+      <div className="mt-8">
+        <WalletCard balance={doc?.walletBalance ?? 0} transactions={transactions} />
+      </div>
+
+      {/* Profile */}
+      <div className="mt-8">
+        <h2 className="text-lg font-bold text-primary">Profile</h2>
+        <div className="mt-4 rounded-card border border-default bg-surface-raised p-6 shadow-sm sm:p-8">
+          <ProfileForm initial={initial} endpoint="/api/business/profile" />
+        </div>
+      </div>
+    </div>
+  );
+}

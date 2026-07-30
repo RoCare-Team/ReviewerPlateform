@@ -11,15 +11,20 @@ import { ROLES } from "../../../lib/auth/roles";
 //   permissions array before adding anything here.
 const NAV = [
   { href: "/reviewer", label: "Overview", icon: "dashboard" },
-  { href: "/reviewer/feedback", label: "My feedback", icon: "feedback", soon: true },
-  { href: "/reviewer/profile", label: "Profile", icon: "profile", soon: true },
+  { href: "/reviewer/feedback", label: "My feedback", icon: "feedback" },
+  { href: "/reviewer/profile", label: "Profile", icon: "profile" },
 ];
 
 export default async function ReviewerLayout({ children }) {
   const user = await requireRole(ROLES.REVIEWER);
 
   return (
-    <AppShell brand="ReviewHub" nav={NAV} user={{ email: user.email }}>
+    <AppShell
+      brand="ReviewHub"
+      nav={NAV}
+      user={{ name: user.name, email: user.email }}
+      profileHref="/reviewer/profile"
+    >
       {children}
     </AppShell>
   );

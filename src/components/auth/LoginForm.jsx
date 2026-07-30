@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { Mail, KeyRound } from "lucide-react";
 import { Label, Input, FormError, SubmitButton } from "./Field";
 import PasswordField from "./PasswordField";
 
@@ -69,7 +70,7 @@ export default function LoginForm({ scope = "user", requireTotp = false }) {
       <div className="space-y-4">
         <div>
           <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" required />
+          <Input id="email" name="email" type="email" autoComplete="email" required icon={Mail} />
         </div>
 
         <PasswordField autoComplete="current-password" />
@@ -84,6 +85,7 @@ export default function LoginForm({ scope = "user", requireTotp = false }) {
               autoComplete="one-time-code"
               placeholder="123456"
               required
+              icon={KeyRound}
               className="font-mono tracking-widest"
             />
           </div>

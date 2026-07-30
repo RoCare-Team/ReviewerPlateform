@@ -19,6 +19,14 @@ const UserSchema = new mongoose.Schema(
     name: { type: String, trim: true },
     image: { type: String },
 
+    // Optional self-service profile fields (editable by the user).
+    phone: { type: String, trim: true, default: "" },
+    bio: { type: String, trim: true, default: "" },
+
+    // Wallet balance in whole rupees. Mutated only server-side via the wallet
+    // API — never from a client payload directly.
+    walletBalance: { type: Number, default: 0, min: 0 },
+
     // Denormalised from Role.key — no join on every request.
     // NEVER set from a client payload. Derive server-side from the route.
     role: {

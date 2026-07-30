@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import Container from "./Container";
 
@@ -114,10 +115,17 @@ export default function SiteFooter() {
           
           {/* Brand & Social Column */}
           <div className="lg:col-span-2">
-            <span className="text-lg font-bold tracking-tight text-primary">
-              ReviewHub
-            </span>
-            <p className="mt-3 max-w-sm text-sm leading-relaxed text-secondary">
+            <Link href="/" aria-label="ReviewHub home" className="inline-flex items-center">
+              {/* Intrinsic 1138×358; rendered at a fixed height with auto width. */}
+              <Image
+                src="/img/logo.png"
+                alt="ReviewHub"
+                width={1138}
+                height={358}
+                className="h-9 w-auto"
+              />
+            </Link>
+            <p className="mt-3 max-w-sm text-base leading-relaxed text-secondary">
               Verified customer reviews and reputation management. We reward participation, never
               positive ratings — and never buy, sell, or fake a review.
             </p>
@@ -143,10 +151,10 @@ export default function SiteFooter() {
           {/* Navigation Link Columns */}
           {COLUMNS.map((col) => (
             <nav key={col.heading} aria-label={col.heading} className="lg:col-span-1">
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.15em] text-primary/80">
+              <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-primary/80">
                 {col.heading}
               </h2>
-              <ul className="mt-4 space-y-3 text-sm font-medium">
+              <ul className="mt-4 space-y-3 text-base font-medium">
                 {col.links.map((l) => (
                   <li key={l.href}>
                     <Link 
@@ -163,9 +171,9 @@ export default function SiteFooter() {
         </div>
 
         {/* Footer Base Layer: Split on desktop to prevent vast empty whitespace */}
-        <div className="mt-14 border-t border-default/60 pt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-xs font-semibold text-muted">
+        <div className="mt-14 border-t border-default/60 pt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-sm font-semibold text-muted">
           <span>&copy; {new Date().getFullYear()} ReviewHub. All rights reserved.</span>
-          <span className="text-[10px] uppercase tracking-wider text-muted/60">
+          <span className="text-xs uppercase tracking-wider text-muted/60">
             Built for compliance and authenticity
           </span>
         </div>

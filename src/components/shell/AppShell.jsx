@@ -14,6 +14,8 @@ import {
   Star,
   User,
   Users,
+  ChevronDown,
+  Wallet,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -88,14 +90,33 @@ function NavLink({ item, active, onNavigate }) {
   );
 }
 
-export default function AppShell({ brand, badge, nav, user, signOutTo = "/", children }) {
+export default function AppShell({ brand, badge, nav, user, profileHref, walletBalance = null, walletHref, signOutTo = "/", children }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
-  // A route change must close the drawer, or the new page renders underneath it.
-  useEffect(() => setOpen(false), [pathname]);
+  // A route change must close the drawer/menu, or the new page renders underneath.
+  useEffect(() => {
+    setOpen(false);
+    setProfileOpen(false);
+  }, [pathname]);
 
-  const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
+  // Label for the current page — the active nav item's label.
+  const currentLabel = nav.find((i) => i.href === pathname)?.label
+    ?? nav.find((i) => pathname.startsWith(i.href + "/"))?.label
+    ?? "";
+
+  const initial = (user.name || user.email || "?").charAt(0).toUpperCase();
+
+  // Only the MOST specific matching nav item is active. Without this, a section
+  // root like "/business" (a prefix of every child route) would stay highlighted
+  // on "/business/reviews" alongside the real active item.
+  const activeHref = nav
+    .filter((i) => !i.soon)
+    .filter((i) => pathname === i.href || pathname.startsWith(i.href + "/"))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
+  const isActive = (href) => href === activeHref;
 
   const sidebar = (
     <>
@@ -131,9 +152,9 @@ export default function AppShell({ brand, badge, nav, user, signOutTo = "/", chi
   );
 
   return (
-    <div className="min-h-dvh lg:flex">
-      {/* Desktop rail */}
-      <aside className="hidden w-60 shrink-0 border-r border-default bg-surface-raised lg:flex lg:flex-col">
+    <div className="min-h-dvh lg:flex lg:h-dvh lg:overflow-hidden">
+      {/* Desktop rail — fixed full height; its own content scrolls if needed. */}
+      <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-default bg-surface-raised lg:flex lg:h-dvh lg:flex-col">
         {sidebar}
       </aside>
 
@@ -152,24 +173,91 @@ export default function AppShell({ brand, badge, nav, user, signOutTo = "/", chi
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile top bar — the only way to reach the drawer. */}
-        <header className="flex items-center gap-3 border-b border-default bg-surface-raised px-4 py-3 lg:hidden">
+      <div className="flex min-w-0 flex-1 flex-col lg:h-dvh lg:overflow-y-auto">
+        {/* Top bar — shown on every size. Mobile also uses it to open the drawer. */}
+        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-default bg-surface-raised/95 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={() => setOpen(true)}
             aria-label="Open menu"
             aria-expanded={open}
-            className="rounded-btn border border-default p-1.5 text-secondary transition hover:bg-surface-sunken hover:text-primary"
+            className="rounded-btn border border-default p-1.5 text-secondary transition hover:bg-surface-sunken hover:text-primary lg:hidden"
           >
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
-          <span className="font-semibold tracking-tight text-primary">{brand}</span>
+
+          {/* Mobile: brand. Desktop: current page title. */}
+          <span className="font-semibold tracking-tight text-primary lg:hidden">{brand}</span>
+          <span className="hidden text-sm font-semibold text-primary lg:inline">{currentLabel}</span>
           {badge && (
             <span className="rounded bg-danger-subtle px-1.5 py-0.5 text-xs font-medium text-danger">
               {badge}
             </span>
           )}
+
+          {/* Wallet balance chip (business owner) — left of the profile menu */}
+          {walletBalance !== null && (
+            <Link
+              href={walletHref ?? "#"}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken"
+              title="Wallet balance"
+            >
+              <Wallet className="h-4 w-4 text-accent" aria-hidden="true" />
+              ₹{Number(walletBalance).toLocaleString("en-IN")}
+            </Link>
+          )}
+
+          {/* Profile menu */}
+          <div className={`relative ${walletBalance !== null ? "" : "ml-auto"}`}>
+            <button
+              type="button"
+              onClick={() => setProfileOpen((v) => !v)}
+              aria-expanded={profileOpen}
+              aria-haspopup="menu"
+              className="flex items-center gap-2 rounded-full border border-default bg-surface py-1 pl-1 pr-2.5 text-sm transition hover:bg-surface-sunken"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-xs font-bold text-on-brand">
+                {initial}
+              </span>
+              <span className="hidden max-w-[10rem] truncate font-semibold text-primary sm:inline">
+                {user.name || user.email}
+              </span>
+              <ChevronDown className="h-4 w-4 text-muted" aria-hidden="true" />
+            </button>
+
+            {profileOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Close menu"
+                  onClick={() => setProfileOpen(false)}
+                  className="fixed inset-0 z-10 cursor-default"
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 z-20 mt-2 w-60 overflow-hidden rounded-card border border-default bg-surface-raised shadow-lg"
+                >
+                  <div className="border-b border-default px-4 py-3">
+                    {user.name && <p className="truncate text-sm font-bold text-primary">{user.name}</p>}
+                    <p className="truncate text-xs text-muted">{user.email}</p>
+                  </div>
+                  {profileHref && (
+                    <Link
+                      href={profileHref}
+                      role="menuitem"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-secondary transition hover:bg-surface-sunken hover:text-primary"
+                    >
+                      <User className="h-4 w-4" aria-hidden="true" />
+                      Profile
+                    </Link>
+                  )}
+                  <div className="border-t border-default p-2">
+                    <SignOutButton callbackUrl={signOutTo} />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </header>
 
         <main className="flex-1 px-4 py-8 sm:px-6 lg:px-8">

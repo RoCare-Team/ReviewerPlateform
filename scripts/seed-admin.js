@@ -2,23 +2,30 @@
  * Seed or rotate an admin account. Run on a trusted machine:
  *
  *   node --env-file=.env.local scripts/seed-admin.js admin@yourdomain.in
+ *   node --env-file=.env.local scripts/seed-admin.js admin@yourdomain.in "YourPassword123"
+ *
+ * If you pass a password it is used as-is; otherwise a strong random one is
+ * generated and printed once. Admin logs in with EMAIL + PASSWORD only — TOTP
+ * two-factor was removed by request (see data/roles.json admin.totp:false).
  *
  * ★ THIS IS THE ONLY WAY AN ADMIN IS CREATED. /api/auth/signup cannot produce one
  *   under any input — roles.json marks admin signup:"closed" and the signup
  *   endpoints don't read a role from the body at all.
- *
- * Prints a one-time password and a TOTP enrolment URI. Both are shown once and
- * never stored in plaintext. Scan the URI with an authenticator app immediately.
  */
 import crypto from "node:crypto";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import { generateSecret, generateURI } from "otplib";
 
 const email = process.argv[2]?.toLowerCase();
+const providedPassword = process.argv[3];
 
 if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-  console.error("Usage: node --env-file=.env.local scripts/seed-admin.js <email>");
+  console.error("Usage: node --env-file=.env.local scripts/seed-admin.js <email> [password]");
+  process.exit(1);
+}
+
+if (providedPassword && providedPassword.length < 8) {
+  console.error("Password must be at least 8 characters.");
   process.exit(1);
 }
 
@@ -33,12 +40,9 @@ const { default: User } = await import("../src/models/User.js");
 
 await mongoose.connect(MONGODB_URI);
 
-// 24 random bytes → base64url. Long enough that it doesn't need to be memorable;
-// it should be changed after first sign-in anyway.
-const password = crypto.randomBytes(24).toString("base64url");
+// Use the given password, or a 24-byte random one (base64url) shown once.
+const password = providedPassword ?? crypto.randomBytes(24).toString("base64url");
 const passwordHash = await bcrypt.hash(password, 12);
-const totpSecret = generateSecret();
-const uri = generateURI({ strategy: "totp", issuer: "ReviewHub", label: email, secret: totpSecret });
 
 const existing = await User.findOne({ email });
 
@@ -59,12 +63,13 @@ await User.findOneAndUpdate(
       email,
       name: existing?.name ?? "Administrator",
       passwordHash,
-      totpSecret,
-      totpEnabled: true,
+      // TOTP disabled — email + password only.
+      totpEnabled: false,
       role: "admin",
       status: "active",
       emailVerified: new Date(),
     },
+    $unset: { totpSecret: "" },
   },
   { upsert: true, new: true }
 );
@@ -72,15 +77,9 @@ await User.findOneAndUpdate(
 console.log(`
 ${existing ? "Rotated" : "Created"} admin: ${email}
 
-  Password (shown once):  ${password}
-  TOTP enrolment URI:     ${uri}
+  Password:  ${password}
 
-Next:
-  1. Add the TOTP URI to your authenticator app now — it is not stored in plaintext
-     and cannot be shown again. Re-run this script to rotate if you lose it.
-  2. Sign in at /admin/login with the password AND the 6-digit code.
-  3. Admin sessions last 8 hours. There is no self-service password reset for admin
-     by design — rotate with this script.
+Sign in at /admin/login with the email and password above. No 2FA code required.
 `);
 
 await mongoose.disconnect();
