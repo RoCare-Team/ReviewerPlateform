@@ -4,14 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, Star, Wallet, X } from "lucide-react";
-import { RATE_PER_REVIEW, approxReviews, inr } from "../../lib/campaigns";
+import { approxReviews, inr } from "../../lib/campaigns";
 
 /**
  * Create-campaign form. Shows a live "approx reviews" preview from the budget at
- * the flat ₹/review rate, and blocks submit when the budget exceeds the wallet
- * balance. Posts to /api/business/campaigns which debits the wallet server-side.
+ * the admin-controlled ₹/review rate, and blocks submit when the budget exceeds
+ * the wallet balance. Posts to /api/business/campaigns which debits the wallet.
  */
-export default function NewCampaignForm({ walletBalance, locations = [] }) {
+export default function NewCampaignForm({ walletBalance, locations = [], rate = 100 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState({ name: "", platform: "google", budget: "", notes: "", locationId: "", targetUrl: "" });
@@ -19,7 +19,7 @@ export default function NewCampaignForm({ walletBalance, locations = [] }) {
   const [error, setError] = useState("");
 
   const budgetNum = Number(values.budget) || 0;
-  const reviews = approxReviews(budgetNum);
+  const reviews = approxReviews(budgetNum, rate);
   const overBudget = budgetNum > walletBalance;
 
   function set(key) {
@@ -31,7 +31,7 @@ export default function NewCampaignForm({ walletBalance, locations = [] }) {
     setError("");
     if (!values.name.trim()) return setError("Give your campaign a name.");
     if (!values.targetUrl.trim()) return setError("Add the review URL where customers should leave a review.");
-    if (budgetNum < RATE_PER_REVIEW) return setError(`Minimum budget is ${inr(RATE_PER_REVIEW)} (one review).`);
+    if (budgetNum < rate) return setError(`Minimum budget is ${inr(rate)} (one review).`);
     if (overBudget) return setError("Budget exceeds your wallet balance. Add funds first.");
 
     setPending(true);
@@ -131,10 +131,10 @@ export default function NewCampaignForm({ walletBalance, locations = [] }) {
 
         <div>
           <label htmlFor="c-budget" className="mb-1.5 block text-sm font-medium text-primary">Budget (₹)</label>
-          <input id="c-budget" type="number" min={RATE_PER_REVIEW} step="100" inputMode="numeric"
+          <input id="c-budget" type="number" min={rate} step="100" inputMode="numeric"
             value={values.budget} onChange={set("budget")} placeholder="10000"
             className={`w-full rounded-btn border bg-surface px-3 py-2.5 text-primary outline-none focus:ring-2 focus:ring-accent/50 ${overBudget ? "border-danger" : "border-default focus:border-accent"}`} />
-          <p className="mt-1.5 text-xs text-muted">Flat rate {inr(RATE_PER_REVIEW)} per verified review.</p>
+          <p className="mt-1.5 text-xs text-muted">Flat rate {inr(rate)} per verified review.</p>
         </div>
 
         {/* Live estimate */}
@@ -147,7 +147,7 @@ export default function NewCampaignForm({ walletBalance, locations = [] }) {
             <span className="text-2xl font-extrabold tracking-tight text-primary">{reviews} reviews</span>
           </div>
           <p className="mt-1 text-xs text-secondary">
-            {inr(budgetNum)} ÷ {inr(RATE_PER_REVIEW)} per review
+            {inr(budgetNum)} ÷ {inr(rate)} per review
           </p>
         </div>
 

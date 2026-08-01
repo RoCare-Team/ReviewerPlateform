@@ -58,7 +58,7 @@ export async function consumeToken(token, purpose) {
       expiresAt: { $gt: new Date() },
     },
     { $set: { consumedAt: new Date() } },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!doc) return null;

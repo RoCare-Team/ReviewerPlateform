@@ -103,7 +103,7 @@ export async function verifyOtp(email, code, purpose) {
     const updated = await Otp.findOneAndUpdate(
       { _id: otp._id },
       { $inc: { attempts: 1 } },
-      { new: true }
+      { returnDocument: "after" }
     );
     if (updated && updated.attempts >= updated.maxAttempts) {
       await Otp.updateOne({ _id: otp._id }, { $set: { consumedAt: new Date() } });
@@ -117,7 +117,7 @@ export async function verifyOtp(email, code, purpose) {
   const consumed = await Otp.findOneAndUpdate(
     { _id: otp._id, consumedAt: null },
     { $set: { consumedAt: new Date() } },
-    { new: true }
+    { returnDocument: "after" }
   );
   if (!consumed) return { ok: false, reason: "invalid" };
 

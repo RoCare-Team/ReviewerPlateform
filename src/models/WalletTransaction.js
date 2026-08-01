@@ -10,7 +10,7 @@ const WalletTransactionSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     amount: { type: Number, required: true }, // + credit, - debit
-    type: { type: String, enum: ["topup", "spend", "refund"], default: "topup" },
+    type: { type: String, enum: ["topup", "spend", "refund", "reward"], default: "topup" },
     note: { type: String, default: "" },
     balanceAfter: { type: Number, required: true },
   },

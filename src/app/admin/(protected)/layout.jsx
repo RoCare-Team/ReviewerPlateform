@@ -14,10 +14,10 @@ import { requireAdmin } from "../../../lib/auth/guards";
  */
 const NAV = [
   { href: "/admin", label: "Overview", icon: "dashboard" },
+  { href: "/admin/verification", label: "Verification", icon: "moderation" },
+  { href: "/admin/pricing", label: "Pricing", icon: "payments" },
   { href: "/admin/users", label: "Users", icon: "users", soon: true },
   { href: "/admin/organisations", label: "Organisations", icon: "organisations", soon: true },
-  { href: "/admin/moderation", label: "Moderation", icon: "moderation", soon: true },
-  { href: "/admin/payments", label: "Payments", icon: "payments", soon: true },
   { href: "/admin/trust-safety", label: "Trust & Safety", icon: "trust", soon: true },
 ];
 

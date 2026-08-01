@@ -33,7 +33,7 @@ export async function PATCH(request) {
   const updated = await User.findByIdAndUpdate(
     user.id,
     { $set: parsed.data },
-    { new: true, runValidators: true }
+    { returnDocument: "after", runValidators: true }
   ).select("name phone bio email");
 
   if (!updated) return Response.json({ error: "Account not found" }, { status: 404 });

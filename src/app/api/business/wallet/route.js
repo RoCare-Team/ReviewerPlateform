@@ -54,7 +54,7 @@ export async function POST(request) {
   const updated = await User.findByIdAndUpdate(
     user.id,
     { $inc: { walletBalance: parsed.data.amount } },
-    { new: true }
+    { returnDocument: "after" }
   ).select("walletBalance");
 
   if (!updated) return Response.json({ error: "Account not found" }, { status: 404 });

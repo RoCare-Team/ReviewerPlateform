@@ -4,7 +4,8 @@ import User from "../../../../models/User";
 import Campaign from "../../../../models/Campaign";
 import WalletTransaction from "../../../../models/WalletTransaction";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
-import { RATE_PER_REVIEW, approxReviews } from "../../../../lib/campaigns";
+import { approxReviews } from "../../../../lib/campaigns";
+import { getSettings } from "../../../../lib/settings";
 
 /**
  * Create / list campaigns. Guarded by campaign:* (business owners), scoped to the
@@ -46,9 +47,12 @@ export async function POST(request) {
   }
   const { name, platform, budget, notes, targetUrl, locationId } = parsed.data;
 
-  if (budget < RATE_PER_REVIEW) {
+  // Live, admin-controlled rate — the single source of truth.
+  const { reviewRate } = await getSettings();
+
+  if (budget < reviewRate) {
     return Response.json(
-      { error: `Minimum budget is ₹${RATE_PER_REVIEW} (one review).` },
+      { error: `Minimum budget is ₹${reviewRate} (one review).` },
       { status: 400 }
     );
   }
@@ -60,7 +64,7 @@ export async function POST(request) {
   const debited = await User.findOneAndUpdate(
     { _id: user.id, walletBalance: { $gte: budget } },
     { $inc: { walletBalance: -budget } },
-    { new: true }
+    { returnDocument: "after" }
   ).select("walletBalance");
 
   if (!debited) {
@@ -83,8 +87,8 @@ export async function POST(request) {
     name,
     platform,
     budget,
-    ratePerReview: RATE_PER_REVIEW,
-    targetReviews: approxReviews(budget),
+    ratePerReview: reviewRate,
+    targetReviews: approxReviews(budget, reviewRate),
     notes,
     targetUrl,
     location: locationId || null,

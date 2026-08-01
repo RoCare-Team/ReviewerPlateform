@@ -59,7 +59,7 @@ export async function GET(request) {
     const conn = await GmbConnection.findOneAndUpdate(
       { user: user.id, googleSub: info.sub },
       { $set: set },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
+      { returnDocument: "after", upsert: true, setDefaultsOnInsert: true }
     );
     connectionId = conn._id;
 
