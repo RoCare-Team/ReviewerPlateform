@@ -360,6 +360,84 @@
   to   { transform: translateX(-50%); }
 }
 
+/* Scroll reveal. Elements start slightly low and transparent; the Reveal client
+   component adds .is-visible when the element enters the viewport. The initial
+   state is only applied when JS can flip it — `.reveal` is set by the component
+   itself on mount, so no-JS users never get stuck at opacity 0. */
+@layer utilities {
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 700ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+    will-change: opacity, transform;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Card sheen. A soft diagonal highlight that sweeps across a card on hover.
+     Purely decorative and pointer-events-none, so it never eats a click. */
+  .card-sheen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 35%,
+      var(--accent-subtle, rgba(255, 255, 255, 0.18)) 50%,
+      transparent 65%
+    );
+    background-size: 250% 100%;
+    background-position: 120% 0;
+    transition: opacity 300ms ease, background-position 800ms ease;
+  }
+  .group:hover .card-sheen::after,
+  .card-sheen:hover::after {
+    opacity: 0.7;
+    background-position: -20% 0;
+  }
+
+  /* Slow vertical drift — hero artwork only. */
+  .animate-float {
+    animation: float 7s ease-in-out infinite;
+  }
+
+  /* Generic enter animation for content that swaps in place (e.g. dashboard
+     stat tiles when the selected campaign changes). Pair with a React `key`
+     change so it actually re-runs. */
+  .animate-fade-up {
+    animation: fade-up 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* FAQ answer fade-in. See the note in Faq.jsx: this must be an animation,
+     not a transition, because the body only exists while the panel is open. */
+  .faq-answer {
+    animation: faq-open 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes faq-open {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
 /* --------------------------------------------------------------------------
    5. MOTION
    Two lines. Vestibular disorders are real and this costs nothing.

@@ -15,6 +15,7 @@ const SubmissionSchema = new mongoose.Schema(
     business: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
 
     screenshotUrl: { type: String, required: true },
+    screenshotPublicId: { type: String, default: "" }, // Cloudinary public id
     note: { type: String, trim: true, default: "" },
 
     status: {

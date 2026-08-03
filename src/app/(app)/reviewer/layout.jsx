@@ -1,6 +1,8 @@
 import AppShell from "../../../components/shell/AppShell";
 import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
+import dbConnect from "../../../lib/db";
+import User from "../../../models/User";
 
 // reviewer only.
 //
@@ -18,12 +20,21 @@ const NAV = [
 export default async function ReviewerLayout({ children }) {
   const user = await requireRole(ROLES.REVIEWER);
 
+  await dbConnect();
+  const me = await User.findById(user.id).select("walletBalance").lean();
+
   return (
     <AppShell
       brand="ReviewHub"
       nav={NAV}
       user={{ name: user.name, email: user.email }}
       profileHref="/reviewer/profile"
+      // Same wallet field the business shell shows, framed as coins EARNED —
+      // a reviewer accrues this from verified work, they don't fund from it.
+      // Links to My feedback, which itemises where each credit came from.
+      walletBalance={me?.walletBalance ?? 0}
+      walletVariant="coins"
+      walletHref="/reviewer/feedback"
     >
       {children}
     </AppShell>

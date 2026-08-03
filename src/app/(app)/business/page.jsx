@@ -1,6 +1,7 @@
+import mongoose from "mongoose";
 import Image from "next/image";
 import Link from "next/link";
-import { Megaphone, MessageSquare, Star, Wallet, MapPin, CheckCircle2, ArrowRight, Plus, RefreshCw, Target } from "lucide-react";
+import { Star, MapPin, CheckCircle2, ArrowRight, Plus, RefreshCw } from "lucide-react";
 import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
 import dbConnect from "../../../lib/db";
@@ -9,58 +10,158 @@ import GmbConnection from "../../../models/GmbConnection";
 import GmbLocation from "../../../models/GmbLocation";
 import GmbReview from "../../../models/GmbReview";
 import Campaign from "../../../models/Campaign";
+import Submission from "../../../models/Submission";
+import CampaignStats from "../../../components/business/CampaignStats";
 import { inr } from "../../../lib/campaigns";
+import { getSettings } from "../../../lib/settings";
 
 export const metadata = { title: "Overview · ReviewHub Business" };
+
+const PLATFORM_LABEL = {
+  google: "Google",
+  trustpilot: "Trustpilot",
+  capterra: "Capterra",
+  amazon: "Amazon",
+  playstore: "Play Store",
+};
 
 export default async function BusinessOverviewPage() {
   const user = await requireRole(ROLES.BUSINESS_OWNER);
 
   await dbConnect();
 
-  const [gmbConnections, gmbLocations, me, reviewCount, campaigns, recentReviews] =
-    await Promise.all([
-      GmbConnection.countDocuments({ user: user.id, status: "active" }),
-      GmbLocation.countDocuments({ user: user.id }),
-      User.findById(user.id).select("walletBalance").lean(),
-      GmbReview.countDocuments({ user: user.id }),
-      Campaign.find({ user: user.id }).select("status budget targetReviews").lean(),
-      GmbReview.find({ user: user.id }).sort({ createTime: -1 }).limit(5).lean(),
-    ]);
+  const [
+    gmbConnections,
+    gmbLocations,
+    me,
+    reviewCount,
+    campaigns,
+    recentReviews,
+    locations,
+    submissionAgg,
+    settings,
+  ] = await Promise.all([
+    GmbConnection.countDocuments({ user: user.id, status: "active" }),
+    GmbLocation.countDocuments({ user: user.id }),
+    User.findById(user.id).select("walletBalance").lean(),
+    GmbReview.countDocuments({ user: user.id }),
+    Campaign.find({ user: user.id })
+      .select("name status budget targetReviews collected platform location ratePerReview")
+      .sort({ createdAt: -1 })
+      .lean(),
+    GmbReview.find({ user: user.id }).sort({ createTime: -1 }).limit(5).lean(),
+    GmbLocation.find({ user: user.id }).select("title locationName").lean(),
+    // Submission counts per (campaign, status) in one round trip — six campaigns
+    // shouldn't mean eighteen countDocuments calls. `business` is the owner, so
+    // this can only ever see this user's own submissions.
+    //
+    // Deliberately NOT summing rewardAmount: that field is the REVIEWER's
+    // payout (settings.reviewerReward, ₹50), which is smaller than what the
+    // business pays (settings.reviewRate, ₹100) — the difference is platform
+    // margin. Showing it on a business screen reads as "budget spent" and
+    // understates the real burn. Budget consumption is derived from `collected`
+    // × the campaign's own rate below.
+    Submission.aggregate([
+      // aggregate() skips Mongoose's schema casting, so the id must be a real
+      // ObjectId here — a plain string silently matches nothing.
+      { $match: { business: new mongoose.Types.ObjectId(String(user.id)) } },
+      { $group: { _id: { campaign: "$campaign", status: "$status" }, count: { $sum: 1 } } },
+    ]),
+    getSettings(),
+  ]);
 
   const gmbConnected = gmbConnections > 0;
   const activeCampaigns = campaigns.filter((c) => c.status === "active").length;
   const spend = campaigns.reduce((s, c) => s + (c.budget ?? 0), 0);
   const target = campaigns.reduce((s, c) => s + (c.targetReviews ?? 0), 0);
+  const collected = campaigns.reduce((s, c) => s + (c.collected ?? 0), 0);
 
-  // Stats at the top — real values from the DB.
-  const STATS = [
-    { label: "Active campaigns", value: String(activeCampaigns), Icon: Megaphone, tone: "text-accent" },
-    { label: "Reviews fetched", value: String(reviewCount), Icon: MessageSquare, tone: "text-accent" },
-    { label: "Target reviews", value: String(target), Icon: Target, tone: "text-verified" },
-    { label: "Locations", value: String(gmbLocations), Icon: MapPin, tone: "text-accent" },
-    { label: "Campaign spend", value: inr(spend), Icon: Star, tone: "text-accent" },
-    { label: "Wallet balance", value: inr(me?.walletBalance ?? 0), Icon: Wallet, tone: "text-accent" },
-  ];
+  const locationTitle = new Map(
+    locations.map((l) => [String(l._id), l.title || l.locationName])
+  );
+
+  // campaignId → { pending, approved, rejected }
+  const subsByCampaign = new Map();
+  for (const row of submissionAgg) {
+    const id = String(row._id.campaign);
+    const entry = subsByCampaign.get(id) ?? { pending: 0, approved: 0, rejected: 0 };
+    entry[row._id.status] = row.count;
+    subsByCampaign.set(id, entry);
+  }
+
+  // "All campaigns" view — account-wide figures, unchanged from before.
+  const overall = {
+    id: null,
+    collected,
+    target,
+    stats: [
+      { key: "activeCampaigns", label: "Active campaigns", value: String(activeCampaigns) },
+      { key: "reviewsFetched", label: "Reviews fetched", value: String(reviewCount) },
+      { key: "target", label: "Target reviews", value: String(target) },
+      { key: "locations", label: "Locations", value: String(gmbLocations) },
+      { key: "spend", label: "Campaign spend", value: inr(spend) },
+      { key: "wallet", label: "Wallet balance", value: inr(me?.walletBalance ?? 0) },
+    ],
+  };
+
+  // Per-campaign views. Serialized here (no ObjectIds, no Dates) because this
+  // crosses the server→client boundary into CampaignStats.
+  const campaignViews = campaigns.map((c) => {
+    const id = String(c._id);
+    const subs = subsByCampaign.get(id) ?? { pending: 0, approved: 0, rejected: 0 };
+    // The campaign's OWN stored rate, not the live setting — a rate change by
+    // an admin must not retroactively rewrite what an old campaign cost.
+    const rate = c.ratePerReview ?? settings.reviewRate;
+    const budget = c.budget ?? 0;
+    const collectedHere = c.collected ?? 0;
+
+    // What the business has actually spent: one verified review costs `rate`.
+    const used = Math.min(budget, collectedHere * rate);
+
+    return {
+      id,
+      name: c.name,
+      status: c.status,
+      platformLabel: PLATFORM_LABEL[c.platform] ?? c.platform,
+      locationTitle: c.location ? locationTitle.get(String(c.location)) ?? null : null,
+      budgetDisplay: inr(budget),
+      rateDisplay: inr(rate),
+      collected: c.collected ?? 0,
+      target: c.targetReviews ?? 0,
+      stats: [
+        { key: "target", label: "Target reviews", value: String(c.targetReviews ?? 0) },
+        {
+          key: "collected",
+          label: "Verified collected",
+          value: String(c.collected ?? 0),
+          hint: `${Math.max(0, (c.targetReviews ?? 0) - (c.collected ?? 0))} to go`,
+        },
+        { key: "pending", label: "Awaiting verification", value: String(subs.pending) },
+        { key: "rejected", label: "Rejected submissions", value: String(subs.rejected) },
+        { key: "spend", label: "Budget", value: inr(budget), hint: `${inr(rate)} per review` },
+        {
+          key: "budgetUsed",
+          label: "Budget used",
+          value: inr(used),
+          hint: `${inr(budget - used)} remaining`,
+        },
+      ],
+    };
+  });
 
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-primary">
         Welcome back{user.name ? `, ${user.name}` : ""}
       </h1>
-      <p className="mt-2 text-secondary">Your review collection at a glance.</p>
+      <p className="mt-2 text-secondary">
+        Your review collection at a glance
+        {campaignViews.length > 0 ? " — pick a campaign to scope the numbers to it" : ""}.
+      </p>
 
-      {/* 1. Stats on top */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {STATS.map(({ label, value, Icon, tone }) => (
-          <div key={label} className="rounded-card border border-default bg-surface-raised p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-secondary">{label}</span>
-              <Icon className={`h-5 w-5 ${tone}`} aria-hidden="true" />
-            </div>
-            <p className="mt-3 text-3xl font-extrabold tracking-tight text-primary">{value}</p>
-          </div>
-        ))}
+      {/* 1. Stats on top — account-wide by default, per-campaign on click. */}
+      <div className="mt-8">
+        <CampaignStats overall={overall} campaigns={campaignViews} />
       </div>
 
       {/* 2. Google Business Profile — reflects real DB connection state */}

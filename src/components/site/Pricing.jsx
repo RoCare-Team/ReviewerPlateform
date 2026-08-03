@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
 import Container from "./Container";
+import Reveal from "./Reveal";
 import {
   getPlans,
   priceWithGst,
@@ -70,7 +71,7 @@ export default function Pricing() {
     <section id="pricing" className="py-20 sm:py-24 bg-background">
       <Container>
         {/* Header with visual label, bold typography, and comfortable reading container */}
-        <div className="mx-auto max-w-3xl text-center">
+        <Reveal className="mx-auto max-w-3xl text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-accent">
             Plans & Cost
           </p>
@@ -82,27 +83,30 @@ export default function Pricing() {
             positive rating. {TRIAL.days}-day free trial, {TRIAL.cardRequired ? "card" : "no card"}{" "}
             required.
           </p>
-        </div>
+        </Reveal>
 
         {/* Responsive Grid Layout */}
         <div className="mt-16 grid gap-8 md:grid-cols-2 lg:gap-6 xl:grid-cols-4">
-          {plans.map((plan) => {
+          {plans.map((plan, i) => {
             const inclusive = priceWithGst(plan);
             return (
+              <Reveal key={plan.id} delay={i * 90} className="flex">
               <div
-                key={plan.id}
-                className={`relative flex flex-col rounded-card border bg-surface-raised p-6 pt-10 shadow-sm transition-all duration-300 ${
+                // No overflow-hidden here — the "Most popular" badge deliberately
+                // overhangs the top border and must not be clipped.
+                className={`group relative flex w-full flex-col rounded-card border bg-surface-raised p-6 pt-10 shadow-sm transition-all duration-300 ${
                   plan.popular
-                    ? "border-accent ring-1 ring-accent/35 shadow-xl shadow-accent/5 lg:-translate-y-2"
-                    : "border-default hover:border-strong/60"
+                    ? "border-accent ring-1 ring-accent/35 shadow-xl shadow-accent/5 hover:shadow-2xl hover:shadow-accent/10 lg:-translate-y-2 lg:hover:-translate-y-3"
+                    : "border-default hover:-translate-y-1 hover:border-accent/40 hover:shadow-lg"
                 }`}
               >
-                {/* 
+                <div className="card-sheen" aria-hidden="true" />
+                {/*
                   "Most popular" floating badge positioned absolute-center 
                   overlapping the top border card boundary.
                 */}
                 {plan.popular && (
-                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-accent px-4 py-1 text-[11px] font-bold uppercase tracking-widest text-on-brand shadow-md">
+                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-accent px-4 py-1 text-[11px] font-bold uppercase tracking-widest text-on-brand shadow-md shadow-accent/30">
                     Most popular
                   </span>
                 )}
@@ -136,7 +140,7 @@ export default function Pricing() {
                 <ul className="space-y-3.5 text-sm text-secondary flex-grow">
                   {bulletsFor(plan).map((b) => (
                     <li key={b} className="flex items-start gap-3">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent transition-colors duration-300 group-hover:bg-accent group-hover:text-on-brand">
                         <Check className="h-3.5 w-3.5" aria-hidden="true" />
                       </span>
                       <span className="leading-tight font-medium">{b}</span>
@@ -156,6 +160,7 @@ export default function Pricing() {
                   {plan.cta.label}
                 </Link>
               </div>
+              </Reveal>
             );
           })}
         </div>

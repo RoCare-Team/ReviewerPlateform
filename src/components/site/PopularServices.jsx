@@ -1,6 +1,8 @@
+import { ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import Container from "./Container";
+import Reveal from "./Reveal";
 import { getCities } from "../../lib/cities";
 
 /**
@@ -26,18 +28,30 @@ function Track({ cities, hidden }) {
           <Link
             href={`/services/${city.slug}`}
             tabIndex={hidden ? -1 : undefined}
-            className="group block w-60 overflow-hidden rounded-card border border-default bg-surface-raised shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="group block w-60 overflow-hidden rounded-card border border-default bg-surface-raised shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            <div className="relative h-40">
+            <div className="relative h-40 overflow-hidden">
               <Image
                 src={city.image}
                 alt={city.name}
                 fill
                 sizes="240px"
-                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+              />
+              {/* Gradient scrim deepens on hover — keeps the label legible over
+                  any photo and gives the card a sense of depth. */}
+              <div
+                className="absolute inset-0 bg-linear-to-t from-black/45 via-transparent to-transparent opacity-70 transition-opacity duration-300 group-hover:opacity-100"
+                aria-hidden="true"
               />
             </div>
-            <p className="px-4 py-3 text-center text-base font-bold text-primary">{city.name}</p>
+            <p className="flex items-center justify-center gap-1.5 px-4 py-3 text-center text-base font-bold text-primary transition-colors duration-300 group-hover:text-accent">
+              {city.name}
+              <ArrowUpRight
+                className="h-4 w-4 -translate-x-1 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
+                aria-hidden="true"
+              />
+            </p>
           </Link>
         </li>
       ))}
@@ -49,9 +63,9 @@ export default function PopularServices() {
   const cities = getCities();
 
   return (
-    <section id="popular" className="py-20 sm:py-24 bg-background">
+    <section id="popular" className="py-8 sm:py-10 bg-background">
       <Container>
-        <div className="mx-auto max-w-3xl text-center">
+        <Reveal className="mx-auto max-w-3xl text-center">
           <p className="text-xs font-bold uppercase tracking-widest text-accent">Popular</p>
           <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.15]">
             Review services in top cities
@@ -59,7 +73,7 @@ export default function PopularServices() {
           <p className="mt-4 mx-auto max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
             Explore where businesses collect verified customer reviews with ReviewHub.
           </p>
-        </div>
+        </Reveal>
       </Container>
 
       {/* Auto-scrolling marquee — track duplicated for a seamless -50% loop. */}

@@ -1,3 +1,4 @@
+"use client";
 import {
   ArrowRight,
   Check,
@@ -9,6 +10,8 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import Container from "./Container";
+import { useState } from "react";
+import ContactModal from "../models/ContactModal";
 
 /**
  * Hero — text + CTAs on the left, product illustration on the right (stacks on
@@ -60,11 +63,20 @@ const LOGOS = [
 ];
 
 export default function Hero() {
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <section className="relative flex min-h-[calc(100dvh-var(--header-h))] items-center overflow-hidden bg-background">
-      {/* Decorative ambient background blur behind the hero content for subtle depth */}
+      {/* Decorative ambient background blurs behind the hero content for subtle
+          depth. Both drift slowly and out of phase, so the backdrop never sits
+          perfectly still — the delay is what keeps it from reading as one blob. */}
       <div
-        className="pointer-events-none absolute -left-1/4 top-1/4 -z-10 h-96 w-96 rounded-full bg-accent/10 blur-[100px]"
+        className="animate-float pointer-events-none absolute -left-1/4 top-1/4 -z-10 h-96 w-96 rounded-full bg-accent/10 blur-[100px]"
+        aria-hidden="true"
+      />
+      <div
+        className="animate-float pointer-events-none absolute -right-1/4 bottom-1/4 -z-10 h-96 w-96 rounded-full bg-accent/5 blur-[100px] [animation-delay:-3.5s]"
         aria-hidden="true"
       />
 
@@ -78,30 +90,33 @@ export default function Hero() {
           </p>
 
           {/* Title — "verified" highlighted in the brand accent */}
-          <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.75rem] lg:leading-[1.1]">
+          <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-primary sm:text-3xl lg:text-[2.2rem] lg:leading-[1.1]">
             Grow Your Reputation with{" "}
             <span className="text-accent">Verified</span> Customer Reviews
           </h1>
 
           {/* Subtext */}
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-secondary sm:text-lg">
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-secondary sm:text-sm">
             Collect authentic reviews across Google Business Profile, Play
             Store, Trustpilot, G2 and 100+ platforms — with reviewers rewarded
             for verified participation, not for saying nice things.
           </p>
 
           {/* Feature chips */}
-          <ul className="mt-7 flex flex-wrap gap-2.5">
+          {/* <ul className="mt-7 flex flex-wrap gap-2.5">
             {CHIPS.map(({ Icon, label }) => (
               <li
                 key={label}
-                className="inline-flex items-center gap-1.5 rounded-full border border-default bg-surface-raised px-3.5 py-1.5 text-sm font-semibold text-secondary shadow-sm"
+                className="group inline-flex cursor-default items-center gap-1.5 rounded-full border border-default bg-surface-raised px-3.5 py-1.5 text-sm font-semibold text-secondary shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary hover:shadow-md"
               >
-                <Icon className="h-4 w-4 text-accent" aria-hidden="true" />
+                <Icon
+                  className="h-4 w-4 text-accent transition-transform duration-300 group-hover:scale-125"
+                  aria-hidden="true"
+                />
                 {label}
               </li>
             ))}
-          </ul>
+          </ul> */}
 
           {/* Call to Actions */}
           <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -115,16 +130,17 @@ export default function Hero() {
                 aria-hidden="true"
               />
             </Link>
-            <Link
-              href="/contact"
-              className="rounded-btn border border-strong bg-surface px-6 py-3.5 text-center font-semibold text-primary transition-all duration-200 hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-strong active:scale-[0.98]"
+           <button
+              onClick={() => setIsModalOpen(true)}
+              type="button"
+              className="rounded-btn border border-strong bg-surface px-6 py-3.5 text-center font-semibold text-primary transition-all duration-200 hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-strong active:scale-[0.98] cursor-pointer"
             >
               Book a demo
-            </Link>
+            </button>
           </div>
 
           {/* Trust indicators */}
-          <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2">
+          {/* <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2">
             {TRUST.map((t) => (
               <li
                 key={t}
@@ -134,7 +150,7 @@ export default function Hero() {
                 {t}
               </li>
             ))}
-          </ul>
+          </ul> */}
 
           {/* Trusted-by social proof */}
           <div className="mt-10 w-full border-t border-default/60 pt-6">
@@ -162,7 +178,7 @@ export default function Hero() {
                       alt={l.alt}
                       width={l.width}
                       height={l.height}
-                      className={`${l.cls} w-auto object-contain`}
+                      className={`${l.cls} w-auto object-contain opacity-80 transition-opacity duration-300 hover:opacity-100`}
                     />
                   </li>
                 ))}
@@ -179,16 +195,19 @@ export default function Hero() {
           />
 
           <Image
-            src="/img/hero.png"
+            src="/img/hero3.png"
             alt="ReviewHub dashboard showing verified reviews, ratings over time and reviews by platform"
             width={1536}
             height={1024}
             priority
             sizes="(max-width: 1024px) 100vw, 50vw"
-            className="h-auto w-full object-contain"
+            className="animate-float h-auto w-full object-contain drop-shadow-2xl rounded-2xl"
           />
         </div>
       </Container>
+
+            <ContactModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
     </section>
   );
 }

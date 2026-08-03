@@ -55,6 +55,22 @@ function Card({ campaign, reward }) {
 
       {campaign.notes && <p className="mt-3 text-sm leading-relaxed text-secondary">{campaign.notes}</p>}
 
+      {/* Live progress — spots left toward the campaign target */}
+      {typeof campaign.target === "number" && (
+        <div className="mt-3">
+          <div className="flex items-center justify-between text-xs font-medium text-secondary">
+            <span>{campaign.collected} / {campaign.target} collected</span>
+            <span className="font-bold text-accent">{campaign.remaining} spots left</span>
+          </div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-sunken">
+            <div
+              className="h-full rounded-full bg-accent"
+              style={{ width: `${campaign.target ? Math.min(100, Math.round((campaign.collected / campaign.target) * 100)) : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {!open ? (
         <button
           type="button"

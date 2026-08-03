@@ -32,7 +32,7 @@ function Track({ hidden }) {
       {PLATFORMS.map(({ name, className }) => (
         <li 
           key={name} 
-          className={`whitespace-nowrap text-lg text-muted/60 transition-colors duration-200 hover:text-primary ${className}`}
+          className={`cursor-default whitespace-nowrap text-lg text-muted/60 transition-all duration-300 hover:scale-110 hover:text-accent ${className}`}
         >
           {name}
         </li>

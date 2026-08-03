@@ -10,7 +10,7 @@ import User from "../../../models/User";
 // Only Overview exists today; the rest are `soon` rather than links to 404s.
 const NAV = [
   { href: "/business", label: "Overview", icon: "dashboard" },
-  { href: "/business/feedback", label: "Feedback", icon: "feedback" },
+  { href: "/business/feedback", label: "Submissions", icon: "feedback" },
   { href: "/business/reviews", label: "Reviews", icon: "reviews" },
   { href: "/business/campaigns", label: "Campaigns", icon: "campaigns" },
   { href: "/business/connections", label: "Connections", icon: "connections" },

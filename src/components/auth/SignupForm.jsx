@@ -70,7 +70,17 @@ export default function SignupForm({ role }) {
           <Label htmlFor="name">
             {role === "business_owner" ? "Your name" : "Full name"}
           </Label>
-          <Input id="name" name="name" autoComplete="name" required icon={User} error={fieldErrors.name?.[0]} />
+          <Input
+            id="name"
+            name="name"
+            autoComplete="name"
+            // Example values, not restated labels — a placeholder that just
+            // repeats the label above it is noise.
+            placeholder={role === "business_owner" ? "Priya Sharma" : "Aditya Verma"}
+            required
+            icon={User}
+            error={fieldErrors.name?.[0]}
+          />
           <FieldError id="name-error">{fieldErrors.name?.[0]}</FieldError>
         </div>
 
@@ -81,6 +91,8 @@ export default function SignupForm({ role }) {
             name="email"
             type="email"
             autoComplete="email"
+            inputMode="email"
+            placeholder={role === "business_owner" ? "you@yourcompany.com" : "you@example.com"}
             required
             icon={Mail}
             error={fieldErrors.email?.[0]}
@@ -91,7 +103,7 @@ export default function SignupForm({ role }) {
         <PasswordField
           autoComplete="new-password"
           label="Password"
-          hint="At least 8 characters."
+          hint="At least 8 characters. Use something you don't reuse elsewhere."
           error={fieldErrors.password?.[0]}
         />
       </div>

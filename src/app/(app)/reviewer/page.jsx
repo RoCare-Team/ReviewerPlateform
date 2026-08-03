@@ -38,6 +38,9 @@ export default async function ReviewerHomePage() {
       platform: c.platform,
       notes: c.notes,
       targetUrl: c.targetUrl,
+      collected: c.collected ?? 0,
+      target: c.targetReviews,
+      remaining: c.targetReviews - (c.collected ?? 0),
     }));
 
   const STATS = [

@@ -1,4 +1,5 @@
 import Container from "./Container";
+import Reveal from "./Reveal";
 
 /**
  * "How it profits" — the review submission workflow, shown as an ordered,
@@ -17,62 +18,84 @@ const STEPS = [
 
 export default function HowItProfits() {
   return (
-    <section id="how-it-works" className="border-y border-default/60 bg-surface-sunken py-8 sm:py-12">
+    <section id="how-it-works" className="relative border-y border-default/40 bg-surface-sunken py-12 sm:py-16">
       <Container>
-        {/* Header Block with precise typographic pacing */}
-        <div className="max-w-3xl">
-          <p className="text-xs font-bold uppercase tracking-widest text-accent">
-            The Workflow
-          </p>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.15]">
+        {/* Header Block with compact, modern visual balance */}
+        <Reveal className="max-w-3xl">
+          <div className="flex items-center gap-1.5">
+            <span className="h-1 w-1 rounded-full bg-accent" />
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
+              The Workflow
+            </p>
+          </div>
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-primary sm:text-3xl lg:text-[2rem] lg:leading-[1.2]">
             How it works, End to End
           </h2>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-secondary/95">
             Businesses get verified reviews; reviewers get rewarded for real participation. Every
             step is checked — twice.
           </p>
-        </div>
+        </Reveal>
 
-        {/* Process Ordered List Grid */}
-        <ol className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {STEPS.map((s) => {
+        {/* Process Ordered List Grid - tighter gaps for scaled typography */}
+        <ol className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-6">
+          {STEPS.map((s, i) => {
             const isFinalStep = s.n === 7;
 
             if (isFinalStep) {
               return (
-                /* 
-                  Step 7: The payoff card. Spans the full width of the grid columns on tablet/desktop, 
-                  utilizing a distinct soft-brand background color scheme to highlight the final outcome.
+                /*
+                  Step 7: The payoff card. Clean full-width card with reduced padding
+                  and lighter, glowing accents to cleanly frame the final outcome.
                 */
-                <li 
-                  key={s.n} 
-                  className="relative rounded-card border border-accent/25 bg-accent/5 p-6 shadow-sm transition-all duration-300 hover:border-accent/40 hover:shadow-md sm:col-span-2 lg:col-span-3 flex flex-col sm:flex-row sm:items-center sm:gap-6"
+                <Reveal
+                  as="li"
+                  key={s.n}
+                  delay={120}
+                  className="sm:col-span-2 lg:col-span-3"
                 >
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-on-brand text-lg font-black shadow-md">
-                    {s.n}
-                  </span>
-                  <div className="mt-4 sm:mt-0">
-                    <h3 className="text-lg font-bold text-primary">{s.title}</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-secondary">{s.body}</p>
+                  <div className="group relative flex flex-col overflow-hidden rounded-xl border border-accent/20 bg-accent/[0.03] p-5 shadow-sm transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-accent/40 hover:shadow-md hover:shadow-accent/[0.03] sm:flex-row sm:items-center sm:gap-5">
+                    <div className="card-sheen" aria-hidden="true" />
+                    
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-black text-on-brand shadow-sm transition-all duration-500 group-hover:scale-105 group-hover:shadow-accent/25">
+                      {s.n}
+                    </span>
+                    <div className="mt-3 sm:mt-0">
+                      <h3 className="text-sm font-bold text-primary">{s.title}</h3>
+                      <p className="mt-1 text-xs leading-relaxed text-secondary/90">{s.body}</p>
+                    </div>
                   </div>
-                </li>
+                </Reveal>
               );
             }
 
             return (
-              /* Steps 1-6: Clean, highly structured sequence panels */
-              <li 
-                key={s.n} 
-                className="relative flex flex-col items-start rounded-card border border-default bg-surface-raised p-6 shadow-sm transition-all duration-300 hover:border-strong hover:shadow-md"
-              >
-                {/* Visual Step Number Identifier */}
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 border border-accent/25 text-sm font-extrabold text-accent">
-                  {s.n}
-                </span>
-                
-                <h3 className="mt-5 text-base font-bold text-primary">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-secondary">{s.body}</p>
-              </li>
+              /* Steps 1-6: Highly structured card panels with compact text */
+              <Reveal as="li" key={s.n} delay={(i % 3) * 90}>
+                <div className="group relative flex h-full flex-col items-start overflow-hidden rounded-xl border border-default/50 bg-surface-raised p-5 shadow-sm transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 hover:border-accent/30 hover:shadow-md">
+                  
+                  {/* Oversized background texture numeral (scaled down for aesthetics) */}
+                  <span
+                    className="pointer-events-none absolute -right-1 -top-3 select-none text-5xl font-black leading-none text-accent/[0.04] transition-all duration-500 group-hover:text-accent/[0.08]"
+                    aria-hidden="true"
+                  >
+                    {s.n}
+                  </span>
+
+                  {/* Compact Step Number Badge */}
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-accent/15 bg-accent/[0.06] text-xs font-bold text-accent transition-all duration-500 ease-out group-hover:bg-accent group-hover:text-on-brand group-hover:border-transparent group-hover:scale-105">
+                    {s.n}
+                  </span>
+
+                  <h3 className="mt-4 text-sm font-bold text-primary transition-colors duration-300 group-hover:text-accent">
+                    {s.title}
+                  </h3>
+                  
+                  <p className="mt-2 text-xs leading-relaxed text-secondary/90">
+                    {s.body}
+                  </p>
+                </div>
+              </Reveal>
             );
           })}
         </ol>

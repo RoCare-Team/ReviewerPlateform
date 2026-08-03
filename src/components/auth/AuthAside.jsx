@@ -3,7 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BadgeCheck, ShieldCheck, Gift, Star, Users, Wallet, Trophy } from "lucide-react";
+import {
+  BadgeCheck,
+  Building2,
+  Gift,
+  MessageSquareQuote,
+  ShieldCheck,
+  Star,
+  Trophy,
+  Users,
+  Wallet,
+} from "lucide-react";
 
 /**
  * Left branded panel for the auth split layout. Copy switches by route so each
@@ -36,6 +46,20 @@ const REVIEWER = {
   caption: "Join thousands of verified reviewers",
 };
 
+// Role picker (/signup). Neutral on purpose — it speaks to both audiences,
+// because the visitor hasn't told us which one they are yet.
+const CHOOSE_ROLE = {
+  headline: "One platform. Two ways in.",
+  points: [
+    { Icon: Building2, text: "Businesses collect and monitor verified reviews in one dashboard" },
+    { Icon: MessageSquareQuote, text: "Reviewers join campaigns and earn points for verified work" },
+    { Icon: ShieldCheck, text: "Every submission screenshot- and AI-verified before it counts" },
+  ],
+  quote:
+    "Whichever side you're on, the rule is the same — rewards follow verified participation, never a positive rating.",
+  caption: "2,500+ businesses · thousands of verified reviewers",
+};
+
 const SIGN_IN = {
   headline: "Welcome back to ReviewHub",
   points: [
@@ -50,6 +74,9 @@ const SIGN_IN = {
 
 function contentFor(pathname) {
   if (pathname?.startsWith("/signup/reviewer")) return REVIEWER;
+  // The role picker itself: no role chosen yet, so the panel must not lean
+  // business or reviewer. Checked before the generic /signup prefix below.
+  if (pathname === "/signup") return CHOOSE_ROLE;
   if (pathname?.startsWith("/signup")) return BUSINESS;
   // login, forgot-password, reset-password, verify-otp, auth-error
   return SIGN_IN;

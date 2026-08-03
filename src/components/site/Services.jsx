@@ -7,6 +7,7 @@ import {
   Layers,
 } from "lucide-react";
 import Container from "./Container";
+import Reveal from "./Reveal";
 
 /**
  * Key features grid ("services"). Icons are imported directly — this is a server
@@ -52,43 +53,65 @@ const FEATURES = [
 
 export default function Services() {
   return (
-    <section id="features" className="py-8 sm:py-12 bg-background">
+    <section id="features" className="relative py-8 sm:py-10 bg-background overflow-hidden">
+      {/* Ambient background decoration for a subtle modern aesthetic */}
+      <div 
+        className="absolute top-0 right-1/4 -z-10 h-[350px] w-[600px] rounded-full bg-accent/5 blur-[120px] pointer-events-none select-none" 
+        aria-hidden="true" 
+      />
+
       <Container>
-        {/* Header Block with cleaner structural pacing */}
-        <div className="max-w-3xl">
-          <p className="text-xs font-bold uppercase tracking-widest text-accent">
-            Features & Capabilities
-          </p>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.15]">
+        {/* Header Block with balanced spacing */}
+        <Reveal className="max-w-3xl">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+            <p className="text-xs font-bold uppercase tracking-wider text-accent">
+              Features & Capabilities
+            </p>
+          </div>
+          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.15]">
             Everything you need to grow reputation the honest way
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
-            A full toolkit for review collection, verification and reward — built so it can&rsquo;t
+            A full toolkit for review collection, verification, and rewards—built so it cannot 
             be used to buy or fake a single star.
           </p>
-        </div>
+        </Reveal>
 
-        {/* Features Grid: Slightly wider gap on large displays for breathing room */}
-        <ul className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
-          {FEATURES.map(({ Icon, title, body }) => (
-            <li
-              key={title}
-              className="group rounded-card border border-default/60 bg-surface-raised p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-strong hover:shadow-md"
-            >
-              {/* Icon Container: Inverts background color on card hover */}
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10 border border-accent/25 text-accent transition-colors duration-300 group-hover:bg-accent group-hover:text-on-brand group-hover:border-transparent">
-                <Icon className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" aria-hidden="true" />
+        {/* Features Grid: Responsive structure with refined gaps */}
+        <ul className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+          {FEATURES.map(({ Icon, title, body }, i) => (
+            // Staggered delay for seamless progressive entry
+            <Reveal as="li" key={title} delay={(i % 3) * 90}>
+              <div className="group relative h-full overflow-hidden rounded-2xl border border-default/50 bg-surface-raised p-6 sm:p-8 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1.5 hover:border-accent/30 hover:shadow-xl hover:shadow-accent/[0.02]">
+                
+                {/* Micro-interaction: Radial ambient card spotlight glow */}
+                <div 
+                  className="absolute inset-0 bg-gradient-to-br from-accent/[0.03] via-transparent to-transparent opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100 pointer-events-none" 
+                  aria-hidden="true" 
+                />
+                
+                <div className="card-sheen" aria-hidden="true" />
+
+                {/* Icon Container: Fluid inversion on card hover */}
+                <div className="relative inline-flex h-12 w-12 items-center justify-center rounded-xl bg-accent/[0.08] border border-accent/20 text-accent transition-all duration-500 ease-out group-hover:bg-accent group-hover:text-on-brand group-hover:border-transparent group-hover:scale-105 group-hover:shadow-md group-hover:shadow-accent/20">
+                  <Icon
+                    className="h-5 w-5 transition-transform duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-110 group-hover:-rotate-3"
+                    aria-hidden="true"
+                  />
+                </div>
+
+                {/* Title links with smooth highlight style */}
+                <h3 className="relative mt-6 text-lg font-bold text-primary transition-colors duration-300 group-hover:text-accent">
+                  {title}
+                </h3>
+
+                {/* Body copy */}
+                <p className="relative mt-3 text-sm leading-relaxed text-secondary/90 transition-colors duration-300 group-hover:text-secondary">
+                  {body}
+                </p>
               </div>
-              
-              {/* Title links with dynamic hover style */}
-              <h3 className="mt-5 text-lg font-bold text-primary group-hover:text-accent transition-colors duration-200">
-                {title}
-              </h3>
-              
-              <p className="mt-2.5 text-sm leading-relaxed text-secondary">
-                {body}
-              </p>
-            </li>
+            </Reveal>
           ))}
         </ul>
       </Container>

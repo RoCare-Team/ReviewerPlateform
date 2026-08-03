@@ -1,5 +1,7 @@
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import Container from "../components/site/Container";
+import Reveal from "../components/site/Reveal";
 import Faq, { FAQ_ITEMS } from "../components/site/Faq";
 import Hero from "../components/site/Hero";
 import HowItProfits from "../components/site/HowItProfits";
@@ -96,16 +98,16 @@ export default function Home() {
         */}
         <section className="py-16 sm:py-24 bg-background">
           <Container>
-            <div className="relative overflow-hidden rounded-3xl border border-default/60 bg-surface-raised px-6 py-12 text-center shadow-xl sm:px-12 sm:py-20">
-              
-              {/* Decorative background visual blurs inside the panel */}
-              <div 
-                className="pointer-events-none absolute -right-16 -top-16 -z-10 h-72 w-72 rounded-full bg-accent/10 blur-[90px]" 
-                aria-hidden="true" 
+            <Reveal className="group relative overflow-hidden rounded-3xl border border-default/60 bg-surface-raised px-6 py-12 text-center shadow-xl transition-shadow duration-500 hover:shadow-2xl sm:px-12 sm:py-20">
+              {/* Decorative background visual blurs inside the panel — drifting
+                  out of phase so the panel feels alive without distracting. */}
+              <div
+                className="animate-float pointer-events-none absolute -right-16 -top-16 -z-10 h-72 w-72 rounded-full bg-accent/10 blur-[90px]"
+                aria-hidden="true"
               />
-              <div 
-                className="pointer-events-none absolute -bottom-16 -left-16 -z-10 h-72 w-72 rounded-full bg-accent/5 blur-[90px]" 
-                aria-hidden="true" 
+              <div
+                className="animate-float pointer-events-none absolute -bottom-16 -left-16 -z-10 h-72 w-72 rounded-full bg-accent/5 blur-[90px] [animation-delay:-3.5s]"
+                aria-hidden="true"
               />
 
               {/* Eyebrow Label to anchor context */}
@@ -117,27 +119,32 @@ export default function Home() {
               <h2 className="mx-auto mt-4 max-w-2xl text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.6rem] lg:leading-[1.15]">
                 Start collecting reviews you can actually stand behind
               </h2>
-              
+
               <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-secondary sm:text-lg">
-                Set up your first campaign in minutes. No card required to start.
+                Set up your first campaign in minutes. No card required to
+                start.
               </p>
 
               {/* Polished Interactive Buttons */}
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                 <Link
                   href="/signup/business"
-                  className="rounded-btn bg-accent px-6 py-3 text-sm font-bold text-on-brand shadow-md transition-all duration-200 hover:bg-accent-hover hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+                  className="group/cta inline-flex items-center justify-center gap-2 rounded-btn bg-accent px-6 py-3 text-sm font-bold text-on-brand shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
                 >
                   Start free trial
+                  <ArrowRight
+                    className="h-4 w-4 transition-transform duration-200 group-hover/cta:translate-x-1"
+                    aria-hidden="true"
+                  />
                 </Link>
                 <Link
                   href="/contact"
-                  className="rounded-btn border border-strong bg-surface px-6 py-3 text-sm font-bold text-primary transition-all duration-200 hover:bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-strong active:scale-[0.98]"
+                  className="rounded-btn border border-strong bg-surface px-6 py-3 text-sm font-bold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-sunken hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-strong active:scale-[0.98]"
                 >
                   Book a demo
                 </Link>
               </div>
-            </div>
+            </Reveal>
           </Container>
         </section>
       </main>

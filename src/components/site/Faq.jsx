@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import Container from "./Container";
+import Reveal from "./Reveal";
 
 /**
  * FAQ accordion built on native <details>/<summary> — open/close with zero
@@ -42,7 +43,7 @@ export default function Faq() {
     <section id="faq" className="border-t border-default bg-surface-sunken py-8 sm:py-12">
       <Container className="max-w-3xl">
         {/* Header Block following standard typographic system spacing */}
-        <div>
+        <Reveal>
           <p className="text-xs font-bold uppercase tracking-widest text-accent">
             FAQS
           </p>
@@ -52,27 +53,32 @@ export default function Faq() {
           <p className="mt-3 text-sm leading-relaxed text-secondary sm:text-base">
             Got questions about verified compliance, reward logistics, or platform verification? We've got answers.
           </p>
-        </div>
+        </Reveal>
 
         {/* FAQ Accordion List using semantic dl/details */}
         <dl className="mt-10 space-y-3.5">
-          {FAQ_ITEMS.map((item) => (
-            <details
-              key={item.q}
-              className="group rounded-card border border-default bg-surface-raised px-5 transition-all duration-300 hover:border-strong/60 shadow-sm [&_summary]:list-none"
-            >
-              {/* Summary with cursor toggle styling, text transitions, and accessible focus rings */}
-              <summary className="flex cursor-pointer items-center justify-between gap-4 py-4 font-semibold text-primary transition-colors duration-150 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded-md">
-                <dt className="text-sm sm:text-base select-none">{item.q}</dt>
-                <ChevronDown
-                  className="h-5 w-5 shrink-0 text-muted transition-transform duration-300 group-open:rotate-180 group-open:text-accent"
-                  aria-hidden="true"
-                />
-              </summary>
-              <dd className="pb-5 text-sm sm:text-base leading-relaxed text-secondary">
-                {item.a}
-              </dd>
-            </details>
+          {FAQ_ITEMS.map((item, i) => (
+            <Reveal key={item.q} delay={i * 70}>
+              <details className="group rounded-card border border-default bg-surface-raised px-5 shadow-sm transition-all duration-300 open:border-accent/40 open:shadow-md hover:border-strong/60 [&_summary]:list-none">
+                {/* Summary with cursor toggle styling, text transitions, and accessible focus rings */}
+                <summary className="flex cursor-pointer items-center justify-between gap-4 rounded-md py-4 font-semibold text-primary transition-colors duration-150 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 group-open:text-accent">
+                  <dt className="select-none text-sm sm:text-base">{item.q}</dt>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/10 text-muted transition-all duration-300 group-open:bg-accent group-open:text-on-brand">
+                    <ChevronDown
+                      className="h-4 w-4 transition-transform duration-300 group-open:rotate-180"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </summary>
+                {/* A closed <details> doesn't render its body, so a CSS
+                    transition has nothing to run from — .faq-answer is a
+                    keyframe animation instead, which fires each time the
+                    element appears. */}
+                <dd className="faq-answer pb-5 text-sm leading-relaxed text-secondary sm:text-base">
+                  {item.a}
+                </dd>
+              </details>
+            </Reveal>
           ))}
         </dl>
       </Container>

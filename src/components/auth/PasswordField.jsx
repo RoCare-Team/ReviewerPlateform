@@ -9,6 +9,9 @@ export default function PasswordField({
   name = "password",
   label = "Password",
   autoComplete = "current-password",
+  // Dots, not words: a literal placeholder like "Your password" is one more
+  // thing to read, and it reads as prefilled at a glance.
+  placeholder = "••••••••",
   error,
   hint,
 }) {
@@ -23,6 +26,7 @@ export default function PasswordField({
           name={name}
           type={show ? "text" : "password"}
           autoComplete={autoComplete}
+          placeholder={placeholder}
           required
           error={error}
           icon={Lock}

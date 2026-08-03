@@ -58,6 +58,15 @@ export async function apiRequireAuth() {
   return { user, response: null };
 }
 
+/** Admin-only API routes. Mirrors requireAdmin(), but returns a 401 Response. */
+export async function apiRequireAdmin() {
+  const user = await getCurrentUser();
+  if (!user || user.role !== ROLES.ADMIN || user.status !== "active") {
+    return { user: null, response: Response.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  return { user, response: null };
+}
+
 export async function apiRequirePermission(action) {
   const { user, response } = await apiRequireAuth();
   if (response) return { user: null, response };

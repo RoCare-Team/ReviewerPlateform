@@ -1,5 +1,6 @@
-import { Star } from "lucide-react";
+import { Quote, Star } from "lucide-react";
 import Container from "./Container";
+import Reveal from "./Reveal";
 
 /**
  * Social proof. These are illustrative placeholders — swap for real, consented
@@ -31,7 +32,7 @@ function Avatar({ name }) {
   return (
     <span
       aria-hidden="true"
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10 border border-accent/20 text-sm font-bold text-accent shadow-inner"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/20 bg-accent/10 text-sm font-bold text-accent shadow-inner transition-colors duration-300 group-hover:bg-accent group-hover:text-on-brand group-hover:border-transparent"
     >
       {initials}
     </span>
@@ -44,7 +45,7 @@ export default function Testimonials() {
     <section id="testimonials" className="py-8 sm:py-12 bg-background">
       <Container>
         {/* Header Block to maintain typographic alignment across sections */}
-        <div className="max-w-3xl">
+        <Reveal className="max-w-3xl">
           <p className="text-xs font-bold uppercase tracking-widest text-accent">
             Social Proof
           </p>
@@ -54,36 +55,48 @@ export default function Testimonials() {
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
             Reputation you can defend, because every review behind it was verified.
           </p>
-        </div>
+        </Reveal>
 
         {/* Testimonials Grid Container */}
         <ul className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {QUOTES.map((t) => (
-            <li 
-              key={t.name} 
-              className="flex flex-col rounded-card border border-default/60 bg-surface-raised p-6 shadow-sm transition-all duration-300 hover:border-strong hover:shadow-md"
-            >
-              {/* Star Rating Panel (Standardized to high-trust amber colors) */}
-              <div className="flex gap-0.5" aria-label="5 out of 5 stars">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />
-                ))}
-              </div>
-              
-              {/* Quote Block with standard line spacing and elegant italic typography */}
-              <blockquote className="mt-4 flex-1 text-sm sm:text-base leading-relaxed italic text-secondary">
-                &ldquo;{t.quote}&rdquo;
-              </blockquote>
-              
-              {/* User Metadata Footer with a clean separator layout */}
-              <div className="mt-6 flex items-center gap-3 border-t border-default/50 pt-4">
-                <Avatar name={t.name} />
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-bold text-primary">{t.name}</div>
-                  <div className="truncate text-xs text-muted">{t.role}</div>
+          {QUOTES.map((t, i) => (
+            <Reveal as="li" key={t.name} delay={i * 110}>
+              <div className="group relative flex h-full flex-col overflow-hidden rounded-card border border-default/60 bg-surface-raised p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-accent/40 hover:shadow-lg">
+                <div className="card-sheen" aria-hidden="true" />
+
+                {/* Watermark quote glyph — decorative depth behind the text */}
+                <Quote
+                  className="pointer-events-none absolute -right-3 -top-3 h-20 w-20 rotate-12 text-accent/5 transition-all duration-500 group-hover:rotate-6 group-hover:text-accent/10"
+                  aria-hidden="true"
+                />
+
+                {/* Star Rating Panel (Standardized to high-trust amber colors) */}
+                <div className="flex gap-0.5" aria-label="5 out of 5 stars">
+                  {[0, 1, 2, 3, 4].map((s) => (
+                    <Star
+                      key={s}
+                      className="h-4 w-4 fill-amber-400 text-amber-400 transition-transform duration-300 group-hover:scale-110"
+                      style={{ transitionDelay: `${s * 40}ms` }}
+                      aria-hidden="true"
+                    />
+                  ))}
+                </div>
+
+                {/* Quote Block with standard line spacing and elegant italic typography */}
+                <blockquote className="mt-4 flex-1 text-sm italic leading-relaxed text-secondary sm:text-base">
+                  &ldquo;{t.quote}&rdquo;
+                </blockquote>
+
+                {/* User Metadata Footer with a clean separator layout */}
+                <div className="mt-6 flex items-center gap-3 border-t border-default/50 pt-4">
+                  <Avatar name={t.name} />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-bold text-primary">{t.name}</div>
+                    <div className="truncate text-xs text-muted">{t.role}</div>
+                  </div>
                 </div>
               </div>
-            </li>
+            </Reveal>
           ))}
         </ul>
       </Container>

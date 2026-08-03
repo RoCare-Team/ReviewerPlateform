@@ -1,4 +1,5 @@
 import Container from "./Container";
+import Reveal from "./Reveal";
 
 /**
  * Social-proof stat band. Numbers are framed around VERIFIED participation, not
@@ -15,27 +16,36 @@ const STATS = [
 export default function Stats() {
   return (
     // Section spacing optimized to the requested compact grid rhythm
-    <section className="py-8 sm:py-12 bg-background/50">
+    <section className="py-8 sm:py-10 bg-background/50">
       <Container>
-        <dl className="grid grid-cols-2 gap-y-10 gap-x-6 rounded-card border border-default bg-surface-raised p-8 sm:p-12 lg:grid-cols-4 lg:gap-x-0 lg:p-10 shadow-sm backdrop-blur-sm">
+        <Reveal
+          as="dl"
+          className="relative grid grid-cols-2 gap-y-10 gap-x-6 overflow-hidden rounded-card border border-default bg-surface-raised p-8 shadow-sm backdrop-blur-sm sm:p-12 lg:grid-cols-4 lg:gap-x-0 lg:p-10"
+        >
+          {/* Soft accent wash so the band reads as one panel, not four columns */}
+          <div
+            className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-56 w-xl -translate-x-1/2 rounded-full bg-accent/10 blur-[90px]"
+            aria-hidden="true"
+          />
+
           {STATS.map(({ value, label }, index) => (
-            <div 
-              key={label} 
-              className={`flex flex-col items-center text-center px-4 ${
+            <div
+              key={label}
+              className={`group flex flex-col items-center px-4 text-center ${
                 index !== 0 ? "lg:border-l lg:border-default/60" : ""
               }`}
             >
               {/* Stat value: Transitioned to extrabold + tight tracking for high visual authority */}
-              <dt className="text-4xl font-extrabold tracking-tight text-accent sm:text-5xl lg:text-[3.25rem]">
+              <dt className="nums text-4xl font-extrabold tracking-tight text-accent transition-transform duration-300 group-hover:scale-110 sm:text-5xl lg:text-[3.25rem]">
                 {value}
               </dt>
               {/* Stat label: Constrained max-width for balanced multi-line text wraps */}
-              <dd className="mt-3 max-w-[200px] text-xs font-semibold leading-relaxed text-secondary sm:text-sm">
+              <dd className="mt-3 max-w-50 text-xs font-semibold leading-relaxed text-secondary transition-colors duration-300 group-hover:text-primary sm:text-sm">
                 {label}
               </dd>
             </div>
           ))}
-        </dl>
+        </Reveal>
       </Container>
     </section>
   );

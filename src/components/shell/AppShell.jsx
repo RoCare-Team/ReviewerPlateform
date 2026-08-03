@@ -2,6 +2,7 @@
 
 import {
   Building2,
+  Coins,
   CreditCard,
   LayoutDashboard,
   Link2,
@@ -90,7 +91,28 @@ function NavLink({ item, active, onNavigate }) {
   );
 }
 
-export default function AppShell({ brand, badge, nav, user, profileHref, walletBalance = null, walletHref, signOutTo = "/", children }) {
+/**
+ * Topbar balance chip. Same number, different framing per role: a business
+ * FUNDS campaigns from a wallet, a reviewer EARNS coins from verified work.
+ * Both read `walletBalance` — only the label and icon change.
+ */
+const WALLET_VARIANT = {
+  wallet: { Icon: Wallet, title: "Wallet balance", srLabel: "Wallet balance" },
+  coins: { Icon: Coins, title: "Coins earned — tap to see your rewards", srLabel: "Coins earned" },
+};
+
+export default function AppShell({
+  brand,
+  badge,
+  nav,
+  user,
+  profileHref,
+  walletBalance = null,
+  walletHref,
+  walletVariant = "wallet",
+  signOutTo = "/",
+  children,
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -107,6 +129,8 @@ export default function AppShell({ brand, badge, nav, user, profileHref, walletB
     ?? "";
 
   const initial = (user.name || user.email || "?").charAt(0).toUpperCase();
+
+  const wallet = WALLET_VARIANT[walletVariant] ?? WALLET_VARIANT.wallet;
 
   // Only the MOST specific matching nav item is active. Without this, a section
   // root like "/business" (a prefix of every child route) would stay highlighted
@@ -195,15 +219,21 @@ export default function AppShell({ brand, badge, nav, user, profileHref, walletB
             </span>
           )}
 
-          {/* Wallet balance chip (business owner) — left of the profile menu */}
+          {/* Balance chip — left of the profile menu. Wallet for a business
+              owner, coins earned for a reviewer. */}
           {walletBalance !== null && (
             <Link
               href={walletHref ?? "#"}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken"
-              title="Wallet balance"
+              className="group ml-auto inline-flex items-center gap-1.5 rounded-full border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-accent-subtle hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              title={wallet.title}
             >
-              <Wallet className="h-4 w-4 text-accent" aria-hidden="true" />
-              ₹{Number(walletBalance).toLocaleString("en-IN")}
+              <wallet.Icon
+                className="h-4 w-4 text-accent transition-transform duration-300 group-hover:scale-110"
+                aria-hidden="true"
+              />
+              {/* The number alone is meaningless to a screen reader here. */}
+              <span className="sr-only">{wallet.srLabel}:</span>
+              <span className="nums">₹{Number(walletBalance).toLocaleString("en-IN")}</span>
             </Link>
           )}
 
