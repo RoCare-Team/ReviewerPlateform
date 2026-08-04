@@ -22,20 +22,20 @@
    the dark-mode saturation drop predictable instead of guesswork.
    -------------------------------------------------------------------------- */
 @theme {
-  /* Brand indigo — trust, stability, technical maturity. Primary actions, links,
-     active nav. Anchored on #4F46E5 (Tailwind indigo-600) as the primary action;
-     Stripe/Salesforce/Zoom sit in this family. Values are Tailwind v4's oklch. */
-  --color-brand-50:  oklch(0.962 0.018 272.314);
-  --color-brand-100: oklch(0.930 0.034 272.788);
-  --color-brand-200: oklch(0.870 0.065 274.039);
-  --color-brand-300: oklch(0.785 0.115 274.713);
-  --color-brand-400: oklch(0.673 0.182 276.935);
-  --color-brand-500: oklch(0.585 0.233 277.117);
-  --color-brand-600: oklch(0.511 0.262 276.966);  /* primary action — #4F46E5 */
-  --color-brand-700: oklch(0.457 0.240 277.023);
-  --color-brand-800: oklch(0.398 0.195 277.366);
-  --color-brand-900: oklch(0.359 0.144 278.697);
-  --color-brand-950: oklch(0.257 0.090 281.288);
+  /* Brand purple — trust, stability, technical maturity. Primary actions, links,
+     active nav. Anchored on #9333EA (Tailwind purple-600) as the primary action.
+     Same lightness/chroma ramp as before, hue rotated from indigo to purple. */
+  --color-brand-50:  oklch(0.962 0.018 308.314);
+  --color-brand-100: oklch(0.930 0.034 308.788);
+  --color-brand-200: oklch(0.870 0.065 306.039);
+  --color-brand-300: oklch(0.785 0.115 305.713);
+  --color-brand-400: oklch(0.673 0.182 304.935);
+  --color-brand-500: oklch(0.585 0.233 303.117);
+  --color-brand-600: oklch(0.511 0.262 303.966);  /* primary action — purple */
+  --color-brand-700: oklch(0.457 0.240 303.023);
+  --color-brand-800: oklch(0.398 0.195 303.366);
+  --color-brand-900: oklch(0.359 0.144 304.697);
+  --color-brand-950: oklch(0.257 0.090 306.288);
 
   /* Verified emerald — approved, verified status, growth, rewards/earnings.
      Semantic only. Anchored on #10B981 (emerald-500) / #059669 (emerald-600).
@@ -103,7 +103,7 @@
 
   /* Radius */
   --radius-card: 0.75rem;
-  --radius-btn: 0.5rem;
+  --radius-btn: 9999px;
 
   /* Motion — fast and boring. */
   --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
@@ -291,6 +291,26 @@
   button:disabled,
   [aria-disabled="true"] {
     cursor: not-allowed;
+  }
+
+  /* Buttons: subtle lift + shadow on hover. Disabled controls are excluded so a
+     blocked action doesn't invite interaction. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    transition:
+      transform var(--duration-fast) var(--ease-out-soft),
+      box-shadow var(--duration-fast) var(--ease-out-soft),
+      background-color var(--duration-fast) var(--ease-out-soft);
+  }
+  button:not(:disabled):hover,
+  [role="button"]:not([aria-disabled="true"]):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -6px oklch(0.511 0.262 303.966 / 0.45);
+  }
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: translateY(0);
+    box-shadow: none;
   }
 
   /* Focus ring — never remove this without a replacement. */

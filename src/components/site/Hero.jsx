@@ -201,7 +201,7 @@ export default function Hero() {
           />
 
           <Image
-            src="/img/hero3.png"
+            src="/img/hero4.png"
             alt="ReviewHub dashboard showing verified reviews, ratings over time and reviews by platform"
             width={1536}
             height={1024}
