@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, MapPin, RefreshCw, Star, Trash2 } from "lucide-react";
+import { CheckCircle2, Clock, MapPin, MessageSquare, RefreshCw, Star, Trash2 } from "lucide-react";
 
 /**
  * Client UI for connected Google Business Profile accounts. Receives already-
@@ -117,7 +117,8 @@ export default function GmbConnections({ connections }) {
                 <p className="mt-3 rounded-btn bg-danger-subtle px-3 py-2 text-xs text-danger">{c.lastError}</p>
               )}
 
-              {/* Locations under this account */}
+              {/* Locations under this account — each its own card so rating,
+                  review count and sync state are all scannable at a glance. */}
               <div className="mt-4 border-t border-default pt-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-muted">
                   Locations ({c.locations.length})
@@ -127,31 +128,43 @@ export default function GmbConnections({ connections }) {
                     No locations found for this account yet.
                   </p>
                 ) : (
-                  <ul className="mt-3 space-y-2">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     {c.locations.map((loc) => (
-                      <li
+                      <div
                         key={loc.id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-btn border border-default bg-surface px-3 py-2.5"
+                        className="rounded-card border border-default bg-surface p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-sm"
                       >
-                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
-                          <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
-                          {loc.title || loc.locationName}
-                          {loc.address && <span className="text-xs font-normal text-muted">· {loc.address}</span>}
-                        </span>
-                        <span className="inline-flex items-center gap-3 text-xs text-secondary">
-                          {loc.reviewCount > 0 && (
-                            <span className="inline-flex items-center gap-1 font-semibold text-primary">
-                              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
-                              {loc.averageRating ? loc.averageRating.toFixed(1) : "—"} · {loc.reviewCount}
+                        <div className="flex items-start gap-2.5">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-subtle">
+                            <MapPin className="h-4 w-4 text-accent" aria-hidden="true" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-primary" title={loc.title || loc.locationName}>
+                              {loc.title || loc.locationName}
+                            </p>
+                            {loc.address && (
+                              <p className="truncate text-xs text-muted" title={loc.address}>{loc.address}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between border-t border-default pt-3 text-xs">
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-primary">
+                            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />
+                            {loc.reviewCount > 0 ? (loc.averageRating ? loc.averageRating.toFixed(1) : "—") : "—"}
+                            <span className="inline-flex items-center gap-1 font-normal text-muted">
+                              <MessageSquare className="h-3 w-3" aria-hidden="true" />
+                              {loc.reviewCount}
                             </span>
-                          )}
-                          <span className="text-muted">
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-muted">
+                            <Clock className="h-3 w-3" aria-hidden="true" />
                             {loc.lastSyncedAt ? `Synced ${loc.lastSyncedAt}` : "Not synced"}
                           </span>
-                        </span>
-                      </li>
+                        </div>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </div>
             </div>

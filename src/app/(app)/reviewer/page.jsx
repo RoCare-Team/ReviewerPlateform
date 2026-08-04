@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Wallet, CheckCircle2, Clock, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
 import dbConnect from "../../../lib/db";
@@ -8,6 +8,7 @@ import Campaign from "../../../models/Campaign";
 import Submission from "../../../models/Submission";
 import { getSettings, inr } from "../../../lib/settings";
 import CampaignParticipation from "../../../components/reviewer/CampaignParticipation";
+import OverviewStats from "../../../components/reviewer/OverviewStats";
 
 export const metadata = { title: "Your dashboard · ReviewHub" };
 
@@ -25,6 +26,7 @@ export default async function ReviewerHomePage() {
   const submittedIds = new Set(mySubs.map((s) => String(s.campaign)));
   const approved = mySubs.filter((s) => s.status === "approved").length;
   const pending = mySubs.filter((s) => s.status === "pending").length;
+  const rejected = mySubs.filter((s) => s.status === "rejected").length;
 
   // Active campaigns not yet full and not already submitted by this reviewer.
   const openCampaigns = await Campaign.find({ status: "active" })
@@ -43,12 +45,6 @@ export default async function ReviewerHomePage() {
       remaining: c.targetReviews - (c.collected ?? 0),
     }));
 
-  const STATS = [
-    { label: "Wallet balance", value: inr(me?.walletBalance ?? 0), Icon: Wallet, tone: "text-accent" },
-    { label: "Approved reviews", value: String(approved), Icon: CheckCircle2, tone: "text-verified" },
-    { label: "Pending reviews", value: String(pending), Icon: Clock, tone: "text-pending" },
-  ];
-
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-primary">
@@ -59,17 +55,15 @@ export default async function ReviewerHomePage() {
         participation, never for positive ratings.
       </p>
 
-      {/* Stats */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        {STATS.map(({ label, value, Icon, tone }) => (
-          <div key={label} className="rounded-card border border-default bg-surface-raised p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-secondary">{label}</span>
-              <Icon className={`h-5 w-5 ${tone}`} aria-hidden="true" />
-            </div>
-            <p className="mt-3 text-3xl font-extrabold tracking-tight text-primary">{value}</p>
-          </div>
-        ))}
+      {/* Overview: stat tiles + submission status breakdown */}
+      <div className="mt-8">
+        <OverviewStats
+          walletBalance={me?.walletBalance ?? 0}
+          formattedWallet={inr(me?.walletBalance ?? 0)}
+          approved={approved}
+          pending={pending}
+          rejected={rejected}
+        />
       </div>
 
       {/* Available campaigns */}

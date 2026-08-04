@@ -26,7 +26,7 @@ export default function GoogleButton({ callbackUrl = "/", label = "Continue with
         setPending(true);
         signIn("google", { callbackUrl });
       }}
-      className="flex w-full items-center justify-center gap-3 rounded-btn border border-strong bg-surface px-4 py-2.5 font-medium text-primary transition hover:bg-surface-sunken disabled:opacity-60"
+      className="flex w-full items-center justify-center gap-3 rounded-btn border border-strong bg-surface px-4 py-2.5 font-medium text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-sunken hover:shadow-sm disabled:opacity-60 disabled:hover:translate-y-0"
     >
       <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.76h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

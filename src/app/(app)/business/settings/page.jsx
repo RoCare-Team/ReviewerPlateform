@@ -1,3 +1,4 @@
+import { UserRound, Wallet } from "lucide-react";
 import { requireRole } from "../../../../lib/auth/guards";
 import { ROLES } from "../../../../lib/auth/roles";
 import dbConnect from "../../../../lib/db";
@@ -37,13 +38,26 @@ export default async function BusinessSettingsPage() {
 
       {/* Wallet */}
       <div className="mt-8">
-        <WalletCard balance={doc?.walletBalance ?? 0} transactions={transactions} />
+        <h2 className="flex items-center gap-2 text-lg font-bold text-primary">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-subtle">
+            <Wallet className="h-4 w-4 text-accent" aria-hidden="true" />
+          </span>
+          Wallet
+        </h2>
+        <div className="mt-4">
+          <WalletCard balance={doc?.walletBalance ?? 0} transactions={transactions} />
+        </div>
       </div>
 
       {/* Profile */}
-      <div className="mt-8">
-        <h2 className="text-lg font-bold text-primary">Profile</h2>
-        <div className="mt-4 rounded-card border border-default bg-surface-raised p-6 shadow-sm sm:p-8">
+      <div className="mt-10">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-primary">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-subtle">
+            <UserRound className="h-4 w-4 text-accent" aria-hidden="true" />
+          </span>
+          Profile
+        </h2>
+        <div className="mt-4 rounded-card border border-default bg-surface-raised p-6 shadow-sm transition-shadow duration-300 hover:shadow-md sm:p-8">
           <ProfileForm initial={initial} endpoint="/api/business/profile" />
         </div>
       </div>

@@ -27,6 +27,13 @@ const UserSchema = new mongoose.Schema(
     // API — never from a client payload directly.
     walletBalance: { type: Number, default: 0, min: 0 },
 
+    // Reviewer payout bank details — saved once, reusable or editable on every
+    // withdrawal request. Snapshotted onto each WithdrawalRequest too, so
+    // editing these later never rewrites where a past payout was already sent.
+    bankAccountHolder: { type: String, trim: true, default: "" },
+    bankAccountNumber: { type: String, trim: true, default: "" },
+    bankIfsc: { type: String, trim: true, uppercase: true, default: "" },
+
     // Denormalised from Role.key — no join on every request.
     // NEVER set from a client payload. Derive server-side from the route.
     role: {

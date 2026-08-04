@@ -16,7 +16,14 @@ const SubmissionSchema = new mongoose.Schema(
 
     screenshotUrl: { type: String, required: true },
     screenshotPublicId: { type: String, default: "" }, // Cloudinary public id
+    screenshotHash: { type: String, default: "", index: true }, // sha256 for dedupe
     note: { type: String, trim: true, default: "" },
+
+    // AI verification verdict (OpenAI vision). verifiedBy: "ai" | "admin" | "".
+    verifiedBy: { type: String, default: "" },
+    aiDecision: { type: String, default: "" }, // approve | reject | uncertain
+    aiConfidence: { type: Number, default: 0 }, // 0..1
+    aiReason: { type: String, default: "" },
 
     status: {
       type: String,

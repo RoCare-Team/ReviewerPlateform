@@ -1,8 +1,16 @@
+import crypto from "node:crypto";
 import dbConnect from "../../../../lib/db";
 import Campaign from "../../../../models/Campaign";
 import Submission from "../../../../models/Submission";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 import { uploadImage, cloudinaryConfigured } from "../../../../lib/cloudinary";
+import { getSettings } from "../../../../lib/settings";
+import { verifyReviewScreenshot, openaiConfigured } from "../../../../lib/openai-verify";
+import { approveSubmission, rejectSubmission } from "../../../../lib/verification";
+
+const PLATFORM_LABEL = {
+  google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store",
+};
 
 /**
  * Reviewer submits their participation in a campaign with a screenshot proof.
@@ -67,6 +75,13 @@ export async function POST(request) {
     return Response.json({ error: "You've already submitted for this campaign." }, { status: 409 });
   }
 
+  // Free fraud check: reject a reused screenshot before spending anything on AI.
+  const screenshotHash = crypto.createHash("sha256").update(bytes).digest("hex");
+  const dup = await Submission.findOne({ screenshotHash });
+  if (dup) {
+    return Response.json({ error: "This screenshot has already been used." }, { status: 409 });
+  }
+
   // Upload the screenshot to Cloudinary (signed).
   let upload;
   try {
@@ -75,15 +90,27 @@ export async function POST(request) {
     return Response.json({ error: `Upload failed: ${e.message}` }, { status: 502 });
   }
 
+  // AI verification (OpenAI vision) — decides automatically.
+  const verdict = await verifyReviewScreenshot({
+    imageUrl: upload.url,
+    platform: PLATFORM_LABEL[campaign.platform] ?? campaign.platform,
+    businessName: campaign.name,
+  });
+
+  let submission;
   try {
-    await Submission.create({
+    submission = await Submission.create({
       campaign: campaign._id,
       reviewer: user.id,
       business: campaign.user,
       screenshotUrl: upload.url,
       screenshotPublicId: upload.publicId,
+      screenshotHash,
       note,
       status: "pending",
+      aiDecision: verdict.decision,
+      aiConfidence: verdict.confidence,
+      aiReason: verdict.reason,
     });
   } catch (e) {
     if (e?.code === 11000) {
@@ -92,5 +119,35 @@ export async function POST(request) {
     throw e;
   }
 
-  return Response.json({ ok: true });
+  const { reviewerReward } = await getSettings();
+
+  // Act on the AI verdict automatically.
+  if (verdict.decision === "approve") {
+    const outcome = await approveSubmission(submission._id, reviewerReward, { verifiedBy: "ai" });
+    if (outcome === "campaign_full") {
+      return Response.json({
+        ok: true,
+        status: "rejected",
+        reason: "This campaign already reached its review target — no reward this time.",
+      });
+    }
+    return Response.json({
+      ok: true,
+      status: "approved",
+      reward: reviewerReward,
+      reason: verdict.reason,
+    });
+  }
+
+  if (verdict.decision === "reject") {
+    await rejectSubmission(submission._id, verdict.reason || "Screenshot didn't pass AI verification.", { verifiedBy: "ai" });
+    return Response.json({ ok: true, status: "rejected", reason: verdict.reason });
+  }
+
+  // AI unavailable/uncertain — leave pending for manual admin verification.
+  return Response.json({
+    ok: true,
+    status: "pending",
+    reason: openaiConfigured() ? verdict.reason : "Submitted for review.",
+  });
 }

@@ -22,23 +22,10 @@ import Submission from "../../../models/Submission";
 import GmbReview from "../../../models/GmbReview";
 import WalletTransaction from "../../../models/WalletTransaction";
 import { inr } from "../../../lib/settings";
+import DonutChart from "../../../components/charts/DonutChart";
+import StatCard from "../../../components/shared/StatCard";
 
 export const metadata = { title: "Admin · ReviewHub", robots: { index: false } };
-
-function StatCard({ label, value, Icon, tone = "text-accent", sub }) {
-  return (
-    <div className="rounded-card border border-default bg-surface-raised p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-secondary">{label}</span>
-        <span className={`flex h-9 w-9 items-center justify-center rounded-lg bg-surface-sunken ${tone}`}>
-          <Icon className="h-5 w-5" aria-hidden="true" />
-        </span>
-      </div>
-      <p className="mt-3 text-3xl font-extrabold tracking-tight text-primary">{value}</p>
-      {sub && <p className="mt-1 text-xs text-muted">{sub}</p>}
-    </div>
-  );
-}
 
 function Section({ title, children }) {
   return (
@@ -49,8 +36,20 @@ function Section({ title, children }) {
   );
 }
 
+function ChartCard({ title, Icon, children }) {
+  return (
+    <div className="rounded-card border border-default bg-surface-raised p-6 shadow-sm transition-all duration-300 hover:shadow-md">
+      <h3 className="flex items-center gap-2 text-sm font-bold text-primary">
+        <Icon className="h-4 w-4 text-accent" aria-hidden="true" />
+        {title}
+      </h3>
+      <div className="mt-5">{children}</div>
+    </div>
+  );
+}
+
 export default async function AdminOverviewPage() {
-  const user = await requireAdmin();
+  await requireAdmin();
 
   await dbConnect();
 
@@ -94,10 +93,7 @@ export default async function AdminOverviewPage() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">Administration</h1>
-          <p className="mt-2 text-secondary">Signed in as {user.email}.</p>
-        </div>
+        
         {subsPending > 0 && (
           <Link
             href="/admin/verification"
@@ -111,35 +107,68 @@ export default async function AdminOverviewPage() {
       </div>
 
       <Section title="People">
-        <StatCard label="Businesses" value={businesses} Icon={Building2} />
-        <StatCard label="Reviewers" value={reviewers} Icon={UserRound} tone="text-verified" />
-        <StatCard label="Admins" value={admins} Icon={Users} tone="text-pending" />
-        <StatCard label="Total users" value={totalUsers} Icon={Users} />
+        <StatCard label="Businesses" value={businesses} Icon={Building2} href="/admin/organisations" />
+        <StatCard label="Reviewers" value={reviewers} Icon={UserRound} tone="text-verified" href="/admin/users?role=reviewer" />
+        <StatCard label="Admins" value={admins} Icon={Users} tone="text-pending" href="/admin/users?role=admin" />
+        <StatCard label="Total users" value={totalUsers} Icon={Users} href="/admin/users" />
       </Section>
 
       <Section title="Campaigns">
-        <StatCard label="Total campaigns" value={campaignsTotal} Icon={Megaphone} />
-        <StatCard label="Active" value={campaignsActive} Icon={PlayCircle} tone="text-verified" />
-        <StatCard label="Completed" value={campaignsCompleted} Icon={CheckCircle2} tone="text-accent" />
-        <StatCard label="Paused / draft" value={campaignsPaused} Icon={Clock} tone="text-pending" />
+        <StatCard label="Total campaigns" value={campaignsTotal} Icon={Megaphone} href="/admin/campaigns" />
+        <StatCard label="Active" value={campaignsActive} Icon={PlayCircle} tone="text-verified" href="/admin/campaigns?status=active" />
+        <StatCard label="Completed" value={campaignsCompleted} Icon={CheckCircle2} tone="text-accent" href="/admin/campaigns?status=completed" />
+        <StatCard label="Paused / draft" value={campaignsPaused} Icon={Clock} tone="text-pending" href="/admin/campaigns?status=paused" />
       </Section>
 
       <Section title="Reviews & verification">
-        <StatCard label="Submissions" value={subsTotal} Icon={FileCheck2} sub={`${totalCollected}/${totalTarget} target collected`} />
-        <StatCard label="Pending" value={subsPending} Icon={Clock} tone="text-pending" />
-        <StatCard label="Approved" value={subsApproved} Icon={ThumbsUp} tone="text-verified" />
-        <StatCard label="Rejected" value={subsRejected} Icon={ThumbsDown} tone="text-danger" />
+        <StatCard label="Submissions" value={subsTotal} Icon={FileCheck2} sub={`${totalCollected}/${totalTarget} target collected`} href="/admin/verification?tab=all" />
+        <StatCard label="Pending" value={subsPending} Icon={Clock} tone="text-pending" href="/admin/verification" />
+        <StatCard label="Approved" value={subsApproved} Icon={ThumbsUp} tone="text-verified" href="/admin/verification?tab=approved" />
+        <StatCard label="Rejected" value={subsRejected} Icon={ThumbsDown} tone="text-danger" href="/admin/verification?tab=rejected" />
       </Section>
 
       <Section title="Platform">
-        <StatCard label="Google reviews fetched" value={reviewsFetched} Icon={Star} />
-        <StatCard label="Rewards paid to reviewers" value={inr(rewardsPaid)} Icon={Wallet} tone="text-verified" />
+        <StatCard label="Google reviews fetched" value={reviewsFetched} Icon={Star} href="/admin/organisations" />
+        <StatCard label="Rewards paid to reviewers" value={inr(rewardsPaid)} Icon={Wallet} tone="text-verified" href="/admin/users?role=reviewer" />
       </Section>
 
-      <p className="mt-8 rounded-card border border-default bg-surface-sunken p-4 text-sm text-secondary">
-        Admin sessions last 8 hours, not 30 days like user sessions. You&apos;ll be asked to sign in
-        again after that.
-      </p>
+      <section className="mt-8">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">At a glance</h2>
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <ChartCard title="People" Icon={Users}>
+            <DonutChart
+              centerLabel="users"
+              segments={[
+                { label: "Businesses", value: businesses, color: "var(--accent)" },
+                { label: "Reviewers", value: reviewers, color: "var(--verified)" },
+                { label: "Admins", value: admins, color: "var(--pending)" },
+              ]}
+            />
+          </ChartCard>
+
+          <ChartCard title="Campaign status" Icon={Megaphone}>
+            <DonutChart
+              centerLabel="campaigns"
+              segments={[
+                { label: "Active", value: campaignsActive, color: "var(--verified)" },
+                { label: "Completed", value: campaignsCompleted, color: "var(--accent)" },
+                { label: "Paused / draft", value: campaignsPaused, color: "var(--pending)" },
+              ]}
+            />
+          </ChartCard>
+
+          <ChartCard title="Submission status" Icon={FileCheck2}>
+            <DonutChart
+              centerLabel="submissions"
+              segments={[
+                { label: "Approved", value: subsApproved, color: "var(--verified)" },
+                { label: "Pending", value: subsPending, color: "var(--pending)" },
+                { label: "Rejected", value: subsRejected, color: "var(--danger)" },
+              ]}
+            />
+          </ChartCard>
+        </div>
+      </section>
     </div>
   );
 }

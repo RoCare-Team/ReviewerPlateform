@@ -4,6 +4,7 @@ import {
   Building2,
   Coins,
   CreditCard,
+  Landmark,
   LayoutDashboard,
   Link2,
   Megaphone,
@@ -52,20 +53,22 @@ const ICONS = {
   moderation: ShieldCheck,
   payments: CreditCard,
   trust: ShieldAlert,
+  withdraw: Landmark,
 };
 
 function NavLink({ item, active, onNavigate }) {
   // Unknown key renders text-only rather than crashing the whole panel.
   const Icon = ICONS[item.icon];
-  const icon = Icon ? <Icon className="h-4 w-4 shrink-0" aria-hidden="true" /> : null;
 
   if (item.soon) {
     return (
       <span
         aria-disabled="true"
-        className="flex cursor-default items-center gap-2.5 rounded-btn px-3 py-2 text-sm text-muted"
+        className="flex cursor-default items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted"
       >
-        {icon}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-sunken">
+          {Icon && <Icon className="h-4 w-4" aria-hidden="true" />}
+        </span>
         <span className="flex-1">{item.label}</span>
         <span className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide">
           Soon
@@ -79,13 +82,26 @@ function NavLink({ item, active, onNavigate }) {
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      className={
+      className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
         active
-          ? "flex items-center gap-2.5 rounded-btn bg-accent-subtle px-3 py-2 text-sm font-medium text-accent"
-          : "flex items-center gap-2.5 rounded-btn px-3 py-2 text-sm text-secondary transition hover:bg-surface-sunken hover:text-primary"
-      }
+          ? "bg-accent-subtle font-semibold text-accent"
+          : "font-medium text-secondary hover:translate-x-0.5 hover:bg-surface-sunken hover:text-primary"
+      }`}
     >
-      {icon}
+      {/* Active indicator — a soft bar that fades/slides in rather than snapping */}
+      <span
+        aria-hidden="true"
+        className={`absolute -left-2 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-accent transition-all duration-200 ${
+          active ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-200 ${
+          active ? "bg-accent text-on-brand" : "bg-surface-sunken text-secondary group-hover:text-primary"
+        }`}
+      >
+        {Icon && <Icon className="h-4 w-4" aria-hidden="true" />}
+      </span>
       {item.label}
     </Link>
   );
@@ -144,18 +160,21 @@ export default function AppShell({
 
   const sidebar = (
     <>
-      <div className="flex items-center gap-2 px-3 py-4">
-        <Link href={nav[0]?.href ?? "/"} className="font-semibold tracking-tight text-primary">
+      <div className="flex items-center gap-2.5 border-b border-default px-4 py-4">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-sm font-bold text-on-brand">
+          {brand.charAt(0)}
+        </span>
+        <Link href={nav[0]?.href ?? "/"} className="text-base font-bold tracking-tight text-primary">
           {brand}
         </Link>
         {badge && (
-          <span className="rounded bg-danger-subtle px-1.5 py-0.5 text-xs font-medium text-danger">
+          <span className="rounded bg-danger-subtle px-1.5 py-0.5 text-xs font-semibold text-danger">
             {badge}
           </span>
         )}
       </div>
 
-      <nav aria-label="Sidebar" className="flex flex-1 flex-col gap-1 px-2">
+      <nav aria-label="Sidebar" className="flex flex-1 flex-col gap-1.5 px-3 pt-4">
         {nav.map((item) => (
           <NavLink
             key={item.href}
@@ -167,10 +186,18 @@ export default function AppShell({
       </nav>
 
       <div className="border-t border-default p-3">
-        <p className="truncate px-1 pb-2 text-xs text-muted" title={user.email}>
-          {user.email}
-        </p>
-        <SignOutButton callbackUrl={signOutTo} />
+        <div className="flex items-center gap-2.5 rounded-xl px-2 py-2">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-xs font-bold text-accent">
+            {initial}
+          </span>
+          <div className="min-w-0">
+            {user.name && <p className="truncate text-sm font-semibold text-primary">{user.name}</p>}
+            <p className="truncate text-xs text-muted" title={user.email}>{user.email}</p>
+          </div>
+        </div>
+        <div className="mt-1">
+          <SignOutButton callbackUrl={signOutTo} />
+        </div>
       </div>
     </>
   );

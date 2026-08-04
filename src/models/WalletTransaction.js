@@ -10,7 +10,7 @@ const WalletTransactionSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     amount: { type: Number, required: true }, // + credit, - debit
-    type: { type: String, enum: ["topup", "spend", "refund", "reward"], default: "topup" },
+    type: { type: String, enum: ["topup", "spend", "refund", "reward", "withdrawal"], default: "topup" },
     note: { type: String, default: "" },
 
     // Set only when an ADMIN moved money on someone else's behalf. Null for a

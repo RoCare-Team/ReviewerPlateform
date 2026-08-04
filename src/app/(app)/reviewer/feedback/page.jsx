@@ -1,10 +1,10 @@
-import Image from "next/image";
 import { requireRole } from "../../../../lib/auth/guards";
 import { ROLES } from "../../../../lib/auth/roles";
 import dbConnect from "../../../../lib/db";
 import Submission from "../../../../models/Submission";
 import Campaign from "../../../../models/Campaign";
 import { inr } from "../../../../lib/settings";
+import ScreenshotViewer from "../../../../components/shared/ScreenshotViewer";
 
 export const metadata = { title: "My submissions · ReviewHub" };
 
@@ -35,16 +35,7 @@ export default async function ReviewerFeedbackPage() {
               <li key={String(s._id)} className="rounded-card border border-default bg-surface-raised p-5 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
-                    <a href={s.screenshotUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                      <Image
-                        src={s.screenshotUrl}
-                        alt="Review screenshot"
-                        width={64}
-                        height={64}
-                        className="h-16 w-16 rounded-btn border border-default object-cover"
-                        unoptimized
-                      />
-                    </a>
+                    <ScreenshotViewer url={s.screenshotUrl} alt="Review screenshot" size={64} />
                     <div>
                       <p className="text-sm font-bold text-primary">{c?.name ?? "Campaign"}</p>
                       <p className="text-xs capitalize text-muted">{c?.platform ?? ""} · {new Date(s.createdAt).toLocaleDateString("en-IN")}</p>

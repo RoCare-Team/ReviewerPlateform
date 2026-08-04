@@ -7,7 +7,7 @@ import Hero from "../components/site/Hero";
 import HowItProfits from "../components/site/HowItProfits";
 import LogoMarquee from "../components/site/LogoMarquee";
 import PopularServices from "../components/site/PopularServices";
-import Pricing from "../components/site/Pricing";
+// import Pricing from "../components/site/Pricing";
 import Services from "../components/site/Services";
 import Stats from "../components/site/Stats";
 import SiteFooter from "../components/site/SiteFooter";
@@ -87,7 +87,7 @@ export default function Home() {
         <Stats />
         <PopularServices />
         <HowItProfits />
-        <Pricing />
+        {/* <Pricing /> */}
         <Testimonials />
         <Faq />
 

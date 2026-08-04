@@ -8,34 +8,56 @@ import VerificationQueue from "../../../../components/admin/VerificationQueue";
 
 export const metadata = { title: "Verification · Admin", robots: { index: false } };
 
-export default async function AdminVerificationPage() {
+export default async function AdminVerificationPage({ searchParams }) {
   await requireAdmin();
   await dbConnect();
 
+  const params = await searchParams;
+  const initialTab = ["pending", "approved", "rejected", "all"].includes(params?.tab) ? params.tab : "pending";
+
   const settings = await getSettings();
-  const subs = await Submission.find({ status: "pending" }).sort({ createdAt: 1 }).lean();
+  // Every submission, not just the ones still awaiting a human — the AI
+  // verifier decides most of these automatically at submit time, and an
+  // admin still needs to see what it decided, not just the leftover
+  // pending/uncertain cases.
+  const subs = await Submission.find({})
+    .select("screenshotUrl note status verifiedBy aiDecision aiConfidence aiReason rejectionReason campaign reviewer reviewedBy createdAt reviewedAt")
+    .sort({ createdAt: -1 })
+    .lean();
 
   const campaigns = await Campaign.find({ _id: { $in: subs.map((s) => s.campaign) } })
     .select("name platform targetUrl").lean();
   const reviewers = await User.find({ _id: { $in: subs.map((s) => s.reviewer) } })
     .select("name email").lean();
+  const admins = await User.find({ _id: { $in: subs.map((s) => s.reviewedBy).filter(Boolean) } })
+    .select("name email").lean();
 
   const cMap = new Map(campaigns.map((c) => [String(c._id), c]));
   const rMap = new Map(reviewers.map((r) => [String(r._id), r]));
+  const aMap = new Map(admins.map((a) => [String(a._id), a]));
 
   const submissions = subs.map((s) => {
     const c = cMap.get(String(s.campaign));
     const r = rMap.get(String(s.reviewer));
+    const reviewedByAdmin = s.reviewedBy ? aMap.get(String(s.reviewedBy)) : null;
     return {
       id: String(s._id),
       screenshotUrl: s.screenshotUrl,
       note: s.note,
+      status: s.status,
+      verifiedBy: s.verifiedBy || "",
+      aiDecision: s.aiDecision || "",
+      aiConfidence: s.aiConfidence || 0,
+      aiReason: s.aiReason || "",
+      rejectionReason: s.rejectionReason || "",
+      reviewedByName: reviewedByAdmin ? (reviewedByAdmin.name || reviewedByAdmin.email) : "",
       campaignName: c?.name ?? "Campaign",
       platform: c?.platform ?? "",
       targetUrl: c?.targetUrl ?? "",
       reviewerName: r?.name ?? "",
       reviewerEmail: r?.email ?? "",
       date: new Date(s.createdAt).toLocaleString("en-IN"),
+      reviewedDate: s.reviewedAt ? new Date(s.reviewedAt).toLocaleString("en-IN") : "",
     };
   });
 
@@ -47,12 +69,8 @@ export default async function AdminVerificationPage() {
         counts toward the campaign target.
       </p>
 
-      <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-pending-subtle px-3 py-1.5 text-sm font-semibold text-pending">
-        {submissions.length} pending
-      </div>
-
-      <div className="mt-6">
-        <VerificationQueue submissions={submissions} reward={settings.reviewerReward} />
+      <div className="mt-8">
+        <VerificationQueue submissions={submissions} reward={settings.reviewerReward} initialTab={initialTab} />
       </div>
     </div>
   );

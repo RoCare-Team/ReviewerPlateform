@@ -7,7 +7,7 @@ import AppSettings from "../models/AppSettings";
  * the whole app follows. Falls back to schema defaults if the singleton doesn't
  * exist yet (first run).
  */
-export const PRICING_DEFAULTS = { reviewRate: 100, reviewerReward: 50, currency: "INR" };
+export const PRICING_DEFAULTS = { reviewRate: 100, reviewerReward: 50, minWithdrawal: 50, currency: "INR" };
 
 export async function getSettings() {
   await dbConnect();
@@ -19,6 +19,7 @@ export async function getSettings() {
   return {
     reviewRate: doc?.reviewRate ?? PRICING_DEFAULTS.reviewRate,
     reviewerReward: doc?.reviewerReward ?? PRICING_DEFAULTS.reviewerReward,
+    minWithdrawal: doc?.minWithdrawal ?? PRICING_DEFAULTS.minWithdrawal,
     currency: doc?.currency ?? PRICING_DEFAULTS.currency,
   };
 }
@@ -33,6 +34,7 @@ export async function updateSettings(patch) {
   return {
     reviewRate: doc.reviewRate,
     reviewerReward: doc.reviewerReward,
+    minWithdrawal: doc.minWithdrawal,
     currency: doc.currency,
   };
 }

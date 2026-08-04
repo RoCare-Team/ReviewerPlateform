@@ -43,7 +43,7 @@ export default async function LoginPage({ searchParams }) {
 
       <div className="my-6 flex items-center gap-3">
         <span className="h-px flex-1 bg-default" />
-        <span className="text-xs text-muted">OR</span>
+        <span className="text-xs font-semibold tracking-wide text-muted">OR</span>
         <span className="h-px flex-1 bg-default" />
       </div>
 

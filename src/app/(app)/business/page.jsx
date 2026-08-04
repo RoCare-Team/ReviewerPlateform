@@ -82,18 +82,32 @@ export default async function BusinessOverviewPage() {
 
   // campaignId → { pending, approved, rejected }
   const subsByCampaign = new Map();
+  const overallSubs = { pending: 0, approved: 0, rejected: 0 };
   for (const row of submissionAgg) {
     const id = String(row._id.campaign);
     const entry = subsByCampaign.get(id) ?? { pending: 0, approved: 0, rejected: 0 };
     entry[row._id.status] = row.count;
     subsByCampaign.set(id, entry);
+    overallSubs[row._id.status] += row.count;
   }
+
+  // Account-wide budget consumption — same per-campaign rule (collected × the
+  // campaign's own stored rate) summed across every campaign.
+  const overallUsed = campaigns.reduce((s, c) => {
+    const rate = c.ratePerReview ?? settings.reviewRate;
+    return s + Math.min(c.budget ?? 0, (c.collected ?? 0) * rate);
+  }, 0);
 
   // "All campaigns" view — account-wide figures, unchanged from before.
   const overall = {
     id: null,
     collected,
     target,
+    approved: overallSubs.approved,
+    pending: overallSubs.pending,
+    rejected: overallSubs.rejected,
+    budget: spend,
+    budgetUsed: overallUsed,
     stats: [
       { key: "activeCampaigns", label: "Active campaigns", value: String(activeCampaigns) },
       { key: "reviewsFetched", label: "Reviews fetched", value: String(reviewCount) },
@@ -128,6 +142,11 @@ export default async function BusinessOverviewPage() {
       rateDisplay: inr(rate),
       collected: c.collected ?? 0,
       target: c.targetReviews ?? 0,
+      approved: subs.approved,
+      pending: subs.pending,
+      rejected: subs.rejected,
+      budget,
+      budgetUsed: used,
       stats: [
         { key: "target", label: "Target reviews", value: String(c.targetReviews ?? 0) },
         {
@@ -218,64 +237,7 @@ export default async function BusinessOverviewPage() {
             )}
           </div>
         </div>
-
-        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-accent-border/60 pt-4">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted">More platforms</span>
-          {["Trustpilot", "Capterra", "G2", "Amazon"].map((p) => (
-            <span key={p} className="inline-flex items-center gap-1.5 rounded-full border border-default bg-surface px-3 py-1 text-xs font-semibold text-secondary">
-              <Plus className="h-3 w-3" aria-hidden="true" />
-              {p}
-              <span className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">Soon</span>
-            </span>
-          ))}
-        </div>
       </div>
-
-      {/* 3. Reviews — only when GMB is connected */}
-      {gmbConnected && (
-        <div className="mt-10">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-primary">Recent Google reviews</h2>
-            <Link href="/business/reviews" className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline">
-              View all
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
-          </div>
-
-          {recentReviews.length === 0 ? (
-            <div className="mt-4 rounded-card border border-dashed border-default bg-surface-raised p-8 text-center">
-              <p className="text-sm text-secondary">
-                No reviews synced yet. Go to <Link href="/business/reviews" className="font-semibold text-accent hover:underline">Reviews</Link> and hit Sync.
-              </p>
-            </div>
-          ) : (
-            <ul className="mt-4 space-y-3">
-              {recentReviews.map((v) => (
-                <li key={String(v._id)} className="rounded-card border border-default bg-surface-raised p-4 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-subtle text-sm font-bold text-accent">
-                        {(v.reviewerName || "?").charAt(0)}
-                      </span>
-                      <div>
-                        <p className="text-sm font-bold text-primary">{v.reviewerName || "Anonymous"}</p>
-                        <p className="text-xs text-muted">
-                          Google{v.createTime ? ` · ${new Date(v.createTime).toLocaleDateString("en-IN")}` : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="inline-flex items-center gap-1 font-semibold text-primary">
-                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />
-                      {v.starRating}
-                    </span>
-                  </div>
-                  {v.comment && <p className="mt-2 line-clamp-2 text-sm text-secondary">{v.comment}</p>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
     </div>
   );
 }

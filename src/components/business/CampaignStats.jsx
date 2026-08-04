@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock,
   Coins,
+  FileCheck2,
   IndianRupee,
   MapPin,
   Megaphone,
@@ -13,6 +14,8 @@ import {
   Wallet,
   XCircle,
 } from "lucide-react";
+import DonutChart from "../charts/DonutChart";
+import StatCard from "../shared/StatCard";
 
 /**
  * Overview stats, scoped by campaign. "All campaigns" is the default; clicking a
@@ -35,41 +38,73 @@ const STATUS_STYLES = {
 // references across the server→client boundary isn't possible, so the server
 // sends plain keys and the mapping lives here.
 const TILE = {
-  activeCampaigns: { Icon: Megaphone, tone: "text-accent" },
-  reviewsFetched: { Icon: MessageSquare, tone: "text-accent" },
-  target: { Icon: Target, tone: "text-verified" },
-  locations: { Icon: MapPin, tone: "text-accent" },
-  spend: { Icon: IndianRupee, tone: "text-accent" },
-  wallet: { Icon: Wallet, tone: "text-accent" },
-  collected: { Icon: CheckCircle2, tone: "text-verified" },
-  pending: { Icon: Clock, tone: "text-pending" },
-  rejected: { Icon: XCircle, tone: "text-danger" },
-  budgetUsed: { Icon: Coins, tone: "text-accent" },
+  activeCampaigns: { Icon: Megaphone, tone: "text-accent", href: "/business/campaigns" },
+  reviewsFetched: { Icon: MessageSquare, tone: "text-accent", href: "/business/reviews" },
+  target: { Icon: Target, tone: "text-verified", href: "/business/campaigns" },
+  locations: { Icon: MapPin, tone: "text-accent", href: "/business/connections" },
+  spend: { Icon: IndianRupee, tone: "text-accent", href: "/business/campaigns" },
+  wallet: { Icon: Wallet, tone: "text-accent", href: "/business/settings" },
+  collected: { Icon: CheckCircle2, tone: "text-verified", href: "/business/campaigns" },
+  pending: { Icon: Clock, tone: "text-pending", href: "/business/feedback" },
+  rejected: { Icon: XCircle, tone: "text-danger", href: "/business/feedback" },
+  budgetUsed: { Icon: Coins, tone: "text-accent", href: "/business/campaigns" },
 };
 
 function StatGrid({ stats }) {
   return (
     <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {stats.map(({ key, label, value, hint }, i) => {
-        const { Icon, tone } = TILE[key] ?? TILE.target;
-        return (
-          <div
-            key={key}
-            style={{ animationDelay: `${i * 45}ms` }}
-            className="animate-fade-up group rounded-card border border-default bg-surface-raised p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-md"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-secondary">{label}</span>
-              <Icon
-                className={`h-5 w-5 ${tone} transition-transform duration-300 group-hover:scale-110`}
-                aria-hidden="true"
-              />
-            </div>
-            <p className="nums mt-3 text-3xl font-extrabold tracking-tight text-primary">{value}</p>
-            {hint ? <p className="mt-1 text-xs text-muted">{hint}</p> : null}
-          </div>
-        );
+      {stats.map(({ key, label, value, hint }) => {
+        const { Icon, tone, href } = TILE[key] ?? TILE.target;
+        return <StatCard key={key} label={label} value={value} Icon={Icon} tone={tone} href={href} sub={hint} />;
       })}
+    </div>
+  );
+}
+
+function ChartsRow({ approved, pending, rejected, budget, budgetUsed }) {
+  const hasSubs = (approved ?? 0) + (pending ?? 0) + (rejected ?? 0) > 0;
+  const hasBudget = (budget ?? 0) > 0;
+
+  if (!hasSubs && !hasBudget) return null;
+
+  return (
+    <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      {hasSubs && (
+        <div className="rounded-card border border-default bg-surface-raised p-6 shadow-sm">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-primary">
+            <FileCheck2 className="h-4 w-4 text-accent" aria-hidden="true" />
+            Submission status
+          </h3>
+          <div className="mt-5">
+            <DonutChart
+              centerLabel="submissions"
+              segments={[
+                { label: "Approved", value: approved, color: "var(--verified)" },
+                { label: "Pending", value: pending, color: "var(--pending)" },
+                { label: "Rejected", value: rejected, color: "var(--danger)" },
+              ]}
+            />
+          </div>
+        </div>
+      )}
+
+      {hasBudget && (
+        <div className="rounded-card border border-default bg-surface-raised p-6 shadow-sm">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-primary">
+            <IndianRupee className="h-4 w-4 text-accent" aria-hidden="true" />
+            Budget usage
+          </h3>
+          <div className="mt-5">
+            <DonutChart
+              centerLabel="₹ total"
+              segments={[
+                { label: "Used", value: Math.round(budgetUsed ?? 0), color: "var(--accent)" },
+                { label: "Remaining", value: Math.max(0, Math.round(budget - (budgetUsed ?? 0))), color: "var(--border-strong)" },
+              ]}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -115,9 +150,9 @@ export default function CampaignStats({ overall, campaigns }) {
   return (
     <section aria-label="Overview statistics">
       {campaigns.length > 0 && (
-        <>
+        <div className="rounded-card border border-default bg-surface-raised p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-primary">Showing stats for</h2>
+            <h2 className="text-sm font-semibold text-secondary">Showing stats for</h2>
             {selected ? (
               <span
                 className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
@@ -134,7 +169,7 @@ export default function CampaignStats({ overall, campaigns }) {
           <div
             role="tablist"
             aria-label="Filter stats by campaign"
-            className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-2"
+            className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1"
           >
             <button
               type="button"
@@ -144,7 +179,7 @@ export default function CampaignStats({ overall, campaigns }) {
               className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                 selected === null
                   ? "border-transparent bg-accent text-on-brand shadow-sm"
-                  : "border-default bg-surface text-secondary hover:border-accent/40 hover:text-primary"
+                  : "border-default bg-surface text-secondary hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary"
               }`}
             >
               All campaigns
@@ -162,7 +197,7 @@ export default function CampaignStats({ overall, campaigns }) {
                   className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                     isActive
                       ? "border-transparent bg-accent text-on-brand shadow-sm"
-                      : "border-default bg-surface text-secondary hover:border-accent/40 hover:text-primary"
+                      : "border-default bg-surface text-secondary hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary"
                   }`}
                 >
                   {c.name}
@@ -170,7 +205,7 @@ export default function CampaignStats({ overall, campaigns }) {
               );
             })}
           </div>
-        </>
+        </div>
       )}
 
       {selected ? (
@@ -185,6 +220,15 @@ export default function CampaignStats({ overall, campaigns }) {
           enter transition — without it the numbers swap with no visible change
           and the click feels like it did nothing. */}
       <StatGrid key={view.id ?? "all"} stats={view.stats} />
+
+      <ChartsRow
+        key={`charts-${view.id ?? "all"}`}
+        approved={view.approved}
+        pending={view.pending}
+        rejected={view.rejected}
+        budget={view.budget}
+        budgetUsed={view.budgetUsed}
+      />
 
       <Progress collected={view.collected} target={view.target} />
     </section>

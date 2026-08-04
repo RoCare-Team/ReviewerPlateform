@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { User, Mail } from "lucide-react";
 import { Label, Input, FieldError, FormError, SubmitButton } from "./Field";
 import PasswordField from "./PasswordField";
+import Toast from "../shared/Toast";
+
+const ROLE_LABEL = { reviewer: "reviewer", business_owner: "business" };
 
 /**
  * `role` picks the ENDPOINT, not a payload field:
@@ -25,6 +28,7 @@ export default function SignupForm({ role }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
+  const [toast, setToast] = useState("");
 
   const endpoint = ENDPOINT[role];
 
@@ -51,6 +55,12 @@ export default function SignupForm({ role }) {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
+      if (data.error === "cross_role") {
+        const label = ROLE_LABEL[data.role] ?? "different";
+        setToast(`You already have a ${label} account with this email. Redirecting to login…`);
+        setTimeout(() => router.push("/login"), 2500);
+        return;
+      }
       if (data.details) setFieldErrors(data.details);
       else setError(data.error ?? "Something went wrong. Please try again.");
       return;
@@ -63,6 +73,7 @@ export default function SignupForm({ role }) {
 
   return (
     <form onSubmit={onSubmit} noValidate>
+      <Toast message={toast} tone="info" duration={0} onClose={() => setToast("")} />
       <FormError>{error}</FormError>
 
       <div className="space-y-4">

@@ -18,6 +18,7 @@ const schema = z
   .object({
     reviewRate: z.number().int().positive().max(100000),
     reviewerReward: z.number().int().positive().max(100000),
+    minWithdrawal: z.number().int().positive().max(100000),
   })
   .strict();
 

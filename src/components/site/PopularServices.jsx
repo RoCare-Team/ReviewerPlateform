@@ -10,19 +10,20 @@ import { getCities } from "../../lib/cities";
  * is a photo + city name and links to its /services/[city] detail page. Data
  * comes from src/lib/cities.js so the cards and the detail pages can't drift.
  *
- * The track is rendered twice and animated with the shared `marquee-track`
- * utility (globals.css), which translates -50% for a seamless loop. Hover pauses
- * it; reduced-motion users get a static row.
+ * The track is rendered twice and both copies sit inside ONE animated wrapper
+ * (the `marquee-track` utility from globals.css), which translates the whole
+ * pair -50% for a seamless loop. The animation and its hover-pause MUST live
+ * on that shared wrapper, not on each copy individually — two independently
+ * animated/paused copies drift out of sync the moment only one of them is
+ * hovered, which is what made the scroll look janky. Reduced-motion users get
+ * a static row.
  */
 
 // One copy of the card row. The second copy is aria-hidden so the loop reads as
 // a single list to assistive tech.
 function Track({ cities, hidden }) {
   return (
-    <ul
-      aria-hidden={hidden || undefined}
-      className="marquee-track flex shrink-0 items-stretch gap-5 pr-5 transition-transform hover:[animation-play-state:paused] focus-within:[animation-play-state:paused]"
-    >
+    <ul aria-hidden={hidden || undefined} className="flex shrink-0 items-stretch gap-5 pr-5">
       {cities.map((city) => (
         <li key={city.slug} className="shrink-0">
           <Link
@@ -76,10 +77,14 @@ export default function PopularServices() {
         </Reveal>
       </Container>
 
-      {/* Auto-scrolling marquee — track duplicated for a seamless -50% loop. */}
-      <div className="marquee-mask relative mt-12 flex overflow-hidden py-2">
-        <Track cities={cities} />
-        <Track cities={cities} hidden />
+      {/* Auto-scrolling marquee — track duplicated for a seamless -50% loop.
+          Animation + hover/focus pause live on THIS wrapper so both copies
+          always move (and pause) together, never independently. */}
+      <div className="marquee-mask relative mt-12 overflow-hidden py-2">
+        <div className="marquee-track flex transition-transform hover:[animation-play-state:paused] focus-within:[animation-play-state:paused]">
+          <Track cities={cities} />
+          <Track cities={cities} hidden />
+        </div>
       </div>
     </section>
   );

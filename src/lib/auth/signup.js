@@ -58,9 +58,21 @@ export async function createUserForRole(request, role) {
 
   const existing = await User.findOne({ email });
 
-  // ★ NO ENUMERATION. An existing email returns exactly the same body and status
-  // as a fresh signup — otherwise /signup becomes a "does this person have a
-  // ReviewHub account" oracle for anyone with a list of emails.
+  // Deliberate, narrow exception to the anti-enumeration rule below: someone
+  // who already has a BUSINESS account trying to sign up as a REVIEWER (or
+  // vice versa) is told so directly and pointed at /login, instead of being
+  // silently sent through a "verify OTP" flow for an account role they can't
+  // actually use. This does leak "this email has an account, just not this
+  // kind" — accepted tradeoff, product decision — but it does NOT leak
+  // same-role existence (see the generic branch just below, unchanged).
+  if (existing && existing.role !== role) {
+    return Response.json({ error: "cross_role", role: existing.role }, { status: 409 });
+  }
+
+  // ★ NO ENUMERATION (same-role only). An existing email returns exactly the
+  // same body and status as a fresh signup — otherwise /signup becomes a
+  // "does this person have a ReviewHub account" oracle for anyone with a list
+  // of emails.
   if (existing) {
     if (!existing.emailVerified) {
       // Unverified row: re-send a code so a user who abandoned signup isn't locked

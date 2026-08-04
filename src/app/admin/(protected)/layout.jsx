@@ -15,11 +15,11 @@ import { requireAdmin } from "../../../lib/auth/guards";
 const NAV = [
   { href: "/admin", label: "Overview", icon: "dashboard" },
   { href: "/admin/verification", label: "Verification", icon: "moderation" },
+  { href: "/admin/withdrawals", label: "Withdrawals", icon: "withdraw" },
   { href: "/admin/campaigns", label: "Campaigns", icon: "campaigns" },
   { href: "/admin/users", label: "Users", icon: "users" },
   { href: "/admin/organisations", label: "Businesses", icon: "organisations" },
   { href: "/admin/pricing", label: "Pricing", icon: "payments" },
-  { href: "/admin/trust-safety", label: "Trust & Safety", icon: "trust", soon: true },
 ];
 
 export default async function ProtectedAdminLayout({ children }) {

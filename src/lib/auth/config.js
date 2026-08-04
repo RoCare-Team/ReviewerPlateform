@@ -38,8 +38,31 @@ export const authConfig = {
       const email = profile.email.toLowerCase();
       const existing = await User.findOne({ email });
 
+      // Read the signup-page intent early — needed both for the cross-role
+      // check on an EXISTING user below, and for the new-user branch further
+      // down. Only set when the user actually started from /signup/reviewer
+      // or /signup/business; a plain "Continue with Google" from /login sets
+      // nothing, so an existing user always just logs into their real account
+      // there, whatever its role — no mismatch check applies to plain login.
+      const jar = await cookies();
+      const intent = jar.get(SIGNUP_ROLE_COOKIE)?.value;
+
       if (existing) {
         if (existing.status === "suspended") return "/auth-error?e=suspended";
+
+        // Someone on /signup/reviewer (or /signup/business) whose Google
+        // email already has an account under the OTHER role. Block the
+        // sign-in here — completing it would silently log them into an
+        // account of a different type than the page they meant to join —
+        // and send them to the signup picker with a clear notice + a
+        // redirect to /login instead. Deliberate, narrow exception to
+        // enumeration-avoidance, same tradeoff as the credentials signup
+        // path in lib/auth/signup.js: this only reveals "wrong role", never
+        // same-role existence.
+        if (intent && canSelfSignup(intent) && intent !== existing.role) {
+          jar.delete(SIGNUP_ROLE_COOKIE);
+          return `/signup?e=cross_role&role=${existing.role}`;
+        }
 
         // Admin must never come in through Google. An OAuth compromise must not
         // reach the admin panel.
@@ -93,10 +116,8 @@ export const authConfig = {
       }
 
       // New user via Google. Role comes from the signup route the user came
-      // through, never from anything Google or the client sent.
-      const jar = await cookies();
-      const intent = jar.get(SIGNUP_ROLE_COOKIE)?.value;
-
+      // through (`intent`, read above), never from anything Google or the
+      // client sent.
       if (!intent || !canSelfSignup(intent)) {
         // Hit "Continue with Google" on /login with no account: we cannot guess
         // whether they're a reviewer or a business. Send them to pick.

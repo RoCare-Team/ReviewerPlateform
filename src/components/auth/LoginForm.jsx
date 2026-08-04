@@ -70,7 +70,7 @@ export default function LoginForm({ scope = "user", requireTotp = false }) {
       <div className="space-y-4">
         <div>
           <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" required icon={Mail} />
+          <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required icon={Mail} />
         </div>
 
         <PasswordField autoComplete="current-password" />

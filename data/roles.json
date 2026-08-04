@@ -34,11 +34,12 @@
   },
 
   "permissions": {
-    "$comment": "reviewer is deliberately scoped to feedback:submit (private, first-party feedback) — NOT review:post-external, NOT reward:withdraw. Nothing here conditions money on something appearing publicly on Google. This array is where the compliance posture actually lives; changing it is a product decision, not a refactor.",
+    "$comment": "reviewer is deliberately scoped to feedback:submit (private, first-party feedback) — NOT review:post-external. Nothing here conditions money on something appearing publicly on Google. reward:withdraw only lets a reviewer cash out their OWN already-verified wallet balance (see src/app/api/reviewer/withdrawals) — still never gated on rating or content. This array is where the compliance posture actually lives; changing it is a product decision, not a refactor.",
     "reviewer": [
       "feedback:submit",
       "profile:read",
-      "profile:update"
+      "profile:update",
+      "reward:withdraw"
     ],
     "business_owner": [
       "campaign:*",

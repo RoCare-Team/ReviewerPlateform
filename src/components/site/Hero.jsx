@@ -11,6 +11,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Container from "./Container";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import ContactModal from "../models/ContactModal";
 
 /**
@@ -65,6 +66,11 @@ const LOGOS = [
 export default function Hero() {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
+    // Signed-in visitor lands back on this marketing page (e.g. via logo
+    // click) → the CTA should send them to their dashboard, not back through
+    // signup. Cosmetic only, same caveat as SiteHeader.
+    const { data: session } = useSession();
+    const isLoggedIn = Boolean(session?.user);
 
   return (
     <section className="relative flex min-h-[calc(100dvh-var(--header-h))] items-center overflow-hidden bg-background">
@@ -121,10 +127,10 @@ export default function Hero() {
           {/* Call to Actions */}
           <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
             <Link
-              href="/signup/business"
+              href={isLoggedIn ? "/post-login" : "/signup/business"}
               className="group inline-flex items-center justify-center gap-2 rounded-btn bg-accent px-6 py-3.5 text-center font-semibold text-on-brand shadow-sm transition-all duration-200 hover:bg-accent-hover hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
             >
-              Start free trial
+              {isLoggedIn ? "Go to dashboard" : "Start free trial"}
               <ArrowRight
                 className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1"
                 aria-hidden="true"

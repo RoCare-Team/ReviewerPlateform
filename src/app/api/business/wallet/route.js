@@ -1,22 +1,16 @@
-import { z } from "zod";
 import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import WalletTransaction from "../../../../models/WalletTransaction";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 
 /**
- * Wallet top-up. Guarded by wallet:* (business owners), scoped to the session
- * user. This is a MOCK top-up — it credits the balance immediately without a
- * payment gateway. A real Razorpay flow would credit only after the payment
- * webhook confirms capture; the ledger shape here is ready for that.
+ * Wallet read. Top-up (POST) is disabled for now — no payment gateway is
+ * wired up, so businesses can't self-credit their wallet. Re-enable POST only
+ * once a real Razorpay flow credits after webhook-confirmed capture, not on
+ * request.
  *
- * GET  → current balance + recent transactions.
- * POST → add funds { amount }.
+ * GET → current balance + recent transactions.
  */
-const topupSchema = z
-  .object({ amount: z.number().int().positive().max(1_000_000) })
-  .strict();
-
 export async function GET() {
   const { user, response } = await apiRequirePermission("wallet:read");
   if (response) return response;
@@ -38,34 +32,9 @@ export async function GET() {
   });
 }
 
-export async function POST(request) {
-  const { user, response } = await apiRequirePermission("wallet:topup");
-  if (response) return response;
-
-  const body = await request.json().catch(() => null);
-  const parsed = topupSchema.safeParse(body);
-  if (!parsed.success) {
-    return Response.json({ error: "Enter a valid amount." }, { status: 400 });
-  }
-
-  await dbConnect();
-
-  // Atomic increment so concurrent top-ups can't clobber each other.
-  const updated = await User.findByIdAndUpdate(
-    user.id,
-    { $inc: { walletBalance: parsed.data.amount } },
-    { returnDocument: "after" }
-  ).select("walletBalance");
-
-  if (!updated) return Response.json({ error: "Account not found" }, { status: 404 });
-
-  await WalletTransaction.create({
-    user: user.id,
-    amount: parsed.data.amount,
-    type: "topup",
-    note: "Wallet top-up",
-    balanceAfter: updated.walletBalance,
-  });
-
-  return Response.json({ ok: true, balance: updated.walletBalance });
+export async function POST() {
+  return Response.json(
+    { error: "Adding funds is temporarily unavailable." },
+    { status: 503 }
+  );
 }

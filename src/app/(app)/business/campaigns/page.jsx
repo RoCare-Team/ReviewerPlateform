@@ -6,13 +6,11 @@ import User from "../../../../models/User";
 import Campaign from "../../../../models/Campaign";
 import GmbLocation from "../../../../models/GmbLocation";
 import NewCampaignForm from "../../../../components/business/NewCampaignForm";
+import CampaignCard from "../../../../components/business/CampaignCard";
 import { inr } from "../../../../lib/campaigns";
 import { getSettings } from "../../../../lib/settings";
 
 export const metadata = { title: "Campaigns · ReviewHub Business" };
-
-const STATUS_STYLES = { active: "pill-verified", paused: "pill-pending", draft: "pill-accent", completed: "pill-accent" };
-const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
 
 export default async function BusinessCampaignsPage() {
   const user = await requireRole(ROLES.BUSINESS_OWNER);
@@ -45,61 +43,24 @@ export default async function BusinessCampaignsPage() {
         </div>
       ) : (
         <div className="mt-8 grid gap-5 lg:grid-cols-2">
-          {campaigns.map((c) => {
-            const pct = c.targetReviews ? Math.min(100, Math.round((c.collected / c.targetReviews) * 100)) : 0;
-            return (
-              <div key={String(c._id)} className="rounded-card border border-default bg-surface-raised p-6 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-bold text-primary">{c.name}</h3>
-                    <p className="mt-0.5 text-xs font-medium text-muted">{PLATFORM_LABEL[c.platform] ?? c.platform}</p>
-                  </div>
-                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[c.status]}`}>
-                    {c.status}
-                  </span>
-                </div>
-
-                {c.notes && <p className="mt-3 text-sm leading-relaxed text-secondary">{c.notes}</p>}
-
-                {c.targetUrl && (
-                  <a
-                    href={c.targetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-block max-w-full truncate text-sm font-semibold text-accent hover:underline"
-                    title={c.targetUrl}
-                  >
-                    {c.targetUrl}
-                  </a>
-                )}
-
-                <div className="mt-5">
-                  <div className="flex items-center justify-between text-xs font-medium text-secondary">
-                    <span>{c.collected} / {c.targetReviews} reviews</span>
-                    <span>{pct}%</span>
-                  </div>
-                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-sunken">
-                    <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-
-                <dl className="mt-5 grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <dt className="text-muted">Budget</dt>
-                    <dd className="font-bold text-primary">{inr(c.budget)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted">Rate</dt>
-                    <dd className="font-bold text-primary">{inr(c.ratePerReview)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted">Target</dt>
-                    <dd className="font-bold text-primary">{c.targetReviews}</dd>
-                  </div>
-                </dl>
-              </div>
-            );
-          })}
+          {campaigns.map((c) => (
+            <CampaignCard
+              key={String(c._id)}
+              campaign={{
+                id: String(c._id),
+                name: c.name,
+                platform: c.platform,
+                status: c.status,
+                notes: c.notes,
+                targetUrl: c.targetUrl,
+                collected: c.collected ?? 0,
+                targetReviews: c.targetReviews,
+                budget: c.budget,
+                ratePerReview: c.ratePerReview,
+                createdAt: c.createdAt ? c.createdAt.toISOString() : null,
+              }}
+            />
+          ))}
         </div>
       )}
     </div>

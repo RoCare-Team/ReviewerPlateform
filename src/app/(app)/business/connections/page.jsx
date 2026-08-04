@@ -88,11 +88,11 @@ export default async function BusinessConnectionsPage({ searchParams }) {
       {/* Coming soon */}
       <div className="mt-10">
         <h2 className="text-lg font-bold text-primary">More platforms</h2>
-        <ul className="mt-4 space-y-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {SOON.map((p) => (
-            <li
+            <div
               key={p.name}
-              className="flex items-center justify-between rounded-card border border-default bg-surface-raised p-5 opacity-80 shadow-sm"
+              className="flex items-center justify-between gap-3 rounded-card border border-default bg-surface-raised p-5 opacity-80 shadow-sm"
             >
               <div className="flex items-center gap-4">
                 <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-default bg-surface">
@@ -103,9 +103,9 @@ export default async function BusinessConnectionsPage({ searchParams }) {
               <span className="rounded-full bg-surface-sunken px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-muted">
                 Coming soon
               </span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
     </div>
   );

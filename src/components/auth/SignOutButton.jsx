@@ -2,6 +2,7 @@
 
 import { signOut } from "next-auth/react";
 import { useState } from "react";
+import { LogOut } from "lucide-react";
 
 /**
  * Clears the session cookie and sends the user to a public page.
@@ -13,16 +14,19 @@ import { useState } from "react";
 export default function SignOutButton({ callbackUrl = "/" }) {
   const [pending, setPending] = useState(false);
 
+  function go() {
+    setPending(true);
+    signOut({ callbackUrl });
+  }
+
   return (
     <button
       type="button"
       disabled={pending}
-      onClick={() => {
-        setPending(true);
-        signOut({ callbackUrl });
-      }}
-      className="rounded-btn border border-default px-2.5 py-1 text-sm text-secondary transition hover:bg-surface-sunken hover:text-primary disabled:opacity-60"
+      onClick={go}
+      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-secondary transition-colors duration-150 hover:bg-danger-subtle hover:text-danger disabled:opacity-60"
     >
+      <LogOut className="h-4 w-4 shrink-0" aria-hidden="true" />
       {pending ? "Signing out…" : "Sign out"}
     </button>
   );

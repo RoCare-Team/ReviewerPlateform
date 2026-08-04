@@ -1,12 +1,10 @@
 import { z } from "zod";
 import dbConnect from "../../../../../lib/db";
 import Submission from "../../../../../models/Submission";
-import Campaign from "../../../../../models/Campaign";
-import User from "../../../../../models/User";
-import WalletTransaction from "../../../../../models/WalletTransaction";
 import { getCurrentUser } from "../../../../../lib/auth/session";
 import { ROLES } from "../../../../../lib/auth/roles";
 import { getSettings } from "../../../../../lib/settings";
+import { approveSubmission } from "../../../../../lib/verification";
 
 /**
  * Admin verifies a reviewer's submission.
@@ -53,40 +51,24 @@ export async function PATCH(request, { params }) {
     return Response.json({ ok: true });
   }
 
-  // Approve. Claim the submission first (atomic) so it can't be paid twice.
+  // Approve. Existence check up front so a stale/unknown id gives the same
+  // 404 admins already expect; approveSubmission itself re-checks "pending"
+  // atomically and also claims the campaign's collected slot atomically, so
+  // it can never push collected past targetReviews under concurrent approvals.
+  const exists = await Submission.exists({ _id: id, status: "pending" });
+  if (!exists) return Response.json({ error: "Submission not found or already reviewed." }, { status: 404 });
+
   const settings = await getSettings();
-  const reward = settings.reviewerReward;
+  const outcome = await approveSubmission(id, settings.reviewerReward, { reviewedBy: admin.id });
 
-  const sub = await Submission.findOneAndUpdate(
-    { _id: id, status: "pending" },
-    { $set: { status: "approved", rewardAmount: reward, reviewedBy: admin.id, reviewedAt: new Date() } },
-    { returnDocument: "after" }
-  );
-  if (!sub) return Response.json({ error: "Submission not found or already reviewed." }, { status: 404 });
-
-  // Credit the reviewer's wallet and record the ledger entry.
-  const reviewer = await User.findByIdAndUpdate(
-    sub.reviewer,
-    { $inc: { walletBalance: reward } },
-    { returnDocument: "after" }
-  ).select("walletBalance");
-
-  await WalletTransaction.create({
-    user: sub.reviewer,
-    amount: reward,
-    type: "reward",
-    note: "Verified review reward",
-    balanceAfter: reviewer?.walletBalance ?? reward,
-  });
-
-  // Grow the campaign's collected count; complete it if the target is reached.
-  const campaign = await Campaign.findByIdAndUpdate(
-    sub.campaign,
-    { $inc: { collected: 1 } },
-    { returnDocument: "after" }
-  );
-  if (campaign && campaign.collected >= campaign.targetReviews && campaign.status === "active") {
-    await Campaign.updateOne({ _id: campaign._id }, { $set: { status: "completed" } });
+  if (outcome === "campaign_full") {
+    return Response.json(
+      { error: "Campaign already reached its review target — submission rejected, no reward." },
+      { status: 409 }
+    );
+  }
+  if (outcome === "already_processed") {
+    return Response.json({ error: "Submission not found or already reviewed." }, { status: 404 });
   }
 
   return Response.json({ ok: true });

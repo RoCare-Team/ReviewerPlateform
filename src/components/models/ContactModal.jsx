@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, Loader2, CheckCircle2, User, Mail, Phone, MessageSquare } from "lucide-react";
+import { Label, Input, FormError } from "../auth/Field";
 
 export default function ContactModal({ isOpen, onClose }) {
   const [formData, setFormData] = useState({
@@ -64,80 +65,54 @@ export default function ContactModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Inline styles for guaranteed animations, independent of tailwind.config.js */}
-      <style>{`
-        @keyframes customFadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes customModalZoom {
-          from { transform: scale(0.95); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-        .animate-customFade {
-          animation: customFadeIn 0.2s ease-out forwards;
-        }
-        .animate-customZoom {
-          animation: customModalZoom 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}</style>
-
-      {/* Backdrop Overlay with Smooth Fade-In */}
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Book a demo"
+      className="animate-fade-up fixed inset-0 z-50 flex items-center justify-center bg-surface-inverse/60 p-4 backdrop-blur-sm"
+      style={{ animationDuration: "200ms" }}
+      onClick={onClose}
+    >
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-customFade"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Modal Content Box (We removed opacity-0 so it works immediately) */}
-      <div className="relative w-full max-w-md overflow-hidden rounded-xl border border-default/50 bg-surface-raised p-6 shadow-xl transition-all duration-300 animate-customZoom z-10">
-        {/* Close Button */}
+        className="relative w-full max-w-md rounded-2xl border border-default bg-surface-raised p-6 shadow-xl sm:p-8"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={onClose}
           type="button"
-          className="absolute right-4 top-4 rounded-md p-1.5 text-secondary hover:bg-default/15 hover:text-primary transition-colors duration-200 cursor-pointer"
+          className="absolute right-4 top-4 rounded-full p-1.5 text-muted transition-all duration-200 hover:scale-110 hover:bg-surface-sunken hover:text-primary"
           aria-label="Close modal"
         >
-          <X className="h-4 w-4" />
+          <X className="h-4.5 w-4.5" aria-hidden="true" />
         </button>
 
         {status === "success" ? (
           /* Success Message */
-          <div className="flex flex-col items-center text-center py-6">
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 mb-4">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <h3 className="text-sm font-bold text-primary">Saved Successfully!</h3>
-            <p className="mt-1.5 text-xs leading-relaxed text-secondary max-w-xs">
-              Your details are successfully logged. We will connect with you soon.
+          <div className="flex flex-col items-center py-4 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-verified-subtle text-verified">
+              <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
+            </span>
+            <h3 className="mt-4 text-lg font-bold text-primary">Request received</h3>
+            <p className="mt-1.5 max-w-xs text-sm leading-relaxed text-secondary">
+              Your details are saved — our team will reach out to you soon.
             </p>
             <button
               onClick={onClose}
               type="button"
-              className="mt-6 rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-on-brand hover:bg-accent/90 transition-all duration-200 cursor-pointer"
+              className="mt-6 w-full rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md"
             >
               Done
             </button>
           </div>
         ) : (
           /* Main Form */
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-primary">Book a Demo</h3>
-              <p className="text-[11px] text-secondary mt-0.5">
-                Tell us about your requirements to request a customized demo.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {/* Name */}
-              <div className="flex flex-col">
-                <label htmlFor="name" className="text-[10px] font-bold uppercase tracking-wider text-secondary mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
+          <form onSubmit={handleSubmit} noValidate>
+            <h3 className="text-xl font-extrabold tracking-tight text-primary">Book a demo</h3>
+            
+            <div className="mt-6 space-y-4">
+              <div>
+                <Label htmlFor="name">Full name</Label>
+                <Input
                   id="name"
                   name="name"
                   required
@@ -145,16 +120,13 @@ export default function ContactModal({ isOpen, onClose }) {
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="John Doe"
-                  className="w-full rounded-md border border-default/60 bg-background px-3 py-1.5 text-xs text-primary transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/10 focus:outline-none disabled:opacity-50"
+                  icon={User}
                 />
               </div>
 
-              {/* Email */}
-              <div className="flex flex-col">
-                <label htmlFor="email" className="text-[10px] font-bold uppercase tracking-wider text-secondary mb-1">
-                  Email Address
-                </label>
-                <input
+              <div>
+                <Label htmlFor="email">Email address</Label>
+                <Input
                   type="email"
                   id="email"
                   name="email"
@@ -163,16 +135,13 @@ export default function ContactModal({ isOpen, onClose }) {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="you@example.com"
-                  className="w-full rounded-md border border-default/60 bg-background px-3 py-1.5 text-xs text-primary transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/10 focus:outline-none disabled:opacity-50"
+                  icon={Mail}
                 />
               </div>
 
-              {/* Phone */}
-              <div className="flex flex-col">
-                <label htmlFor="phone" className="text-[10px] font-bold uppercase tracking-wider text-secondary mb-1">
-                  Phone Number
-                </label>
-                <input
+              <div>
+                <Label htmlFor="phone">Phone number</Label>
+                <Input
                   type="tel"
                   id="phone"
                   name="phone"
@@ -180,59 +149,59 @@ export default function ContactModal({ isOpen, onClose }) {
                   disabled={status === "submitting"}
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="+919876543210"
-                  className="w-full rounded-md border border-default/60 bg-background px-3 py-1.5 text-xs text-primary transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/10 focus:outline-none disabled:opacity-50"
+                  placeholder="+91 98765 43210"
+                  icon={Phone}
                 />
               </div>
 
-              {/* Description */}
-              <div className="flex flex-col">
-                <label htmlFor="description" className="text-[10px] font-bold uppercase tracking-wider text-secondary mb-1">
-                  Message / Requirements
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  rows={3}
-                  required
-                  disabled={status === "submitting"}
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Tell us about your brand/campaign..."
-                  className="w-full rounded-md border border-default/60 bg-background px-3 py-1.5 text-xs text-primary transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/10 focus:outline-none disabled:opacity-50 resize-none"
-                />
+              <div>
+                <Label htmlFor="description">Message / requirements</Label>
+                <div className="group relative">
+                  <MessageSquare
+                    className="pointer-events-none absolute left-3 top-3 h-4.5 w-4.5 text-muted transition-colors duration-200 group-focus-within:text-accent"
+                    aria-hidden="true"
+                  />
+                  <textarea
+                    id="description"
+                    name="description"
+                    rows={3}
+                    required
+                    disabled={status === "submitting"}
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="Tell us about your brand/campaign…"
+                    className="w-full resize-none rounded-btn border border-default bg-surface py-2.5 pl-10 pr-3 text-primary outline-none transition-all duration-200 placeholder:text-muted/70 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent/50 disabled:opacity-60"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Error Message */}
             {status === "error" && (
-              <div className="flex items-center gap-2 rounded-md bg-rose-500/10 p-2.5 text-[11px] text-rose-500 border border-rose-500/15">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                <span>{errorMessage}</span>
+              <div className="mt-4">
+                <FormError>{errorMessage}</FormError>
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex gap-2">
+            <div className="mt-6 flex gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="w-1/3 rounded-md border border-default py-2 text-xs font-semibold text-secondary hover:bg-surface-sunken transition-colors duration-200 cursor-pointer"
+                className="w-1/3 rounded-btn border border-default bg-surface py-2.5 text-sm font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={status === "submitting"}
-                className="w-2/3 flex items-center justify-center rounded-md bg-accent py-2 text-xs font-semibold text-on-brand transition-all duration-200 hover:bg-accent/95 disabled:pointer-events-none disabled:opacity-75 shadow-sm cursor-pointer"
+                className="flex w-2/3 items-center justify-center gap-2 rounded-btn bg-accent py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:pointer-events-none disabled:opacity-70 disabled:hover:translate-y-0"
               >
                 {status === "submitting" ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Submitting...</span>
-                  </div>
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    Submitting…
+                  </>
                 ) : (
-                  <span>Book Demo</span>
+                  "Book demo"
                 )}
               </button>
             </div>

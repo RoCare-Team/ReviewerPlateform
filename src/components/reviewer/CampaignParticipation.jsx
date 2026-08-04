@@ -20,6 +20,7 @@ function Card({ campaign, reward }) {
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
 
   async function submit(e) {
     e.preventDefault();
@@ -36,8 +37,42 @@ function Card({ campaign, reward }) {
     setPending(false);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return setError(data.error ?? "Submission failed.");
+
+    // AI decided instantly — show the outcome; refresh on dismiss.
+    setResult({ status: data.status, reward: data.reward, reason: data.reason });
     setOpen(false);
-    router.refresh();
+  }
+
+  // AI verdict panel — replaces the card once a submission is decided.
+  if (result) {
+    const approved = result.status === "approved";
+    const rejected = result.status === "rejected";
+    return (
+      <div className="rounded-card border border-default bg-surface-raised p-5 text-center shadow-sm">
+        <h3 className="text-base font-bold text-primary">{campaign.name}</h3>
+        <div
+          className={`mt-4 rounded-btn border px-4 py-4 text-sm ${
+            approved
+              ? "border-verified bg-verified-subtle text-verified"
+              : rejected
+              ? "border-danger bg-danger-subtle text-danger"
+              : "border-pending bg-pending-subtle text-primary"
+          }`}
+        >
+          <p className="text-base font-bold">
+            {approved ? `✅ Verified — ${inr(result.reward)} added to your wallet!` : rejected ? "❌ Not verified" : "⏳ Submitted for review"}
+          </p>
+          {result.reason && <p className="mt-1 text-xs opacity-90">{result.reason}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={() => router.refresh()}
+          className="mt-4 rounded-btn bg-accent px-5 py-2 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover"
+        >
+          Done
+        </button>
+      </div>
+    );
   }
 
   return (
