@@ -8,7 +8,7 @@ const VerificationTokenSchema = new mongoose.Schema(
 
     purpose: {
       type: String,
-      enum: ["password_reset", "email_verify"],
+      enum: ["password_reset", "email_verify", "post_verify_login"],
       required: true,
     },
 

@@ -7,6 +7,10 @@ const TOKEN_BYTES = 32;
 export const TOKEN_TTL_MS = {
   password_reset: 60 * 60 * 1000, // 1h
   email_verify: 24 * 60 * 60 * 1000, // 24h
+  // Bridges "OTP just verified" to "log the user in" without carrying their
+  // password across a redirect. Short-lived and single-use — see
+  // credentials.js's otpToken branch.
+  post_verify_login: 5 * 60 * 1000, // 5m
 };
 
 /** SHA-256, not bcrypt: these are 256-bit random tokens, not guessable secrets.

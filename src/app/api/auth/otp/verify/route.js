@@ -3,6 +3,7 @@ import dbConnect from "../../../../../lib/db";
 import User from "../../../../../models/User";
 import { verifyOtp } from "../../../../../lib/auth/otp";
 import { rateLimit, clientIp } from "../../../../../lib/rate-limit";
+import { issueToken } from "../../../../../lib/auth/tokens";
 
 const schema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -52,5 +53,14 @@ export async function POST(request) {
     { $set: { emailVerified: new Date(), status: "active" } }
   );
 
-  return Response.json({ ok: true, next: "/login" });
+  // Signup verification gets a one-shot login token so the client can sign the
+  // user straight into their dashboard, instead of bouncing them to /login to
+  // re-enter a password they just typed minutes ago. Login-purpose OTP (e.g.
+  // password-less recovery) doesn't need this — it never had a "next" of its own.
+  let loginToken;
+  if (purpose === "signup") {
+    loginToken = await issueToken(email, "post_verify_login");
+  }
+
+  return Response.json({ ok: true, next: "/login", loginToken });
 }

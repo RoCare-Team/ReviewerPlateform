@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 import OtpInput from "./OtpInput";
 import { FormError, SubmitButton } from "./Field";
 
@@ -45,6 +46,25 @@ export default function VerifyOtpForm() {
       setError(data.error ?? "That code isn't valid.");
       if (data.code === "TOO_MANY_ATTEMPTS") setCode("");
       return;
+    }
+
+    // Verification just proved this person owns the account — sign them straight
+    // in with the one-shot token instead of making them retype a password they
+    // entered thirty seconds ago. If that somehow fails (token expired, race),
+    // fall back to the old path rather than stranding them on this page.
+    if (data.loginToken) {
+      const signInRes = await signIn("credentials", {
+        email,
+        otpToken: data.loginToken,
+        scope: "user",
+        redirect: false,
+      });
+
+      if (!signInRes?.error) {
+        router.push("/post-login");
+        router.refresh();
+        return;
+      }
     }
 
     router.push("/login?verified=1");
