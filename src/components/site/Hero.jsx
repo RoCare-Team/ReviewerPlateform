@@ -130,7 +130,7 @@ export default function Hero() {
               href={isLoggedIn ? "/post-login" : "/signup/business"}
               className="group inline-flex items-center justify-center gap-2 rounded-btn bg-accent px-6 py-3.5 text-center font-semibold text-on-brand shadow-sm transition-all duration-200 hover:bg-accent-hover hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
             >
-              {isLoggedIn ? "Go to dashboard" : "Start free trial"}
+              {isLoggedIn ? "Go to dashboard" : "Start Now"}
               <ArrowRight
                 className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1"
                 aria-hidden="true"
