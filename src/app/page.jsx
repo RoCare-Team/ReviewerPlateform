@@ -20,12 +20,12 @@ import Testimonials from "../components/site/Testimonials";
  *   the only defensible position against "buy reviews" competitors, so it leads.
  */
 export const metadata = {
-  title: "ReviewHub — Grow your reputation with verified customer reviews",
+  title: "RapportLook — Grow your reputation with verified customer reviews",
   description:
     "Collect authentic reviews across Google, Play Store, Trustpilot, G2 and more. Reviewers are rewarded for verified participation — never for positive ratings, never gated.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "ReviewHub — Grow your reputation with verified customer reviews",
+    title: "RapportLook — Grow your reputation with verified customer reviews",
     description:
       "Collect authentic reviews across Google, Play Store, Trustpilot, G2 and more. Reviewers rewarded for verified participation, never for positive ratings.",
     url: "/",
@@ -40,7 +40,7 @@ const JSON_LD = {
     {
       "@type": "Organization",
       "@id": "/#organization",
-      name: "ReviewHub",
+      name: "RapportLook",
       url: "/",
       description:
         "Review and reputation management platform. Collects verified reviews across major platforms and rewards reviewers for verified participation, never for positive ratings.",
@@ -49,7 +49,7 @@ const JSON_LD = {
       "@type": "WebSite",
       "@id": "/#website",
       url: "/",
-      name: "ReviewHub",
+      name: "RapportLook",
       publisher: { "@id": "/#organization" },
       inLanguage: "en-IN",
     },

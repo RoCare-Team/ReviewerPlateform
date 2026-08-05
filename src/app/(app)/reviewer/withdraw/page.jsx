@@ -8,7 +8,7 @@ import { getSettings, inr } from "../../../../lib/settings";
 import WithdrawForm from "../../../../components/reviewer/WithdrawForm";
 import StatCard from "../../../../components/shared/StatCard";
 
-export const metadata = { title: "Withdraw · ReviewHub" };
+export const metadata = { title: "Withdraw · RapportLook" };
 
 export default async function ReviewerWithdrawPage() {
   const user = await requireRole(ROLES.REVIEWER);

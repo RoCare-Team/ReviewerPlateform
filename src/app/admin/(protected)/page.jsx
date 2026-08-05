@@ -25,7 +25,7 @@ import { inr } from "../../../lib/settings";
 import DonutChart from "../../../components/charts/DonutChart";
 import StatCard from "../../../components/shared/StatCard";
 
-export const metadata = { title: "Admin · ReviewHub", robots: { index: false } };
+export const metadata = { title: "Admin · RapportLook", robots: { index: false } };
 
 function Section({ title, children }) {
   return (

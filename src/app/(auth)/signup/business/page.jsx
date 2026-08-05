@@ -5,7 +5,7 @@ import GoogleSignupButton from "../../../../components/auth/GoogleSignupButton";
 import { ROLES } from "../../../../lib/auth/roles";
 
 export const metadata = {
-  title: "Sign up your business · ReviewHub",
+  title: "Sign up your business · RapportLook",
 };
 
 export default function BusinessSignupPage() {

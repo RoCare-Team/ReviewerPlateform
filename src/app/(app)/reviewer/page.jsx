@@ -9,7 +9,7 @@ import Submission from "../../../models/Submission";
 import { getSettings, inr } from "../../../lib/settings";
 import OverviewStats from "../../../components/reviewer/OverviewStats";
 
-export const metadata = { title: "Your dashboard · ReviewHub" };
+export const metadata = { title: "Your dashboard · RapportLook" };
 
 export default async function ReviewerHomePage() {
   const user = await requireRole(ROLES.REVIEWER);

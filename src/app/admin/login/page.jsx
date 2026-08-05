@@ -3,7 +3,7 @@ import LoginForm from "../../../components/auth/LoginForm";
 import AuthCard from "../../../components/auth/AuthCard";
 
 export const metadata = {
-  title: "Admin sign-in · ReviewHub",
+  title: "Admin sign-in · RapportLook",
   // Keep the admin surface out of search results.
   robots: { index: false, follow: false },
 };
@@ -25,7 +25,7 @@ export default function AdminLoginPage() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-surface-sunken px-4 py-12">
       <div className="mb-8 text-center">
-        <div className="text-xl font-semibold tracking-tight text-primary">ReviewHub</div>
+        <div className="text-xl font-semibold tracking-tight text-primary">RapportLook</div>
         <div className="mt-1 text-xs uppercase tracking-widest text-muted">Administration</div>
       </div>
 

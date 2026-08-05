@@ -2,7 +2,7 @@ import Link from "next/link";
 import AuthCard from "../../../components/auth/AuthCard";
 
 export const metadata = {
-  title: "Sign-in problem · ReviewHub",
+  title: "Sign-in problem · RapportLook",
 };
 
 /**

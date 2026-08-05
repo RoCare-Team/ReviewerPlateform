@@ -1,14 +1,14 @@
 import PolicyPage from "../../components/site/PolicyPage";
 
 export const metadata = {
-  title: "Terms & conditions — ReviewHub",
+  title: "Terms & conditions — RapportLook",
   description:
-    "The terms that govern use of ReviewHub by businesses running review campaigns and reviewers submitting verified participation.",
+    "The terms that govern use of RapportLook by businesses running review campaigns and reviewers submitting verified participation.",
   alternates: { canonical: "/terms" },
   openGraph: {
-    title: "Terms & conditions — ReviewHub",
+    title: "Terms & conditions — RapportLook",
     description:
-      "The terms that govern use of ReviewHub by businesses running review campaigns and reviewers submitting verified participation.",
+      "The terms that govern use of RapportLook by businesses running review campaigns and reviewers submitting verified participation.",
     url: "/terms",
   },
 };
@@ -17,20 +17,20 @@ const SECTIONS = [
   {
     heading: "1. Acceptance",
     body: [
-      "By creating an account or using ReviewHub, you agree to these terms. If you're using ReviewHub on behalf of a business, you confirm you have authority to bind that business to this agreement.",
+      "By creating an account or using RapportLook, you agree to these terms. If you're using RapportLook on behalf of a business, you confirm you have authority to bind that business to this agreement.",
     ],
   },
   {
-    heading: "2. What ReviewHub is",
+    heading: "2. What RapportLook is",
     body: [
-      "ReviewHub is a review and reputation management platform. Businesses fund campaigns from a wallet; reviewers are rewarded for verified participation — submitting proof that they genuinely used a business and left a review on a supported platform.",
+      "RapportLook is a review and reputation management platform. Businesses fund campaigns from a wallet; reviewers are rewarded for verified participation — submitting proof that they genuinely used a business and left a review on a supported platform.",
       "Rewards are never conditioned on a review being positive. We do not buy, sell, write, or edit reviews on behalf of any business.",
     ],
   },
   {
     heading: "3. Business accounts",
     body: [
-      "Businesses must provide accurate billing and campaign information, fund campaigns before launching them, and use ReviewHub only to solicit genuine reviews from real customers.",
+      "Businesses must provide accurate billing and campaign information, fund campaigns before launching them, and use RapportLook only to solicit genuine reviews from real customers.",
     ],
     list: [
       "No incentivizing reviewers to leave a specific rating or hide negative feedback.",
@@ -64,7 +64,7 @@ const SECTIONS = [
   {
     heading: "7. Liability",
     body: [
-      "ReviewHub is provided as-is. We aren't liable for third-party review platform policy changes, account actions taken by Google, Trustpilot or similar platforms, or indirect losses arising from use of the service.",
+      "RapportLook is provided as-is. We aren't liable for third-party review platform policy changes, account actions taken by Google, Trustpilot or similar platforms, or indirect losses arising from use of the service.",
     ],
   },
   {
@@ -80,7 +80,7 @@ export default function TermsPage() {
     <PolicyPage
       title="Terms & conditions"
       updated="5 August 2026"
-      intro="These terms govern how businesses and reviewers use ReviewHub — please read them before running a campaign or submitting a review."
+      intro="These terms govern how businesses and reviewers use RapportLook — please read them before running a campaign or submitting a review."
       sections={SECTIONS}
     />
   );

@@ -3,7 +3,7 @@ import AuthCard from "../../../components/auth/AuthCard";
 import VerifyOtpForm from "../../../components/auth/VerifyOtpForm";
 
 export const metadata = {
-  title: "Verify your email · ReviewHub",
+  title: "Verify your email · RapportLook",
 };
 
 export default function VerifyOtpPage() {

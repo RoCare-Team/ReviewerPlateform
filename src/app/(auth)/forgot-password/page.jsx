@@ -3,7 +3,7 @@ import AuthCard from "../../../components/auth/AuthCard";
 import ForgotPasswordForm from "../../../components/auth/ForgotPasswordForm";
 
 export const metadata = {
-  title: "Forgot password · ReviewHub",
+  title: "Forgot password · RapportLook",
 };
 
 export default function ForgotPasswordPage() {

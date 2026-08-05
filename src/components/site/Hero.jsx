@@ -1,12 +1,5 @@
 "use client";
-import {
-  ArrowRight,
-  Check,
-  ShieldCheck,
-  TrendingUp,
-  Users,
-  Star,
-} from "lucide-react";
+import { ArrowRight, Check, TrendingUp, Users, Star } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import Container from "./Container";
@@ -64,13 +57,12 @@ const LOGOS = [
 ];
 
 export default function Hero() {
-
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    // Signed-in visitor lands back on this marketing page (e.g. via logo
-    // click) → the CTA should send them to their dashboard, not back through
-    // signup. Cosmetic only, same caveat as SiteHeader.
-    const { data: session } = useSession();
-    const isLoggedIn = Boolean(session?.user);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Signed-in visitor lands back on this marketing page (e.g. via logo
+  // click) → the CTA should send them to their dashboard, not back through
+  // signup. Cosmetic only, same caveat as SiteHeader.
+  const { data: session } = useSession();
+  const isLoggedIn = Boolean(session?.user);
 
   return (
     <section className="relative flex min-h-[calc(100dvh-var(--header-h))] items-center overflow-hidden bg-background">
@@ -136,7 +128,7 @@ export default function Hero() {
                 aria-hidden="true"
               />
             </Link>
-           <button
+            <button
               onClick={() => setIsModalOpen(true)}
               type="button"
               className="rounded-btn border border-strong bg-surface px-6 py-3.5 text-center font-semibold text-primary transition-all duration-200 hover:bg-surface-sunken focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-strong active:scale-[0.98] cursor-pointer"
@@ -202,7 +194,7 @@ export default function Hero() {
 
           <Image
             src="/img/hero4.png"
-            alt="ReviewHub dashboard showing verified reviews, ratings over time and reviews by platform"
+            alt="RapportLook dashboard showing verified reviews, ratings over time and reviews by platform"
             width={1536}
             height={1024}
             priority
@@ -212,8 +204,10 @@ export default function Hero() {
         </div>
       </Container>
 
-            <ContactModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-
+      <ContactModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </section>
   );
 }

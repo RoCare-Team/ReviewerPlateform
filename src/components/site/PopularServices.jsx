@@ -72,7 +72,7 @@ export default function PopularServices() {
             Review services in top cities
           </h2>
           <p className="mt-4 mx-auto max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
-            Explore where businesses collect verified customer reviews with ReviewHub.
+            Explore where businesses collect verified customer reviews with RapportLook.
           </p>
         </Reveal>
       </Container>

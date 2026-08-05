@@ -84,14 +84,14 @@ export default function SiteHeader() {
           {/* Logo Brand Link */}
           <Link
             href="/"
-            aria-label="ReviewHub home"
+            aria-label="RapportLook home"
             className="inline-flex w-fit items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             {/* Intrinsic 1138×358; rendered at a fixed height with auto width.
                 priority: it's above the fold on every page, so don't lazy-load it. */}
             <Image
               src="/img/logo2.png"
-              alt="ReviewHub"
+              alt="RapportLook"
               width={1138}
               height={358}
               priority

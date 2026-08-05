@@ -6,7 +6,7 @@ import GoogleSignupButton from "../../../../components/auth/GoogleSignupButton";
 import { ROLES } from "../../../../lib/auth/roles";
 
 export const metadata = {
-  title: "Sign up as a reviewer · ReviewHub",
+  title: "Sign up as a reviewer · RapportLook",
 };
 
 export default function ReviewerSignupPage() {
@@ -35,7 +35,7 @@ export default function ReviewerSignupPage() {
 
       <p className="mt-6 flex items-start gap-2 text-xs leading-relaxed text-muted">
         <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span>ReviewHub never pays for reviews and never posts on your behalf.</span>
+        <span>RapportLook never pays for reviews and never posts on your behalf.</span>
       </p>
     </AuthCard>
   );

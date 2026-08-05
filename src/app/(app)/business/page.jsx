@@ -15,7 +15,7 @@ import CampaignStats from "../../../components/business/CampaignStats";
 import { inr } from "../../../lib/campaigns";
 import { getSettings } from "../../../lib/settings";
 
-export const metadata = { title: "Overview · ReviewHub Business" };
+export const metadata = { title: "Overview · RapportLook Business" };
 
 const PLATFORM_LABEL = {
   google: "Google",

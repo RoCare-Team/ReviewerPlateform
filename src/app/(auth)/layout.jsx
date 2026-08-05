@@ -17,10 +17,10 @@ export default function AuthLayout({ children }) {
           {/* Mobile logo (the left panel is hidden below lg) */}
           <Link
             href="/"
-            aria-label="ReviewHub home"
+            aria-label="RapportLook home"
             className="mb-8 inline-flex items-center lg:hidden"
           >
-            <Image src="/img/logo.png" alt="ReviewHub" width={1138} height={358} className="h-9 w-auto" />
+            <Image src="/img/logo.png" alt="RapportLook" width={1138} height={358} className="h-9 w-auto" />
           </Link>
           {children}
         </div>

@@ -2,9 +2,10 @@ import Link from "next/link";
 import { ArrowRight, Building2, Info, MessageSquareQuote } from "lucide-react";
 import AuthCard from "../../../components/auth/AuthCard";
 import CrossRoleRedirect from "../../../components/auth/CrossRoleRedirect";
+import { getContact } from "../../../lib/contact";
 
 export const metadata = {
-  title: "Sign up · ReviewHub",
+  title: `Sign up · ${getContact("brand.productName", "RapportLook")}`,
 };
 
 // Role picker. Each choice routes to a distinct signup page, which posts to a

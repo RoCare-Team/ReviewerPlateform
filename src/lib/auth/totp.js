@@ -5,7 +5,7 @@ import { generateSecret, generateURI, verify } from "otplib";
  * functional API, and `verify` is async.
  */
 
-const ISSUER = "ReviewHub";
+const ISSUER = "RapportLook";
 
 // Default period is 30s. 30s of tolerance = one step either side, which absorbs
 // ordinary clock skew without meaningfully widening the guess window.

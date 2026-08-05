@@ -1,14 +1,14 @@
 import PolicyPage from "../../components/site/PolicyPage";
 
 export const metadata = {
-  title: "Privacy policy — ReviewHub",
+  title: "Privacy policy — RapportLook",
   description:
-    "How ReviewHub collects, uses, and protects data from businesses and reviewers on the platform.",
+    "How RapportLook collects, uses, and protects data from businesses and reviewers on the platform.",
   alternates: { canonical: "/privacy" },
   openGraph: {
-    title: "Privacy policy — ReviewHub",
+    title: "Privacy policy — RapportLook",
     description:
-      "How ReviewHub collects, uses, and protects data from businesses and reviewers on the platform.",
+      "How RapportLook collects, uses, and protects data from businesses and reviewers on the platform.",
     url: "/privacy",
   },
 };
@@ -37,7 +37,7 @@ const SECTIONS = [
     heading: "3. Sharing",
     body: [
       "We do not sell personal data. Information is shared only with service providers that help us run the platform (payments, hosting, email delivery), and only to the extent needed for that service, under contractual confidentiality.",
-      "We may disclose data if required by law or to protect the rights, safety, or property of ReviewHub, our users, or the public.",
+      "We may disclose data if required by law or to protect the rights, safety, or property of RapportLook, our users, or the public.",
     ],
   },
   {
@@ -66,7 +66,7 @@ export default function PrivacyPage() {
     <PolicyPage
       title="Privacy policy"
       updated="5 August 2026"
-      intro="This policy explains what data ReviewHub collects from businesses and reviewers, why we collect it, and how it's protected."
+      intro="This policy explains what data RapportLook collects from businesses and reviewers, why we collect it, and how it's protected."
       sections={SECTIONS}
     />
   );

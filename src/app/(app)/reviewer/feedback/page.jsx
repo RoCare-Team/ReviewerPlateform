@@ -8,7 +8,7 @@ import { inr } from "../../../../lib/settings";
 import StatCard from "../../../../components/shared/StatCard";
 import SubmissionHistory from "../../../../components/reviewer/SubmissionHistory";
 
-export const metadata = { title: "My submissions · ReviewHub" };
+export const metadata = { title: "My submissions · RapportLook" };
 
 const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
 

@@ -4,7 +4,7 @@ import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import ProfileForm from "../../../../components/reviewer/ProfileForm";
 
-export const metadata = { title: "Profile · ReviewHub" };
+export const metadata = { title: "Profile · RapportLook" };
 
 export default async function ReviewerProfilePage() {
   const sessionUser = await requireRole(ROLES.REVIEWER);

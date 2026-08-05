@@ -71,7 +71,7 @@ export async function createUserForRole(request, role) {
 
   // ★ NO ENUMERATION (same-role only). An existing email returns exactly the
   // same body and status as a fresh signup — otherwise /signup becomes a
-  // "does this person have a ReviewHub account" oracle for anyone with a list
+  // "does this person have a RapportLook account" oracle for anyone with a list
   // of emails.
   if (existing) {
     if (!existing.emailVerified) {

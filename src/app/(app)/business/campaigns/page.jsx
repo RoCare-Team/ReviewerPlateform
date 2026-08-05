@@ -10,7 +10,7 @@ import CampaignsTable from "../../../../components/business/CampaignsTable";
 import { inr } from "../../../../lib/campaigns";
 import { getSettings } from "../../../../lib/settings";
 
-export const metadata = { title: "Campaigns · ReviewHub Business" };
+export const metadata = { title: "Campaigns · RapportLook Business" };
 
 export default async function BusinessCampaignsPage() {
   const user = await requireRole(ROLES.BUSINESS_OWNER);

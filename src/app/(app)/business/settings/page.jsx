@@ -7,7 +7,7 @@ import WalletTransaction from "../../../../models/WalletTransaction";
 import ProfileForm from "../../../../components/reviewer/ProfileForm";
 import WalletCard from "../../../../components/business/WalletCard";
 
-export const metadata = { title: "Settings · ReviewHub Business" };
+export const metadata = { title: "Settings · RapportLook Business" };
 
 export default async function BusinessSettingsPage() {
   const sessionUser = await requireRole(ROLES.BUSINESS_OWNER);

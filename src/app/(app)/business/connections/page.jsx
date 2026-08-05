@@ -7,7 +7,7 @@ import GmbLocation from "../../../../models/GmbLocation";
 import { isConfigured } from "../../../../lib/gmb";
 import GmbConnections from "../../../../components/business/GmbConnections";
 
-export const metadata = { title: "Connections · ReviewHub Business" };
+export const metadata = { title: "Connections · RapportLook Business" };
 
 const STATUS_MESSAGES = {
   connected: { tone: "ok", text: "Google Business Profile connected." },

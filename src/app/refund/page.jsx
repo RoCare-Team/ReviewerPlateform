@@ -1,14 +1,14 @@
 import PolicyPage from "../../components/site/PolicyPage";
 
 export const metadata = {
-  title: "Refund policy — ReviewHub",
+  title: "Refund policy — RapportLook",
   description:
-    "How wallet funds, campaign charges, and disputed verifications are refunded on ReviewHub.",
+    "How wallet funds, campaign charges, and disputed verifications are refunded on RapportLook.",
   alternates: { canonical: "/refund" },
   openGraph: {
-    title: "Refund policy — ReviewHub",
+    title: "Refund policy — RapportLook",
     description:
-      "How wallet funds, campaign charges, and disputed verifications are refunded on ReviewHub.",
+      "How wallet funds, campaign charges, and disputed verifications are refunded on RapportLook.",
     url: "/refund",
   },
 };
@@ -57,7 +57,7 @@ export default function RefundPage() {
     <PolicyPage
       title="Refund policy"
       updated="5 August 2026"
-      intro="This policy covers how wallet funds, campaign charges, and disputed verifications are handled on ReviewHub."
+      intro="This policy covers how wallet funds, campaign charges, and disputed verifications are handled on RapportLook."
       sections={SECTIONS}
     />
   );

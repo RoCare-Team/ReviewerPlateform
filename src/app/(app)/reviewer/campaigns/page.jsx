@@ -6,7 +6,7 @@ import Submission from "../../../../models/Submission";
 import { getSettings, inr } from "../../../../lib/settings";
 import CampaignParticipation from "../../../../components/reviewer/CampaignParticipation";
 
-export const metadata = { title: "Available campaigns · ReviewHub" };
+export const metadata = { title: "Available campaigns · RapportLook" };
 
 export default async function ReviewerCampaignsPage() {
   const user = await requireRole(ROLES.REVIEWER);

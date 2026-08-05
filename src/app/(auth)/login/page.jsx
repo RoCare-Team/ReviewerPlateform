@@ -5,7 +5,7 @@ import LoginForm from "../../../components/auth/LoginForm";
 import GoogleButton from "../../../components/auth/GoogleButton";
 
 export const metadata = {
-  title: "Sign in · ReviewHub",
+  title: "Sign in · RapportLook",
 };
 
 // Shared by reviewers and business owners. Admin has its own at /admin/login.
@@ -21,7 +21,7 @@ export default async function LoginPage({ searchParams }) {
   return (
     <AuthCard
       title="Sign in"
-      subtitle="Welcome back to ReviewHub."
+      subtitle="Welcome back to RapportLook."
       footer={
         <>
           Don&apos;t have an account?{" "}

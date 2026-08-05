@@ -61,7 +61,7 @@ const CHOOSE_ROLE = {
 };
 
 const SIGN_IN = {
-  headline: "Welcome back to ReviewHub",
+  headline: "Welcome back to RapportLook",
   points: [
     { Icon: BadgeCheck, text: "One dashboard for reviews across every platform that matters" },
     { Icon: ShieldCheck, text: "Every submission verified before it counts" },
@@ -100,10 +100,10 @@ export default function AuthAside() {
 
       <Link
         href="/"
-        aria-label="ReviewHub home"
+        aria-label="RapportLook home"
         className="relative inline-flex w-fit items-center rounded-lg bg-white/95 px-3 py-2 shadow-sm"
       >
-        <Image src="/img/logo.png" alt="ReviewHub" width={1138} height={358} className="h-8 w-auto" />
+        <Image src="/img/logo2.png" alt="RapportLook" width={1138} height={358} className="h-8 w-auto" />
       </Link>
 
       <div className="relative">

@@ -27,7 +27,7 @@ export async function generateMetadata({ params }) {
   const city = getCity(slug);
   if (!city) return {};
 
-  const title = `Verified customer reviews in ${city.name} — ReviewHub`;
+  const title = `Verified customer reviews in ${city.name} — RapportLook`;
   const description = `Collect verified customer reviews in ${city.name}, ${city.region} across ${city.platforms.join(", ")}. Reviewers rewarded for verified participation, never for positive ratings.`;
 
   return {
@@ -84,7 +84,7 @@ export default async function CityPage({ params }) {
         name: `Verified customer review collection in ${city.name}`,
         serviceType: "Review and reputation management",
         areaServed: { "@type": "City", name: city.name },
-        provider: { "@type": "Organization", name: "ReviewHub", url: "/" },
+        provider: { "@type": "Organization", name: "RapportLook", url: "/" },
         description: `Collect verified customer reviews in ${city.name}, ${city.region} across ${city.platforms.join(", ")}. Reviewers are rewarded for verified participation, never for positive ratings.`,
         url: `/services/${city.slug}`,
       },
@@ -119,12 +119,12 @@ export default async function CityPage({ params }) {
       a: `Absolutely. You can distribute your review campaigns across multiple physical outlets or service zones in ${city.name} directly from a single centralized wallet.`,
     },
     {
-      q: `How does ReviewHub verify reviews from ${city.name}?`,
+      q: `How does RapportLook verify reviews from ${city.name}?`,
       a: "Every submission goes through screenshot proof plus AI validation, along with device fingerprinting and IP monitoring, before it counts. This catches duplicate accounts, fake screenshots and repeat reviews so only genuine, verified participation is rewarded.",
     },
     {
       q: `Which review platforms are supported in ${city.name}?`,
-      a: `You can collect and monitor reviews across ${city.platforms.join(", ")} and more — all from a single ReviewHub dashboard, with platform-wise analytics.`,
+      a: `You can collect and monitor reviews across ${city.platforms.join(", ")} and more — all from a single RapportLook dashboard, with platform-wise analytics.`,
     },
     {
       q: "Do reviewers get paid for leaving positive reviews?",
@@ -274,11 +274,11 @@ export default async function CityPage({ params }) {
           <Container className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-widest text-accent">Overview</p>
             <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary">
-              What is ReviewHub in {city.name}?
+              What is RapportLook in {city.name}?
             </h2>
             <div className="mt-5 space-y-4 text-base leading-relaxed text-secondary sm:text-lg">
               <p>
-                ReviewHub is a review and reputation management platform that helps {city.name}{" "}
+                RapportLook is a review and reputation management platform that helps {city.name}{" "}
                 businesses collect authentic, verified customer reviews across{" "}
                 {city.platforms.join(", ")} and 100+ other platforms — all from a single dashboard.
                 Instead of chasing feedback manually, you launch a campaign, share your review links,
@@ -309,7 +309,7 @@ export default async function CityPage({ params }) {
               {/* Left Column: Content Details */}
               <div className="lg:col-span-2">
                 <h2 className="text-3xl font-extrabold tracking-tight text-primary">
-                  Why {city.name} businesses choose ReviewHub
+                  Why {city.name} businesses choose RapportLook
                 </h2>
                 <p className="mt-4 text-base leading-relaxed text-secondary sm:text-lg">
                   {city.blurb}
@@ -436,7 +436,7 @@ export default async function CityPage({ params }) {
               </h2>
               <p className="mt-4 text-base leading-relaxed text-secondary">
                 From high-street retail to multi-location service brands, {city.name} businesses use
-                ReviewHub to build a verified, policy-compliant reputation.
+                RapportLook to build a verified, policy-compliant reputation.
               </p>
             </div>
 

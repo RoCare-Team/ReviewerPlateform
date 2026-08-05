@@ -6,7 +6,7 @@ import Campaign from "../../../../models/Campaign";
 import User from "../../../../models/User";
 import SubmissionFeed from "../../../../components/business/SubmissionFeed";
 
-export const metadata = { title: "Reviewer submissions · ReviewHub Business" };
+export const metadata = { title: "Reviewer submissions · RapportLook Business" };
 
 const PLATFORM_LABEL = {
   google: "Google",

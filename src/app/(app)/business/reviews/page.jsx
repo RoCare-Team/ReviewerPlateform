@@ -8,7 +8,7 @@ import GmbLocation from "../../../../models/GmbLocation";
 import GmbConnection from "../../../../models/GmbConnection";
 import SyncReviewsButton from "../../../../components/business/SyncReviewsButton";
 
-export const metadata = { title: "Reviews · ReviewHub Business" };
+export const metadata = { title: "Reviews · RapportLook Business" };
 
 function Stars({ n }) {
   return (

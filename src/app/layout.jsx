@@ -7,14 +7,14 @@ export const metadata = {
   metadataBase: new URL(APP_URL),
 
   title: {
-    default: "ReviewHub — Customer feedback that stays honest",
+    default: "RapportLook — Customer feedback that stays honest",
     template: "%s",
   },
 
   description:
-    "Collect customer feedback, monitor your Google Business Profile, and reply faster. ReviewHub never buys, sells, or posts reviews.",
+    "Collect customer feedback, monitor your Google Business Profile, and reply faster. RapportLook never buys, sells, or posts reviews.",
 
-  applicationName: "ReviewHub",
+  applicationName: "RapportLook",
 
   icons: {
     icon: [
@@ -39,7 +39,7 @@ export const metadata = {
 
   openGraph: {
     type: "website",
-    siteName: "ReviewHub",
+    siteName: "RapportLook",
     locale: "en_IN",
   },
 

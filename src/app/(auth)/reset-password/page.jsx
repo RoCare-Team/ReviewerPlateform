@@ -3,7 +3,7 @@ import AuthCard from "../../../components/auth/AuthCard";
 import ResetPasswordForm from "../../../components/auth/ResetPasswordForm";
 
 export const metadata = {
-  title: "Reset password · ReviewHub",
+  title: "Reset password · RapportLook",
 };
 
 export default function ResetPasswordPage() {

@@ -1,7 +1,7 @@
 import Container from "./Container";
 
 /**
- * Scrolling strip of the review platforms ReviewHub covers.
+ * Scrolling strip of the review platforms RapportLook covers.
  *
  * To simulate authentic brand wordmarks without trademark SVGs, each platform
  * is styled with unique typographic attributes (font weight, tracking, casing, etc.).

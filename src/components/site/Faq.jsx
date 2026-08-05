@@ -12,11 +12,11 @@ import Reveal from "./Reveal";
  */
 export const FAQ_ITEMS = [
   {
-    q: "Does ReviewHub pay people to write positive reviews?",
+    q: "Does RapportLook pay people to write positive reviews?",
     a: "No. Reviewers are rewarded for verified participation — submitting a genuine review and proving it — never for the rating they give. Paying for positive reviews violates Google's and Trustpilot's policies and puts the business at risk, so the platform is built so it cannot be done.",
   },
   {
-    q: "Which platforms does ReviewHub support?",
+    q: "Which platforms does RapportLook support?",
     a: "Google Business Profile, Play Store, App Store, Trustpilot, AmbitionBox, Glassdoor, Amazon, Flipkart, G2 and Capterra, with more added over time. You collect and monitor all of them from one dashboard.",
   },
   {
@@ -24,7 +24,7 @@ export const FAQ_ITEMS = [
     a: "Every submission requires a screenshot of the posted review. That proof is validated by AI for authenticity and then approved or rejected by a human admin before any reward is credited. Automation never has the final say.",
   },
   {
-    q: "How does ReviewHub prevent fraud?",
+    q: "How does RapportLook prevent fraud?",
     a: "Duplicate accounts, reused or edited screenshots, repeat reviews and suspicious behaviour are detected using device fingerprinting and IP monitoring, so campaigns aren't drained by fake activity.",
   },
   {

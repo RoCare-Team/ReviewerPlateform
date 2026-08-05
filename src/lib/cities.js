@@ -1,5 +1,5 @@
 /**
- * Popular cities where ReviewHub runs verified-review campaigns. Single source
+ * Popular cities where RapportLook runs verified-review campaigns. Single source
  * of truth for both the homepage "Popular Review Services" cards and the
  * /services/[city] detail pages, so the list and the pages can never drift.
  *
@@ -22,7 +22,7 @@ const CITIES = [
     avgRating: "4.6",
     platforms: ["Google", "Zomato", "Trustpilot", "Amazon"],
     blurb:
-      "From Bandra cafés to Andheri service centres, Mumbai businesses use ReviewHub to collect verified customer feedback across every major platform.",
+      "From Bandra cafés to Andheri service centres, Mumbai businesses use RapportLook to collect verified customer feedback across every major platform.",
   },
   {
     slug: "delhi",
