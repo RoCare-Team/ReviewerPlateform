@@ -39,6 +39,11 @@ export async function PATCH(request, { params }) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return Response.json({ error: "Invalid input" }, { status: 400 });
 
+  // A rejection must carry a reason — the reviewer is shown why.
+  if (parsed.data.action === "reject" && !parsed.data.reason.trim()) {
+    return Response.json({ error: "A reason is required to reject a submission." }, { status: 400 });
+  }
+
   await dbConnect();
 
   if (parsed.data.action === "reject") {

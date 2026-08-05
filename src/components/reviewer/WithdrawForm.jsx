@@ -2,7 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Banknote, Building2, CreditCard, Hash, IndianRupee, Landmark } from "lucide-react";
+import {
+  Banknote,
+  Building2,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  Hash,
+  IndianRupee,
+  Inbox,
+  Landmark,
+  XCircle,
+} from "lucide-react";
 import { Label, Input, FieldError, FormError } from "../auth/Field";
 
 const STATUS_STYLES = {
@@ -10,6 +21,9 @@ const STATUS_STYLES = {
   approved: "pill-verified",
   rejected: "pill-danger",
 };
+
+const STATUS_ICON = { pending: Clock, approved: CheckCircle2, rejected: XCircle };
+const STATUS_ICON_BG = { pending: "bg-pending-subtle text-pending", approved: "bg-verified-subtle text-verified", rejected: "bg-danger-subtle text-danger" };
 
 function inr(n) {
   return `₹${Number(n).toLocaleString("en-IN")}`;
@@ -101,9 +115,11 @@ export default function WithdrawForm({ balance, minWithdrawal, bankDetails, hasP
 
   return (
     <div className="space-y-6">
-      <div className="rounded-card border border-default bg-surface-raised p-6 shadow-sm">
-        <h2 className="flex items-center gap-2 text-base font-bold text-primary">
-          <Landmark className="h-4.5 w-4.5 text-accent" aria-hidden="true" />
+      <div className="rounded-card border border-default bg-surface-raised p-6 shadow-sm transition-shadow duration-300 hover:shadow-md">
+        <h2 className="flex items-center gap-2.5 text-base font-bold text-primary">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-subtle text-accent">
+            <Landmark className="h-4.5 w-4.5" aria-hidden="true" />
+          </span>
           Request a withdrawal
         </h2>
 
@@ -151,7 +167,10 @@ export default function WithdrawForm({ balance, minWithdrawal, bankDetails, hasP
               </div>
 
               <div className="border-t border-default pt-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-muted">Bank account</p>
+                <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                  <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  Bank account
+                </p>
                 <p className="mt-1 text-xs text-muted">
                   {bankDetails.accountNumber
                     ? "Pre-filled from your saved details — edit any field to update them."
@@ -222,28 +241,46 @@ export default function WithdrawForm({ balance, minWithdrawal, bankDetails, hasP
       </div>
 
       {/* History */}
-      <div className="rounded-card border border-default bg-surface-raised p-6 shadow-sm">
-        <h2 className="text-base font-bold text-primary">Request history</h2>
+      <div className="rounded-card border border-default bg-surface-raised p-6 shadow-sm transition-shadow duration-300 hover:shadow-md">
+        <h2 className="flex items-center gap-2.5 text-base font-bold text-primary">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-subtle text-accent">
+            <Clock className="h-4.5 w-4.5" aria-hidden="true" />
+          </span>
+          Request history
+        </h2>
         {history.length === 0 ? (
-          <p className="mt-3 text-sm text-secondary">No withdrawal requests yet.</p>
+          <div className="mt-4 flex flex-col items-center gap-2 py-6 text-center">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-sunken">
+              <Inbox className="h-5 w-5 text-muted" aria-hidden="true" />
+            </span>
+            <p className="text-sm text-secondary">No withdrawal requests yet.</p>
+          </div>
         ) : (
           <ul className="mt-4 divide-y divide-default">
-            {history.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                <div>
-                  <p className="nums text-sm font-bold text-primary">{inr(r.amount)}</p>
-                  <p className="text-xs text-muted">
-                    A/C ···{r.accountNumber.slice(-4)} · {new Date(r.createdAt).toLocaleDateString("en-IN")}
-                  </p>
-                  {r.status === "rejected" && r.rejectionReason && (
-                    <p className="mt-1 text-xs text-danger">Rejected: {r.rejectionReason}</p>
-                  )}
-                </div>
-                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[r.status]}`}>
-                  {r.status}
-                </span>
-              </li>
-            ))}
+            {history.map((r) => {
+              const StatusIcon = STATUS_ICON[r.status] ?? Clock;
+              return (
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3 transition-colors duration-150 hover:bg-surface-sunken/60">
+                  <div className="flex items-center gap-3">
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${STATUS_ICON_BG[r.status] ?? "bg-surface-sunken text-muted"}`}>
+                      <StatusIcon className="h-4.5 w-4.5" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <p className="nums text-sm font-bold text-primary">{inr(r.amount)}</p>
+                      <p className="text-xs text-muted">
+                        A/C ···{r.accountNumber.slice(-4)} · {new Date(r.createdAt).toLocaleDateString("en-IN")}
+                      </p>
+                      {r.status === "rejected" && r.rejectionReason && (
+                        <p className="mt-1 text-xs text-danger">Rejected: {r.rejectionReason}</p>
+                      )}
+                    </div>
+                  </div>
+                  <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[r.status]}`}>
+                    {r.status}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

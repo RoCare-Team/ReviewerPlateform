@@ -13,6 +13,7 @@ import User from "../../../models/User";
 //   array before adding anything here.
 const NAV = [
   { href: "/reviewer", label: "Overview", icon: "dashboard" },
+  { href: "/reviewer/campaigns", label: "Campaigns", icon: "campaigns" },
   { href: "/reviewer/feedback", label: "My feedback", icon: "feedback" },
   { href: "/reviewer/withdraw", label: "Withdraw", icon: "withdraw" },
   { href: "/reviewer/profile", label: "Profile", icon: "profile" },

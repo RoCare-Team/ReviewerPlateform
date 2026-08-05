@@ -24,6 +24,10 @@ const GmbLocationSchema = new mongoose.Schema(
     title: { type: String, default: "" },
     storeCode: { type: String, default: "" },
     address: { type: String, default: "" },
+    // Google's own "write a review" link for this location (from the API's
+    // metadata.newReviewUri) — lets a campaign's review URL be pre-filled
+    // instead of the business owner hunting it down and pasting it in.
+    reviewUrl: { type: String, default: "" },
 
     reviewCount: { type: Number, default: 0 },
     averageRating: { type: Number, default: 0 },

@@ -5,8 +5,11 @@ import mongoose from "mongoose";
  * screenshot as proof. Admin verifies it; on approval the reviewer's wallet is
  * credited the reward and the campaign's collected count grows.
  *
- * One submission per (campaign, reviewer) — a reviewer can't farm the same
- * campaign repeatedly.
+ * One LIVE submission per (campaign, reviewer) — a reviewer can't farm the
+ * same campaign repeatedly. A REJECTED submission isn't live: the reviewer
+ * can resubmit with a new screenshot, which overwrites this same document
+ * (status back to "pending") rather than creating a second one — see
+ * src/app/api/reviewer/submissions/route.js.
  */
 const SubmissionSchema = new mongoose.Schema(
   {

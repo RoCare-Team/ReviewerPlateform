@@ -81,6 +81,7 @@ export async function GET(request) {
                 title: loc.title ?? "",
                 storeCode: loc.storeCode ?? "",
                 address: formatAddress(loc.storefrontAddress),
+                reviewUrl: loc.metadata?.newReviewUri ?? "",
               },
             },
             { upsert: true, setDefaultsOnInsert: true }

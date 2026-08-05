@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Megaphone } from "lucide-react";
 import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
 import dbConnect from "../../../lib/db";
@@ -7,7 +7,6 @@ import User from "../../../models/User";
 import Campaign from "../../../models/Campaign";
 import Submission from "../../../models/Submission";
 import { getSettings, inr } from "../../../lib/settings";
-import CampaignParticipation from "../../../components/reviewer/CampaignParticipation";
 import OverviewStats from "../../../components/reviewer/OverviewStats";
 
 export const metadata = { title: "Your dashboard · ReviewHub" };
@@ -23,27 +22,20 @@ export default async function ReviewerHomePage() {
     Submission.find({ reviewer: user.id }).select("campaign status").lean(),
   ]);
 
-  const submittedIds = new Set(mySubs.map((s) => String(s.campaign)));
   const approved = mySubs.filter((s) => s.status === "approved").length;
   const pending = mySubs.filter((s) => s.status === "pending").length;
   const rejected = mySubs.filter((s) => s.status === "rejected").length;
 
-  // Active campaigns not yet full and not already submitted by this reviewer.
-  const openCampaigns = await Campaign.find({ status: "active" })
-    .sort({ createdAt: -1 })
-    .lean();
-  const available = openCampaigns
-    .filter((c) => (c.collected ?? 0) < c.targetReviews && !submittedIds.has(String(c._id)))
-    .map((c) => ({
-      id: String(c._id),
-      name: c.name,
-      platform: c.platform,
-      notes: c.notes,
-      targetUrl: c.targetUrl,
-      collected: c.collected ?? 0,
-      target: c.targetReviews,
-      remaining: c.targetReviews - (c.collected ?? 0),
-    }));
+  // Same "is it actually available" rule as /reviewer/campaigns: a rejected
+  // submission doesn't take a campaign off this count — it's still open for
+  // a resubmission.
+  const statusByCampaign = new Map(mySubs.map((s) => [String(s.campaign), s.status]));
+  const openCampaigns = await Campaign.find({ status: "active" }).select("collected targetReviews").lean();
+  const availableCount = openCampaigns.filter((c) => {
+    if ((c.collected ?? 0) >= c.targetReviews) return false;
+    const status = statusByCampaign.get(String(c._id));
+    return !status || status === "rejected";
+  }).length;
 
   return (
     <div>
@@ -66,19 +58,29 @@ export default async function ReviewerHomePage() {
         />
       </div>
 
-      {/* Available campaigns */}
-      <div className="mt-10">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-primary">Available campaigns</h2>
-          <Link href="/reviewer/feedback" className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline">
-            My submissions
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
+      {/* Available campaigns — its own dedicated page now, this is just the entry point */}
+      <Link
+        href="/reviewer/campaigns"
+        className="group mt-10 flex items-center justify-between gap-4 rounded-card border border-accent-border bg-accent-subtle p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+      >
+        <div className="flex items-center gap-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent text-on-brand transition-transform duration-300 group-hover:scale-110">
+            <Megaphone className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 className="text-base font-bold text-primary">Available campaigns</h2>
+            <p className="text-sm text-secondary">
+              {availableCount > 0
+                ? `${availableCount} campaign${availableCount === 1 ? "" : "s"} you can join right now.`
+                : "No campaigns available right now — check back soon."}
+            </p>
+          </div>
         </div>
-        <div className="mt-4">
-          <CampaignParticipation campaigns={available} reward={settings.reviewerReward} />
-        </div>
-      </div>
+        <ArrowRight
+          className="h-5 w-5 shrink-0 text-accent transition-transform duration-300 group-hover:translate-x-1"
+          aria-hidden="true"
+        />
+      </Link>
     </div>
   );
 }

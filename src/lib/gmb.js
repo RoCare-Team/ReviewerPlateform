@@ -181,7 +181,10 @@ export async function listAccounts(accessToken) {
 
 /** List locations under an account ("accounts/123"). */
 export async function listLocations(accessToken, accountName) {
-  const readMask = "name,title,storeCode,storefrontAddress";
+  // `metadata` carries `newReviewUri` — Google's own "write a review" link for
+  // the location, so a campaign can be pre-filled with the real review URL
+  // instead of asking the business owner to go find and paste it.
+  const readMask = "name,title,storeCode,storefrontAddress,metadata";
   const url = `${INFO_API}/${accountName}/locations?readMask=${encodeURIComponent(readMask)}&pageSize=100`;
   const data = await gapi(url, accessToken);
   return data.locations ?? []; // [{ name: "locations/456", title, storefrontAddress }]

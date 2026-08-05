@@ -4,13 +4,6 @@ import Campaign from "../../../../models/Campaign";
 import Submission from "../../../../models/Submission";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 import { uploadImage, cloudinaryConfigured } from "../../../../lib/cloudinary";
-import { getSettings } from "../../../../lib/settings";
-import { verifyReviewScreenshot, openaiConfigured } from "../../../../lib/openai-verify";
-import { approveSubmission, rejectSubmission } from "../../../../lib/verification";
-
-const PLATFORM_LABEL = {
-  google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store",
-};
 
 /**
  * Reviewer submits their participation in a campaign with a screenshot proof.
@@ -18,6 +11,7 @@ const PLATFORM_LABEL = {
  *
  * The screenshot is uploaded to Cloudinary (signed) and referenced by URL — never
  * stored on the app server. All uploads validate type, size and magic bytes.
+ * Every submission lands as `pending` — an admin verifies it manually.
  */
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
@@ -69,15 +63,20 @@ export async function POST(request) {
     return Response.json({ error: "This campaign has reached its target." }, { status: 400 });
   }
 
-  // One submission per reviewer per campaign.
+  // One LIVE submission per reviewer per campaign. A previously rejected one
+  // isn't live — it's overwritten in place below so the reviewer can retry.
   const existing = await Submission.findOne({ campaign: campaign._id, reviewer: user.id });
-  if (existing) {
+  if (existing && existing.status !== "rejected") {
     return Response.json({ error: "You've already submitted for this campaign." }, { status: 409 });
   }
 
-  // Free fraud check: reject a reused screenshot before spending anything on AI.
+  // Free fraud check: reject a reused screenshot (excluding the reviewer's own
+  // prior rejected attempt on this same campaign).
   const screenshotHash = crypto.createHash("sha256").update(bytes).digest("hex");
-  const dup = await Submission.findOne({ screenshotHash });
+  const dup = await Submission.findOne({
+    screenshotHash,
+    ...(existing ? { _id: { $ne: existing._id } } : {}),
+  });
   if (dup) {
     return Response.json({ error: "This screenshot has already been used." }, { status: 409 });
   }
@@ -90,64 +89,49 @@ export async function POST(request) {
     return Response.json({ error: `Upload failed: ${e.message}` }, { status: 502 });
   }
 
-  // AI verification (OpenAI vision) — decides automatically.
-  const verdict = await verifyReviewScreenshot({
-    imageUrl: upload.url,
-    platform: PLATFORM_LABEL[campaign.platform] ?? campaign.platform,
-    businessName: campaign.name,
-  });
-
-  let submission;
-  try {
-    submission = await Submission.create({
-      campaign: campaign._id,
-      reviewer: user.id,
-      business: campaign.user,
-      screenshotUrl: upload.url,
-      screenshotPublicId: upload.publicId,
-      screenshotHash,
-      note,
-      status: "pending",
-      aiDecision: verdict.decision,
-      aiConfidence: verdict.confidence,
-      aiReason: verdict.reason,
-    });
-  } catch (e) {
-    if (e?.code === 11000) {
+  if (existing) {
+    // Resubmission after a rejection — overwrite the same doc, resetting every
+    // reviewed field so a stale rejection can't linger on the new attempt.
+    const updated = await Submission.findOneAndUpdate(
+      { _id: existing._id, status: "rejected" },
+      {
+        $set: {
+          screenshotUrl: upload.url,
+          screenshotPublicId: upload.publicId,
+          screenshotHash,
+          note,
+          status: "pending",
+          rejectionReason: "",
+          verifiedBy: "",
+          rewardAmount: 0,
+          reviewedBy: null,
+          reviewedAt: null,
+        },
+      },
+      { returnDocument: "after" }
+    );
+    if (!updated) {
       return Response.json({ error: "You've already submitted for this campaign." }, { status: 409 });
     }
-    throw e;
-  }
-
-  const { reviewerReward } = await getSettings();
-
-  // Act on the AI verdict automatically.
-  if (verdict.decision === "approve") {
-    const outcome = await approveSubmission(submission._id, reviewerReward, { verifiedBy: "ai" });
-    if (outcome === "campaign_full") {
-      return Response.json({
-        ok: true,
-        status: "rejected",
-        reason: "This campaign already reached its review target — no reward this time.",
+  } else {
+    try {
+      await Submission.create({
+        campaign: campaign._id,
+        reviewer: user.id,
+        business: campaign.user,
+        screenshotUrl: upload.url,
+        screenshotPublicId: upload.publicId,
+        screenshotHash,
+        note,
+        status: "pending",
       });
+    } catch (e) {
+      if (e?.code === 11000) {
+        return Response.json({ error: "You've already submitted for this campaign." }, { status: 409 });
+      }
+      throw e;
     }
-    return Response.json({
-      ok: true,
-      status: "approved",
-      reward: reviewerReward,
-      reason: verdict.reason,
-    });
   }
 
-  if (verdict.decision === "reject") {
-    await rejectSubmission(submission._id, verdict.reason || "Screenshot didn't pass AI verification.", { verifiedBy: "ai" });
-    return Response.json({ ok: true, status: "rejected", reason: verdict.reason });
-  }
-
-  // AI unavailable/uncertain — leave pending for manual admin verification.
-  return Response.json({
-    ok: true,
-    status: "pending",
-    reason: openaiConfigured() ? verdict.reason : "Submitted for review.",
-  });
+  return Response.json({ ok: true, status: "pending", reason: "Submitted for review. You'll be paid once it's verified." });
 }

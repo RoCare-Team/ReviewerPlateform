@@ -41,12 +41,20 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
 
   const visible = tab === "all" ? submissions : submissions.filter((s) => s.status === tab);
 
+  const [reasonError, setReasonError] = useState("");
+
   async function act(id, action, reasonText = "") {
+    // A rejection must say WHY — the reviewer sees this reason.
+    if (action === "reject" && !reasonText.trim()) {
+      setReasonError("Please enter a reason for rejection.");
+      return;
+    }
+    setReasonError("");
     setBusy(id);
     const res = await fetch(`/api/admin/submissions/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, reason: reasonText }),
+      body: JSON.stringify({ action, reason: reasonText.trim() }),
     });
     setBusy(null);
     setRejecting(null);
@@ -164,16 +172,21 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
                     {s.status === "pending" && (
                       rejecting === s.id ? (
                         <div className="mt-4 animate-fade-up" style={{ animationDuration: "200ms" }}>
-                          <input value={reason} onChange={(e) => setReason(e.target.value)}
-                            placeholder="Reason for rejection…"
+                          <label className="mb-1 block text-xs font-semibold text-primary">
+                            Reason for rejection <span className="text-danger">*</span>
+                          </label>
+                          <input value={reason} onChange={(e) => { setReason(e.target.value); setReasonError(""); }}
+                            placeholder="e.g. Screenshot doesn't show a posted review"
                             autoFocus
-                            className="w-full rounded-btn border border-default bg-surface px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50" />
+                            className={`w-full rounded-btn border bg-surface px-3 py-2 text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-accent/50 ${reasonError ? "border-danger" : "border-default focus:border-accent"}`} />
+                          {reasonError && <p className="mt-1 text-xs text-danger">{reasonError}</p>}
+                          <p className="mt-1 text-xs text-muted">The reviewer will see this reason.</p>
                           <div className="mt-2 flex gap-2">
-                            <button type="button" onClick={() => act(s.id, "reject", reason)} disabled={busy === s.id}
+                            <button type="button" onClick={() => act(s.id, "reject", reason)} disabled={busy === s.id || !reason.trim()}
                               className="rounded-btn bg-danger px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0">
                               Confirm reject
                             </button>
-                            <button type="button" onClick={() => { setRejecting(null); setReason(""); }}
+                            <button type="button" onClick={() => { setRejecting(null); setReason(""); setReasonError(""); }}
                               className="rounded-btn border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken">
                               Cancel
                             </button>
