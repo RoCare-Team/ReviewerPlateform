@@ -4,6 +4,11 @@ import AuthAside from "../../components/auth/AuthAside";
 
 // Public. No session required — these ARE the pages you use to get one.
 // Already-authenticated users are bounced to their home by src/middleware.js.
+// Login/signup/reset forms carry no search intent and are noindexed.
+export const metadata = {
+  robots: { index: false, follow: false },
+};
+
 export default function AuthLayout({ children }) {
   return (
     <div className="grid h-dvh overflow-hidden lg:grid-cols-2">

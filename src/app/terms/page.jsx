@@ -4,6 +4,7 @@ export const metadata = {
   title: "Terms & conditions — RapportLook",
   description:
     "The terms that govern use of RapportLook by businesses running review campaigns and reviewers submitting verified participation.",
+  keywords: ["RapportLook terms and conditions", "review platform terms", "reviewer agreement"],
   alternates: { canonical: "/terms" },
   openGraph: {
     title: "Terms & conditions — RapportLook",

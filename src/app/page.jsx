@@ -23,6 +23,14 @@ export const metadata = {
   title: "RapportLook — Grow your reputation with verified customer reviews",
   description:
     "Collect authentic reviews across Google, Play Store, Trustpilot, G2 and more. Reviewers are rewarded for verified participation — never for positive ratings, never gated.",
+  keywords: [
+    "verified customer reviews",
+    "review collection platform",
+    "Google reviews",
+    "Trustpilot reviews",
+    "reputation management software",
+    "customer feedback rewards",
+  ],
   alternates: { canonical: "/" },
   openGraph: {
     title: "RapportLook — Grow your reputation with verified customer reviews",

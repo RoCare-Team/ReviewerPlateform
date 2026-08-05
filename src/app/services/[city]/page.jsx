@@ -30,9 +30,17 @@ export async function generateMetadata({ params }) {
   const title = `Verified customer reviews in ${city.name} — RapportLook`;
   const description = `Collect verified customer reviews in ${city.name}, ${city.region} across ${city.platforms.join(", ")}. Reviewers rewarded for verified participation, never for positive ratings.`;
 
+  const keywords = [
+    `customer reviews ${city.name}`,
+    `review management ${city.name}`,
+    `verified reviews ${city.region}`,
+    ...city.platforms.map((p) => `${p} reviews ${city.name}`),
+  ];
+
   return {
     title,
     description,
+    keywords,
     alternates: { canonical: `/services/${city.slug}` },
     openGraph: { title, description, url: `/services/${city.slug}` },
   };

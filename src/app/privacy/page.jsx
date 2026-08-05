@@ -4,6 +4,7 @@ export const metadata = {
   title: "Privacy policy — RapportLook",
   description:
     "How RapportLook collects, uses, and protects data from businesses and reviewers on the platform.",
+  keywords: ["RapportLook privacy policy", "data protection", "review platform privacy"],
   alternates: { canonical: "/privacy" },
   openGraph: {
     title: "Privacy policy — RapportLook",

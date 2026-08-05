@@ -1,5 +1,10 @@
 import { requireAuth } from "../../lib/auth/guards";
 
+// Signed-in dashboards — never public search results.
+export const metadata = {
+  robots: { index: false, follow: false },
+};
+
 /**
  * Session required for everything under (app).
  *

@@ -1,10 +1,14 @@
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 
-const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
+// APP_URL is used for server-side redirects/emails (localhost in dev is correct
+// there). For SEO metadata we must always resolve against the real production
+// domain — falling back to APP_URL here is what was putting the Vercel preview
+// host into canonical URLs instead of www.rapportlook.com.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.rapportlook.com";
 
 export const metadata = {
-  metadataBase: new URL(APP_URL),
+  metadataBase: new URL(SITE_URL),
 
   title: {
     default: "RapportLook — Customer feedback that stays honest",
@@ -13,6 +17,16 @@ export const metadata = {
 
   description:
     "Collect customer feedback, monitor your Google Business Profile, and reply faster. RapportLook never buys, sells, or posts reviews.",
+
+  keywords: [
+    "customer review platform",
+    "verified customer reviews",
+    "Google reviews management",
+    "review collection software",
+    "reputation management",
+    "customer feedback tool",
+    "Google Business Profile reviews",
+  ],
 
   applicationName: "RapportLook",
 
@@ -31,10 +45,12 @@ export const metadata = {
     ],
   },
 
+  // Public marketing pages are indexable by default; signed-in dashboards,
+  // auth flows, and admin routes override this to noindex in their own layouts.
   robots: {
-    index: false,
-    follow: false,
-    googleBot: { index: false, follow: false },
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
   },
 
   openGraph: {

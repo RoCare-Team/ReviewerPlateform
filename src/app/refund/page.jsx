@@ -4,6 +4,7 @@ export const metadata = {
   title: "Refund policy — RapportLook",
   description:
     "How wallet funds, campaign charges, and disputed verifications are refunded on RapportLook.",
+  keywords: ["RapportLook refund policy", "wallet refund", "campaign charge dispute"],
   alternates: { canonical: "/refund" },
   openGraph: {
     title: "Refund policy — RapportLook",
