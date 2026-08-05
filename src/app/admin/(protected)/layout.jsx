@@ -31,7 +31,6 @@ export default async function ProtectedAdminLayout({ children }) {
   return (
     <AppShell
       brand={BRAND_NAME}
-      badge="ADMIN"
       nav={NAV}
       user={{ email: user.email }}
       // Back to the admin door, not the public homepage.
