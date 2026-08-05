@@ -1,8 +1,11 @@
 import AppShell from "../../../components/shell/AppShell";
 import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
+import { getContact } from "../../../lib/contact";
 import dbConnect from "../../../lib/db";
 import User from "../../../models/User";
+
+const BRAND_NAME = getContact("brand.productName", "RapportLook");
 
 // business_owner only. Re-checked here even though (app)/layout ran requireAuth
 // and middleware matched the prefix — each layer narrows, none is trusted alone.
@@ -25,7 +28,7 @@ export default async function BusinessLayout({ children }) {
 
   return (
     <AppShell
-      brand="ReviewHub Business"
+      brand={`${BRAND_NAME} Business`}
       nav={NAV}
       user={{ name: user.name, email: user.email }}
       profileHref="/business/settings"

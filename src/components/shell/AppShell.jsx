@@ -164,7 +164,10 @@ export default function AppShell({
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-sm font-bold text-on-brand">
           {brand.charAt(0)}
         </span>
-        <Link href={nav[0]?.href ?? "/"} className="text-base font-bold tracking-tight text-primary">
+        {/* Brand mark always goes to the public homepage, not the dashboard
+            root — a logo click is "take me to the site", same as every
+            marketing header, not "take me to my overview page". */}
+        <Link href="/" className="text-base font-bold tracking-tight text-primary">
           {brand}
         </Link>
         {badge && (
@@ -237,8 +240,10 @@ export default function AppShell({
             <Menu className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          {/* Mobile: brand. Desktop: current page title. */}
-          <span className="font-semibold tracking-tight text-primary lg:hidden">{brand}</span>
+          {/* Mobile: brand, linked home same as the sidebar mark. Desktop: current page title. */}
+          <Link href="/" className="font-semibold tracking-tight text-primary lg:hidden">
+            {brand}
+          </Link>
           <span className="hidden text-sm font-semibold text-primary lg:inline">{currentLabel}</span>
           {badge && (
             <span className="rounded bg-danger-subtle px-1.5 py-0.5 text-xs font-medium text-danger">

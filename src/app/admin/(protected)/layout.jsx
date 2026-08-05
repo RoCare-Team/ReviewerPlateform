@@ -1,5 +1,8 @@
 import AppShell from "../../../components/shell/AppShell";
 import { requireAdmin } from "../../../lib/auth/guards";
+import { getContact } from "../../../lib/contact";
+
+const BRAND_NAME = getContact("brand.productName", "RapportLook");
 
 /**
  * Guards every admin route except /admin/login (which sits outside this group).
@@ -27,7 +30,7 @@ export default async function ProtectedAdminLayout({ children }) {
 
   return (
     <AppShell
-      brand="ReviewHub"
+      brand={BRAND_NAME}
       badge="ADMIN"
       nav={NAV}
       user={{ email: user.email }}

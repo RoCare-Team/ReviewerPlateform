@@ -90,7 +90,7 @@ export default function SiteHeader() {
             {/* Intrinsic 1138×358; rendered at a fixed height with auto width.
                 priority: it's above the fold on every page, so don't lazy-load it. */}
             <Image
-              src="/img/logo.png"
+              src="/img/logo2.png"
               alt="ReviewHub"
               width={1138}
               height={358}

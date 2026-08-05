@@ -1,8 +1,11 @@
 import AppShell from "../../../components/shell/AppShell";
 import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
+import { getContact } from "../../../lib/contact";
 import dbConnect from "../../../lib/db";
 import User from "../../../models/User";
+
+const BRAND_NAME = getContact("brand.productName", "RapportLook");
 
 // reviewer only.
 //
@@ -27,7 +30,7 @@ export default async function ReviewerLayout({ children }) {
 
   return (
     <AppShell
-      brand="ReviewHub"
+      brand={BRAND_NAME}
       nav={NAV}
       user={{ name: user.name, email: user.email }}
       profileHref="/reviewer/profile"

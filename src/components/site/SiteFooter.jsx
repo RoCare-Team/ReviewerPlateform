@@ -2,6 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import Container from "./Container";
 import { getCities } from "../../lib/cities";
+import { getContact } from "../../lib/contact";
+
+// Brand name is read from data/contact.json — the single source of truth —
+// so renaming the product only ever means editing that one file.
+const BRAND_NAME = getContact("brand.productName", "RapportLook");
 
 /**
  * Brand social icons. lucide-react removed its deprecated brand glyphs
@@ -103,11 +108,11 @@ const CITIES = getCities();
 
 // Defined Social Media Configurations
 const SOCIALS = [
-  { href: "https://twitter.com/reviewhub", label: "Twitter", Icon: Twitter },
-  { href: "https://linkedin.com/company/reviewhub", label: "LinkedIn", Icon: Linkedin },
-  { href: "https://facebook.com/reviewhub", label: "Facebook", Icon: Facebook },
-  { href: "https://instagram.com/reviewhub", label: "Instagram", Icon: Instagram },
-  { href: "https://github.com/reviewhub", label: "GitHub", Icon: Github },
+  { href: "https://twitter.com/rapportlook", label: "Twitter", Icon: Twitter },
+  { href: "https://linkedin.com/company/rapportlook", label: "LinkedIn", Icon: Linkedin },
+  { href: "https://facebook.com/rapportlook", label: "Facebook", Icon: Facebook },
+  { href: "https://instagram.com/rapportlook", label: "Instagram", Icon: Instagram },
+  { href: "https://github.com/rapportlook", label: "GitHub", Icon: Github },
 ];
 
 export default function SiteFooter() {
@@ -119,11 +124,11 @@ export default function SiteFooter() {
           
           {/* Brand & Social Column */}
           <div className="lg:col-span-2">
-            <Link href="/" aria-label="ReviewHub home" className="inline-flex items-center">
+            <Link href="/" aria-label={`${BRAND_NAME} home`} className="inline-flex items-center">
               {/* Intrinsic 1138×358; rendered at a fixed height with auto width. */}
               <Image
-                src="/img/logo.png"
-                alt="ReviewHub"
+                src="/img/logo2.png"
+                alt={BRAND_NAME}
                 width={1138}
                 height={358}
                 className="h-9 w-auto"
@@ -176,7 +181,7 @@ export default function SiteFooter() {
 
         {/* Footer Base Layer: Split on desktop to prevent vast empty whitespace */}
         <div className="mt-14 border-t border-default/60 pt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-sm font-semibold text-muted">
-          <span>&copy; {new Date().getFullYear()} ReviewHub. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</span>
           <span className="text-xs uppercase tracking-wider text-muted/60">
             Built for compliance and authenticity
           </span>

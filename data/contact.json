@@ -1,31 +1,31 @@
 {
-  "_readme": "SINGLE SOURCE OF TRUTH for every contact detail in ReviewHub. No email, phone, address, officer name, or social/platform handle may exist as a literal anywhere else in this repo — not in the footer, not in a page, not in the privacy policy, not in a form fallback. src/lib/contact.js is the ONLY file that reads this. Everything else imports from there.",
-  "_version": "1.0.0",
+  "_readme": "SINGLE SOURCE OF TRUTH for every contact detail in RapportLook. No email, phone, address, officer name, or social/platform handle may exist as a literal anywhere else in this repo — not in the footer, not in a page, not in the privacy policy, not in a form fallback. src/lib/contact.js is the ONLY file that reads this. Everything else imports from there.",
+  "_version": "1.1.0",
   "_owner": "TODO — name + role of the person who approves changes to this file",
-  "_lastReviewed": "2026-07-17",
+  "_lastReviewed": "2026-08-05",
 
   "brand": {
-    "productName": "ReviewHub",
+    "productName": "RapportLook",
     "tagline": "TODO — one line, must survive the sentence 'we don't pay for reviews'",
     "legalEntity": "TODO — registered company name Pvt. Ltd.",
     "cin": "TODO — Corporate Identity Number",
     "gstin": "TODO",
-    "website": "TODO — https://yourdomain.com",
+    "website": "https://rapportlook.com",
     "_note": "website domain MUST match the domain of emails.support / emails.sales. Mismatched domains are the #1 rejection reason on the Google Business Profile API access request."
   },
 
   "emails": {
-    "support": "TODO — support@yourdomain.com",
-    "sales": "TODO — sales@yourdomain.com",
-    "billing": "TODO — billing@yourdomain.com",
-    "privacy": "TODO — privacy@yourdomain.com",
-    "grievance": "TODO — grievance@yourdomain.com",
-    "legal": "TODO — legal@yourdomain.com",
-    "security": "TODO — security@yourdomain.com",
-    "careers": "TODO — careers@yourdomain.com",
-    "affiliates": "TODO — affiliates@yourdomain.com",
-    "press": "TODO — press@yourdomain.com",
-    "noreply": "TODO — noreply@yourdomain.com"
+    "support": "TODO — support@rapportlook.com",
+    "sales": "TODO — sales@rapportlook.com",
+    "billing": "TODO — billing@rapportlook.com",
+    "privacy": "TODO — privacy@rapportlook.com",
+    "grievance": "TODO — grievance@rapportlook.com",
+    "legal": "TODO — legal@rapportlook.com",
+    "security": "TODO — security@rapportlook.com",
+    "careers": "TODO — careers@rapportlook.com",
+    "affiliates": "TODO — affiliates@rapportlook.com",
+    "press": "TODO — press@rapportlook.com",
+    "noreply": "TODO — noreply@rapportlook.com"
   },
 
   "phones": {
@@ -85,7 +85,7 @@
   },
 
   "platforms": {
-    "_readme": "ReviewHub's OWN presence on each platform — where customers find and review US. This is contact data: 'where to find us'. It is NOT the platform registry (which platforms the product supports, API endpoints, capabilities, scopes) — that belongs in a separate platforms.json and must never live here. contact.json is imported by the footer and the privacy policy; API config has no business in that blast radius.",
+    "_readme": "RapportLook's OWN presence on each platform — where customers find and review US. This is contact data: 'where to find us'. It is NOT the platform registry (which platforms the product supports, API endpoints, capabilities, scopes) — that belongs in a separate platforms.json and must never live here. contact.json is imported by the footer and the privacy policy; API config has no business in that blast radius.",
 
     "googleBusinessProfile": {
       "label": "Google Business Profile",
