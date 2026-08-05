@@ -52,7 +52,7 @@ const TILE = {
 
 function StatGrid({ stats }) {
   return (
-    <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
       {stats.map(({ key, label, value, hint }) => {
         const { Icon, tone, href } = TILE[key] ?? TILE.target;
         return <StatCard key={key} label={label} value={value} Icon={Icon} tone={tone} href={href} sub={hint} />;

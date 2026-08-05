@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import Container from "./Container";
+import { getCities } from "../../lib/cities";
 
 /**
  * Brand social icons. lucide-react removed its deprecated brand glyphs
@@ -66,7 +67,6 @@ const COLUMNS = [
     links: [
       { href: "/#features", label: "Features" },
       { href: "/#how-it-works", label: "How it works" },
-      { href: "/pricing", label: "Pricing" },
       { href: "/#faq", label: "FAQ" },
     ],
   },
@@ -96,6 +96,10 @@ const COLUMNS = [
     ],
   },
 ];
+
+// Same city list that powers /services/[city] and the homepage popular-cities
+// section, so this strip can never drift out of sync with those pages.
+const CITIES = getCities();
 
 // Defined Social Media Configurations
 const SOCIALS = [

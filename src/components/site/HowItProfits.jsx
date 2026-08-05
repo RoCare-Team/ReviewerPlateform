@@ -20,15 +20,21 @@ const STEPS = [
 const FINAL_STEP = { n: 7, title: "Points credited", body: "Once approved, reward points are credited for the verified participation." };
 
 export default function HowItProfits() {
+  // scroll-mt: the header is sticky and floats over the top of the page, so a
+  // plain #how-it-works jump lands with this heading tucked behind it — the
+  // offset keeps the section clear of the header on landing.
   return (
-    <section id="how-it-works" className="border-y border-default bg-surface-sunken py-12 sm:py-16">
+    <section
+      id="how-it-works"
+      className="scroll-mt-28 border-y border-default bg-surface-sunken py-12 sm:py-16 sm:scroll-mt-32"
+    >
       <Container>
         <Reveal className="max-w-3xl">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-accent-subtle px-3 py-1">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
             <p className="text-xs font-bold uppercase tracking-wide text-accent">The workflow</p>
           </div>
-          <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-primary sm:text-3xl">
+          <h2 className="mt-4 text-2xl font-bold tracking-tight text-primary sm:text-3xl">
             How it works, end to end
           </h2>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-secondary">

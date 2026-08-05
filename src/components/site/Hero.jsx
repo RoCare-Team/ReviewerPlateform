@@ -96,7 +96,7 @@ export default function Hero() {
           </p>
 
           {/* Title — "verified" highlighted in the brand accent */}
-          <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-primary sm:text-3xl lg:text-[2.2rem] lg:leading-[1.1]">
+          <h1 className="mt-6 text-3xl font-bold tracking-tight text-primary sm:text-3xl lg:text-[2.2rem] lg:leading-[1.1]">
             Grow Your Reputation with{" "}
             <span className="text-accent">Verified</span> Customer Reviews
           </h1>

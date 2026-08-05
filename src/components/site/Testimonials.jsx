@@ -49,7 +49,7 @@ export default function Testimonials() {
           <p className="text-xs font-bold uppercase tracking-widest text-accent">
             Social Proof
           </p>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.15]">
+          <h2 className="mt-3 text-3xl font-bold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.15]">
             Trusted by businesses and reviewers alike
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">

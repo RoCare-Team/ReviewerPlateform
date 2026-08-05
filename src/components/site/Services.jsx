@@ -53,7 +53,11 @@ const FEATURES = [
 
 export default function Services() {
   return (
-    <section id="features" className="relative py-8 sm:py-10 bg-background overflow-hidden">
+    // scroll-mt: keeps this heading clear of the sticky header on a #features jump.
+    <section
+      id="features"
+      className="relative scroll-mt-28 py-8 sm:py-10 sm:scroll-mt-32 bg-background overflow-hidden"
+    >
       {/* Ambient background decoration for a subtle modern aesthetic */}
       <div 
         className="absolute top-0 right-1/4 -z-10 h-[350px] w-[600px] rounded-full bg-accent/5 blur-[120px] pointer-events-none select-none" 
@@ -69,7 +73,7 @@ export default function Services() {
               Features & Capabilities
             </p>
           </div>
-          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.15]">
+          <h2 className="mt-4 text-3xl font-bold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.15]">
             Everything you need to grow reputation the honest way
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-secondary sm:text-lg">
