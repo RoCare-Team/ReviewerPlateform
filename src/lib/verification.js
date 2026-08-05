@@ -11,31 +11,39 @@ import WalletTransaction from "../models/WalletTransaction";
  */
 
 /**
- * Approve a pending submission: claim one collected slot on the campaign,
- * credit the reviewer's wallet, log the reward. Returns:
+ * Approve a submission: claim one collected slot on the campaign, credit the
+ * reviewer's wallet, log the reward. Returns:
  *  - "approved"       — applied normally.
- *  - "already_processed" — this submission was already approved/rejected (idempotent no-op).
+ *  - "already_processed" — this submission wasn't in an approvable status
+ *                        (already approved, or not in `allowFrom`) — idempotent no-op.
  *  - "campaign_full"  — the campaign already hit its target (a concurrent approval won
  *                        the last slot); the submission is rejected instead, no reward.
+ *
+ * `allowFrom` gates which starting status is acceptable. Defaults to only
+ * "pending" — the normal AI/first-pass path. An admin overriding an earlier
+ * REJECTED verdict (their call only; never the AI's) passes
+ * `allowFrom: ["pending", "rejected"]` explicitly — see the admin submissions
+ * route. An already-approved submission is never in `allowFrom`, so this can
+ * never pay a reviewer twice for the same submission.
  *
  * The campaign slot is claimed with an atomic conditional increment
  * (collected < targetReviews) BEFORE any money moves, so two submissions
  * racing to fill the last slot can never both succeed — whichever loses the
  * atomic update gets rejected here rather than overshooting the target.
  */
-export async function approveSubmission(submissionId, reward, { verifiedBy = "", reviewedBy = null } = {}) {
-  const pending = await Submission.findOne({ _id: submissionId, status: "pending" }).select("campaign reviewer");
-  if (!pending) return "already_processed";
+export async function approveSubmission(submissionId, reward, { verifiedBy = "", reviewedBy = null, allowFrom = ["pending"] } = {}) {
+  const current = await Submission.findOne({ _id: submissionId, status: { $in: allowFrom } }).select("campaign reviewer");
+  if (!current) return "already_processed";
 
   const campaign = await Campaign.findOneAndUpdate(
-    { _id: pending.campaign, $expr: { $lt: ["$collected", "$targetReviews"] } },
+    { _id: current.campaign, $expr: { $lt: ["$collected", "$targetReviews"] } },
     { $inc: { collected: 1 } },
     { returnDocument: "after" }
   );
 
   if (!campaign) {
     await Submission.updateOne(
-      { _id: submissionId, status: "pending" },
+      { _id: submissionId, status: { $in: allowFrom } },
       {
         $set: {
           status: "rejected",
@@ -50,8 +58,10 @@ export async function approveSubmission(submissionId, reward, { verifiedBy = "",
   }
 
   const sub = await Submission.findOneAndUpdate(
-    { _id: submissionId, status: "pending" },
-    { $set: { status: "approved", rewardAmount: reward, verifiedBy, reviewedBy, reviewedAt: new Date() } },
+    { _id: submissionId, status: { $in: allowFrom } },
+    // rejectionReason cleared: a submission approved on override no longer
+    // carries the reason it was once rejected for.
+    { $set: { status: "approved", rewardAmount: reward, rejectionReason: "", verifiedBy, reviewedBy, reviewedAt: new Date() } },
     { returnDocument: "after" }
   );
   if (!sub) {

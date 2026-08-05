@@ -21,9 +21,10 @@ const TABS = [
 /**
  * Admin review-verification queue. Tabs default to "Pending" — the ones still
  * needing a human decision — but "Approved"/"Rejected"/"All" surface every
- * submission the AI already auto-decided too, so nothing is invisible just
- * because the AI handled it instantly at submit time. Approve/reject actions
- * only render for still-pending items; decided ones show their verdict.
+ * decided submission too. Approve/Reject render for pending items; a
+ * REJECTED submission additionally gets an "Approve anyway" override (admin
+ * only — see the API route) so a call reversed later doesn't need a whole new
+ * submission. Approved submissions are final — no reject-after-approve here.
  */
 export default function VerificationQueue({ submissions, reward, initialTab = "pending" }) {
   const router = useRouter();
@@ -31,6 +32,7 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
   const [busy, setBusy] = useState(null);
   const [rejecting, setRejecting] = useState(null);
   const [reason, setReason] = useState("");
+  const [overriding, setOverriding] = useState(null);
 
   const counts = {
     pending: submissions.filter((s) => s.status === "pending").length,
@@ -59,6 +61,7 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
     setBusy(null);
     setRejecting(null);
     setReason("");
+    setOverriding(null);
     if (res.ok) router.refresh();
   }
 
@@ -205,6 +208,36 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
                             Reject
                           </button>
                         </div>
+                      )
+                    )}
+
+                    {s.status === "rejected" && (
+                      overriding === s.id ? (
+                        <div className="mt-4 animate-fade-up rounded-btn border border-verified bg-verified-subtle p-3" style={{ animationDuration: "200ms" }}>
+                          <p className="text-sm text-primary">
+                            Approve this rejected submission anyway and pay the reviewer <span className="font-bold">₹{reward}</span>?
+                          </p>
+                          <div className="mt-2 flex gap-2">
+                            <button type="button" onClick={() => act(s.id, "approve")} disabled={busy === s.id}
+                              className="rounded-btn bg-verified px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0">
+                              {busy === s.id ? "Working…" : "Yes, approve & pay"}
+                            </button>
+                            <button type="button" onClick={() => setOverriding(null)} disabled={busy === s.id}
+                              className="rounded-btn border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken">
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setOverriding(s.id)}
+                          title="Only an admin can override a rejection"
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-btn border border-verified/40 bg-surface px-3.5 py-2 text-sm font-semibold text-verified transition-all duration-200 hover:-translate-y-0.5 hover:bg-verified-subtle hover:shadow-sm"
+                        >
+                          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                          Approve anyway
+                        </button>
                       )
                     )}
                   </div>

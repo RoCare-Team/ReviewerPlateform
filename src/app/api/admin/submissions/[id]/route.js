@@ -10,10 +10,17 @@ import { approveSubmission } from "../../../../../lib/verification";
  * Admin verifies a reviewer's submission.
  *   approve → credit the reviewer's wallet with the global reward, bump the
  *             campaign's collected count (complete it if the target is hit).
- *   reject  → mark rejected with a reason. No reward.
+ *             Allowed from "pending" (the normal case) OR "rejected" — an
+ *             admin can override an earlier rejection (their own or the
+ *             AI's) and pay it after all. Only ever admin-initiated; nothing
+ *             else in the app can flip a rejected submission to approved.
+ *   reject  → mark rejected with a reason. No reward. Only from "pending" —
+ *             reversing an approval (clawing back a paid reward) isn't
+ *             supported here.
  *
- * The status guard ({ status: "pending" }) makes approve idempotent — a second
- * click matches nothing, so a reviewer can never be double-paid.
+ * The status guard makes both actions idempotent — approving/rejecting an
+ * already-approved submission matches nothing, so a reviewer can never be
+ * double-paid.
  */
 const schema = z
   .object({
@@ -56,15 +63,22 @@ export async function PATCH(request, { params }) {
     return Response.json({ ok: true });
   }
 
-  // Approve. Existence check up front so a stale/unknown id gives the same
-  // 404 admins already expect; approveSubmission itself re-checks "pending"
-  // atomically and also claims the campaign's collected slot atomically, so
-  // it can never push collected past targetReviews under concurrent approvals.
-  const exists = await Submission.exists({ _id: id, status: "pending" });
-  if (!exists) return Response.json({ error: "Submission not found or already reviewed." }, { status: 404 });
+  // Approve — from "pending" normally, or "rejected" when the admin is
+  // deliberately overriding an earlier rejection. Existence check up front so
+  // a stale/unknown id gives the same 404 admins already expect;
+  // approveSubmission itself re-checks the status atomically and also claims
+  // the campaign's collected slot atomically, so it can never push collected
+  // past targetReviews under concurrent approvals.
+  const allowFrom = ["pending", "rejected"];
+  const exists = await Submission.exists({ _id: id, status: { $in: allowFrom } });
+  if (!exists) return Response.json({ error: "Submission not found or already approved." }, { status: 404 });
 
   const settings = await getSettings();
-  const outcome = await approveSubmission(id, settings.reviewerReward, { reviewedBy: admin.id });
+  const outcome = await approveSubmission(id, settings.reviewerReward, {
+    verifiedBy: "admin",
+    reviewedBy: admin.id,
+    allowFrom,
+  });
 
   if (outcome === "campaign_full") {
     return Response.json(
