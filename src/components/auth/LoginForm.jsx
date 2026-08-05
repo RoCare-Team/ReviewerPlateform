@@ -42,9 +42,12 @@ export default function LoginForm({ scope = "user", requireTotp = false }) {
       redirect: false,
     });
 
-    setPending(false);
-
     if (res?.error) {
+      // Only clear the spinner on failure — on success it stays lit straight
+      // through the redirect below, so there's no gap where the button looks
+      // idle again while the dashboard is still loading behind it.
+      setPending(false);
+
       // Auth.js surfaces thrown authorize() errors as a generic CredentialsSignin
       // in production, so we can't branch on the message reliably. One message
       // for every failure is also the correct posture: "wrong password" vs

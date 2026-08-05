@@ -39,10 +39,13 @@ export default function VerifyOtpForm() {
       body: JSON.stringify({ email, code, purpose: "signup" }),
     });
 
-    setPending(false);
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
+      // Only clear the spinner on failure — on success it stays lit through the
+      // sign-in + redirect below, so the button never looks idle while the
+      // dashboard is still loading behind it.
+      setPending(false);
       setError(data.error ?? "That code isn't valid.");
       if (data.code === "TOO_MANY_ATTEMPTS") setCode("");
       return;
