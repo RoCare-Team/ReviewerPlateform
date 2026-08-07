@@ -4,7 +4,7 @@ import Submission from "../../../../../models/Submission";
 import { getCurrentUser } from "../../../../../lib/auth/session";
 import { ROLES } from "../../../../../lib/auth/roles";
 import { getSettings } from "../../../../../lib/settings";
-import { approveSubmission } from "../../../../../lib/verification";
+import { approveSubmission, unverifySubmission } from "../../../../../lib/verification";
 
 /**
  * Admin verifies a reviewer's submission.
@@ -14,17 +14,19 @@ import { approveSubmission } from "../../../../../lib/verification";
  *             admin can override an earlier rejection (their own or the
  *             AI's) and pay it after all. Only ever admin-initiated; nothing
  *             else in the app can flip a rejected submission to approved.
- *   reject  → mark rejected with a reason. No reward. Only from "pending" —
- *             reversing an approval (clawing back a paid reward) isn't
- *             supported here.
+ *   reject  → mark rejected with a reason. No reward. Only from "pending".
+ *   unverify → reverse an earlier APPROVED verdict (AI's or another admin's).
+ *             Claws back the reward from the reviewer's wallet, gives the
+ *             campaign slot back, flips status to "rejected". Requires a
+ *             reason, same as reject.
  *
- * The status guard makes both actions idempotent — approving/rejecting an
- * already-approved submission matches nothing, so a reviewer can never be
- * double-paid.
+ * The status guard makes all three actions idempotent — approving/rejecting
+ * an already-approved submission, or unverifying a non-approved one, matches
+ * nothing, so a reviewer can never be double-paid or clawed back twice.
  */
 const schema = z
   .object({
-    action: z.enum(["approve", "reject"]),
+    action: z.enum(["approve", "reject", "unverify"]),
     reason: z.string().trim().max(300).optional().default(""),
   })
   .strict();
@@ -46,9 +48,10 @@ export async function PATCH(request, { params }) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return Response.json({ error: "Invalid input" }, { status: 400 });
 
-  // A rejection must carry a reason — the reviewer is shown why.
-  if (parsed.data.action === "reject" && !parsed.data.reason.trim()) {
-    return Response.json({ error: "A reason is required to reject a submission." }, { status: 400 });
+  // A rejection or unverify must carry a reason — the reviewer is shown why.
+  if ((parsed.data.action === "reject" || parsed.data.action === "unverify") && !parsed.data.reason.trim()) {
+    const verb = parsed.data.action === "reject" ? "reject" : "un-verify";
+    return Response.json({ error: `A reason is required to ${verb} a submission.` }, { status: 400 });
   }
 
   await dbConnect();
@@ -60,6 +63,20 @@ export async function PATCH(request, { params }) {
       { returnDocument: "after" }
     );
     if (!rejected) return Response.json({ error: "Submission not found or already reviewed." }, { status: 404 });
+    return Response.json({ ok: true });
+  }
+
+  if (parsed.data.action === "unverify") {
+    const outcome = await unverifySubmission(id, parsed.data.reason, { reviewedBy: admin.id });
+    if (outcome === "already_processed") {
+      return Response.json({ error: "Submission not found or not currently approved." }, { status: 404 });
+    }
+    if (outcome === "insufficient_balance") {
+      return Response.json({
+        ok: true,
+        warning: "Reward reversed, but the reviewer's wallet balance went negative (likely already withdrawn).",
+      });
+    }
     return Response.json({ ok: true });
   }
 

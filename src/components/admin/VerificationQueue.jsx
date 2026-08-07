@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, Check, ExternalLink, Inbox, ShieldCheck, X } from "lucide-react";
+import { Bot, Check, ExternalLink, Inbox, ShieldCheck, ShieldOff, X } from "lucide-react";
 import ScreenshotViewer from "../shared/ScreenshotViewer";
 import { toast } from "../../lib/toast";
 
@@ -25,7 +25,9 @@ const TABS = [
  * decided submission too. Approve/Reject render for pending items; a
  * REJECTED submission additionally gets an "Approve anyway" override (admin
  * only — see the API route) so a call reversed later doesn't need a whole new
- * submission. Approved submissions are final — no reject-after-approve here.
+ * submission. An APPROVED submission (whether the AI or an admin verified it)
+ * can be "Unverified" — claws back the reviewer's reward and flips it to
+ * rejected — for when a verdict (AI or human) turns out to be wrong.
  */
 export default function VerificationQueue({ submissions, reward, initialTab = "pending" }) {
   const router = useRouter();
@@ -34,6 +36,9 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
   const [rejecting, setRejecting] = useState(null);
   const [reason, setReason] = useState("");
   const [overriding, setOverriding] = useState(null);
+  const [unverifying, setUnverifying] = useState(null);
+  const [unverifyReason, setUnverifyReason] = useState("");
+  const [unverifyError, setUnverifyError] = useState("");
 
   const counts = {
     pending: submissions.filter((s) => s.status === "pending").length,
@@ -47,12 +52,17 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
   const [reasonError, setReasonError] = useState("");
 
   async function act(id, action, reasonText = "") {
-    // A rejection must say WHY — the reviewer sees this reason.
+    // A rejection/unverify must say WHY — the reviewer sees this reason.
     if (action === "reject" && !reasonText.trim()) {
       setReasonError("Please enter a reason for rejection.");
       return;
     }
+    if (action === "unverify" && !reasonText.trim()) {
+      setUnverifyError("Please enter a reason for un-verifying.");
+      return;
+    }
     setReasonError("");
+    setUnverifyError("");
     setBusy(id);
     const res = await fetch(`/api/admin/submissions/${id}`, {
       method: "PATCH",
@@ -63,6 +73,8 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
     setRejecting(null);
     setReason("");
     setOverriding(null);
+    setUnverifying(null);
+    setUnverifyReason("");
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -70,7 +82,14 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
       return;
     }
 
-    toast.success(action === "approve" ? "Submission approved." : "Submission rejected.");
+    const data = await res.json().catch(() => ({}));
+    if (data.warning) {
+      toast.error(data.warning);
+    } else {
+      toast.success(
+        action === "approve" ? "Submission approved." : action === "unverify" ? "Submission un-verified." : "Submission rejected."
+      );
+    }
     router.refresh();
   }
 
@@ -179,6 +198,47 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
                       <p className="nums mt-2 text-xs font-semibold text-verified">
                         Verified{s.reviewedDate ? ` · ${s.reviewedDate}` : ""} — reviewer paid ₹{reward}
                       </p>
+                    )}
+
+                    {s.status === "approved" && (
+                      unverifying === s.id ? (
+                        <div className="mt-4 animate-fade-up" style={{ animationDuration: "200ms" }}>
+                          <label className="mb-1 block text-xs font-semibold text-primary">
+                            Reason for un-verifying <span className="text-danger">*</span>
+                          </label>
+                          <input
+                            value={unverifyReason}
+                            onChange={(e) => { setUnverifyReason(e.target.value); setUnverifyError(""); }}
+                            placeholder="e.g. AI verdict was wrong — screenshot doesn't hold up"
+                            autoFocus
+                            className={`w-full rounded-btn border bg-surface px-3 py-2 text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-accent/50 ${unverifyError ? "border-danger" : "border-default focus:border-accent"}`}
+                          />
+                          {unverifyError && <p className="mt-1 text-xs text-danger">{unverifyError}</p>}
+                          <p className="mt-1 text-xs text-muted">
+                            Reverses the reward from the reviewer&apos;s wallet and reopens the campaign slot. The reviewer will see this reason.
+                          </p>
+                          <div className="mt-2 flex gap-2">
+                            <button type="button" onClick={() => act(s.id, "unverify", unverifyReason)} disabled={busy === s.id || !unverifyReason.trim()}
+                              className="rounded-btn bg-danger px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0">
+                              {busy === s.id ? "Working…" : "Confirm un-verify"}
+                            </button>
+                            <button type="button" onClick={() => { setUnverifying(null); setUnverifyReason(""); setUnverifyError(""); }}
+                              className="rounded-btn border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken">
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setUnverifying(s.id)}
+                          title="Reverse this approval — claws back the reward"
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-btn border border-danger/40 bg-surface px-3.5 py-2 text-sm font-semibold text-danger transition-all duration-200 hover:-translate-y-0.5 hover:bg-danger-subtle hover:shadow-sm"
+                        >
+                          <ShieldOff className="h-4 w-4" aria-hidden="true" />
+                          Unverify
+                        </button>
+                      )
                     )}
 
                     {s.status === "pending" && (

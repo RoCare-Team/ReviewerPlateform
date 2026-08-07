@@ -100,3 +100,64 @@ export async function rejectSubmission(submissionId, reason, { verifiedBy = "", 
   );
   return Boolean(sub);
 }
+
+/**
+ * Un-verify a previously APPROVED submission (AI or admin) — admin-only, the
+ * mirror image of `approveSubmission`. Claws back the reward from the
+ * reviewer's wallet, gives the campaign slot back, and flips the submission
+ * to "rejected" with the given reason so it's clear it was reversed, not
+ * newly rejected. The status guard ({ status: "approved" }) makes this
+ * idempotent — an already-unverified (rejected/pending) submission can't be
+ * clawed back twice.
+ *
+ * Returns "unverified" | "already_processed" (not approved) | "insufficient_balance"
+ * (reviewer's wallet can't cover the clawback — e.g. already withdrawn; the
+ * balance goes negative rather than silently failing, so the shortfall stays
+ * visible and collectible, but the caller is told so it can be surfaced).
+ */
+export async function unverifySubmission(submissionId, reason, { reviewedBy = null } = {}) {
+  const current = await Submission.findOne({ _id: submissionId, status: "approved" }).select(
+    "campaign reviewer rewardAmount"
+  );
+  if (!current) return "already_processed";
+
+  const sub = await Submission.findOneAndUpdate(
+    { _id: submissionId, status: "approved" },
+    {
+      $set: {
+        status: "rejected",
+        rejectionReason: reason,
+        verifiedBy: "admin",
+        reviewedBy,
+        reviewedAt: new Date(),
+        rewardAmount: 0,
+      },
+    },
+    { returnDocument: "after" }
+  );
+  if (!sub) return "already_processed";
+
+  const reward = current.rewardAmount || 0;
+
+  await Campaign.updateOne(
+    { _id: current.campaign, collected: { $gt: 0 } },
+    { $inc: { collected: -1 }, $set: { status: "active" } }
+  );
+
+  const reviewer = await User.findByIdAndUpdate(
+    current.reviewer,
+    { $inc: { walletBalance: -reward } },
+    { returnDocument: "after" }
+  ).select("walletBalance");
+
+  await WalletTransaction.create({
+    user: current.reviewer,
+    amount: -reward,
+    type: "refund",
+    note: `Reward reversed — submission un-verified: ${reason}`,
+    by: reviewedBy,
+    balanceAfter: reviewer?.walletBalance ?? -reward,
+  });
+
+  return (reviewer?.walletBalance ?? 0) < 0 ? "insufficient_balance" : "unverified";
+}

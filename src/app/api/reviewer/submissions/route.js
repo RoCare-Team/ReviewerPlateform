@@ -4,6 +4,9 @@ import Campaign from "../../../../models/Campaign";
 import Submission from "../../../../models/Submission";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 import { uploadImage, cloudinaryConfigured } from "../../../../lib/cloudinary";
+import { verifyScreenshot } from "../../../../lib/aiVerification";
+import { approveSubmission, rejectSubmission } from "../../../../lib/verification";
+import { getSettings } from "../../../../lib/settings";
 
 /**
  * Reviewer submits their participation in a campaign with a screenshot proof.
@@ -11,10 +14,18 @@ import { uploadImage, cloudinaryConfigured } from "../../../../lib/cloudinary";
  *
  * The screenshot is uploaded to Cloudinary (signed) and referenced by URL — never
  * stored on the app server. All uploads validate type, size and magic bytes.
- * Every submission lands as `pending` — an admin verifies it manually.
+ *
+ * After upload, the screenshot is checked by AI (gpt-4o-mini vision, see
+ * lib/aiVerification.js). A confident verdict (confidence >= AI_CONFIDENCE_THRESHOLD)
+ * approves/rejects immediately — the reviewer sees the result right away and, on
+ * approval, is paid instantly. Anything uncertain (no API key configured, low
+ * confidence, or the model itself unsure) lands as `pending` for an admin to verify
+ * manually. An admin can always override an AI verdict — approve a rejected
+ * submission or leave it pending — from the verification queue.
  */
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+const AI_CONFIDENCE_THRESHOLD = 0.75;
 
 // Magic-byte signatures so a renamed non-image can't slip past the mime check.
 function sniffImage(buf) {
@@ -89,10 +100,19 @@ export async function POST(request) {
     return Response.json({ error: `Upload failed: ${e.message}` }, { status: 502 });
   }
 
+  // Ask AI to look at the screenshot before writing the submission, so the AI
+  // fields can be set on creation rather than in a second write.
+  const ai = await verifyScreenshot(upload.url, {
+    campaignName: campaign.name,
+    platform: campaign.platform,
+  });
+  const aiFields = { aiDecision: ai.decision, aiConfidence: ai.confidence, aiReason: ai.reason };
+
+  let submission;
   if (existing) {
     // Resubmission after a rejection — overwrite the same doc, resetting every
     // reviewed field so a stale rejection can't linger on the new attempt.
-    const updated = await Submission.findOneAndUpdate(
+    submission = await Submission.findOneAndUpdate(
       { _id: existing._id, status: "rejected" },
       {
         $set: {
@@ -106,16 +126,17 @@ export async function POST(request) {
           rewardAmount: 0,
           reviewedBy: null,
           reviewedAt: null,
+          ...aiFields,
         },
       },
       { returnDocument: "after" }
     );
-    if (!updated) {
+    if (!submission) {
       return Response.json({ error: "You've already submitted for this campaign." }, { status: 409 });
     }
   } else {
     try {
-      await Submission.create({
+      submission = await Submission.create({
         campaign: campaign._id,
         reviewer: user.id,
         business: campaign.user,
@@ -124,6 +145,7 @@ export async function POST(request) {
         screenshotHash,
         note,
         status: "pending",
+        ...aiFields,
       });
     } catch (e) {
       if (e?.code === 11000) {
@@ -131,6 +153,25 @@ export async function POST(request) {
       }
       throw e;
     }
+  }
+
+  // A confident AI verdict resolves the submission immediately. Anything else
+  // (no API key, low confidence, model itself uncertain) stays pending for an
+  // admin — who can also always override the AI's call later.
+  if (ai.decision === "approve" && ai.confidence >= AI_CONFIDENCE_THRESHOLD) {
+    const settings = await getSettings();
+    const outcome = await approveSubmission(submission._id, settings.reviewerReward, { verifiedBy: "ai" });
+    if (outcome === "approved") {
+      return Response.json({ ok: true, status: "approved", reward: settings.reviewerReward, reason: ai.reason });
+    }
+    if (outcome === "campaign_full") {
+      return Response.json({ ok: true, status: "rejected", reason: "Campaign already reached its review target." });
+    }
+    // "already_processed" shouldn't happen for a brand-new/just-reset submission,
+    // but fall through to pending rather than erroring.
+  } else if (ai.decision === "reject" && ai.confidence >= AI_CONFIDENCE_THRESHOLD) {
+    await rejectSubmission(submission._id, ai.reason || "Screenshot did not pass AI verification.", { verifiedBy: "ai" });
+    return Response.json({ ok: true, status: "rejected", reason: ai.reason || "Screenshot did not pass AI verification." });
   }
 
   return Response.json({ ok: true, status: "pending", reason: "Submitted for review. You'll be paid once it's verified." });
