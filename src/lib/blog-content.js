@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 
 /**
  * The Tiptap editor in /admin/blog produces this HTML on the client; every
@@ -6,6 +6,12 @@ import DOMPurify from "isomorphic-dompurify";
  * is a lower risk profile than public input, but not zero — a compromised
  * admin session or an editor bug are still worth guarding against before this
  * HTML gets stored and later rendered with dangerouslySetInnerHTML.
+ *
+ * sanitize-html, not isomorphic-dompurify/DOMPurify — DOMPurify's "isomorphic"
+ * build pulls in jsdom to fake a DOM on the server, and jsdom is a known
+ * source of cold-start/bundling failures in serverless runtimes (Vercel
+ * functions included). sanitize-html parses HTML with a plain JS parser, no
+ * DOM shim, so there's nothing there to fail to load.
  */
 const ALLOWED_TAGS = [
   "p", "br", "strong", "em", "u", "s", "a",
@@ -14,7 +20,7 @@ const ALLOWED_TAGS = [
   "blockquote", "pre", "code",
   "img", "hr",
 ];
-const ALLOWED_ATTR = ["href", "target", "rel", "src", "alt", "title", "class"];
+const ALLOWED_ATTR = { a: ["href", "target", "rel", "title"], img: ["src", "alt", "title", "class"], "*": ["class"] };
 
 /**
  * BlogPost.content used to be a block array ({heading, body[], list[]})
@@ -41,10 +47,11 @@ function toHtmlString(value) {
 }
 
 export function sanitizeContentHtml(html) {
-  return DOMPurify.sanitize(toHtmlString(html), {
-    ALLOWED_TAGS,
-    ALLOWED_ATTR,
-    ALLOW_DATA_ATTR: false,
+  return sanitizeHtml(toHtmlString(html), {
+    allowedTags: ALLOWED_TAGS,
+    allowedAttributes: ALLOWED_ATTR,
+    // http(s) only — blocks javascript:/data: URIs in href/src.
+    allowedSchemes: ["http", "https"],
   });
 }
 
