@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, Check, ExternalLink, Inbox, ShieldCheck, ShieldOff, X } from "lucide-react";
+import { Bot, Check, ExternalLink, Inbox, MapPin, ShieldCheck, ShieldOff, X } from "lucide-react";
 import ScreenshotViewer from "../shared/ScreenshotViewer";
 import { toast } from "../../lib/toast";
 
@@ -173,6 +173,17 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
                               {s.reviewedByName ? `Admin · ${s.reviewedByName}` : "Admin"}
                             </span>
                           )}
+                          {s.gmbChecked && (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                s.gmbMatched ? "bg-verified-subtle text-verified" : "bg-danger-subtle text-danger"
+                              }`}
+                              title={s.gmbReason || "Google Business Profile cross-check"}
+                            >
+                              <MapPin className="h-3 w-3" aria-hidden="true" />
+                              {s.gmbMatched ? "Google · matched" : "Google · no match"}
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-muted capitalize">
                           {s.platform} · by {s.reviewerName || s.reviewerEmail} · {s.date}
@@ -189,6 +200,9 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
 
                     {s.aiReason && (
                       <p className="mt-2 text-xs text-muted">AI note: {s.aiReason}</p>
+                    )}
+                    {s.gmbChecked && s.gmbReason && (
+                      <p className="mt-1 text-xs text-muted">Google note: {s.gmbReason}</p>
                     )}
 
                     {s.status === "rejected" && s.rejectionReason && (

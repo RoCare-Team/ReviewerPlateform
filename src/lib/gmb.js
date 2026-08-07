@@ -217,6 +217,64 @@ export function normalizeReview(r) {
   };
 }
 
+/**
+ * Sync reviews for every location of a connection into GmbReview, updating
+ * each location's reviewCount/averageRating/lastSyncedAt. Shared by the
+ * manual "Sync reviews" button (api/business/gmb/sync), the auto-sync on
+ * page load (business/reviews), and the reviewer-submission GMB cross-check
+ * (lib/gmbVerification.js) — one code path, so all three stay consistent.
+ *
+ * `conn` must be selected WITH token fields (+accessToken +refreshToken).
+ * Returns { totalSynced, errors }. Never throws — per-location failures are
+ * collected into `errors` so one broken location doesn't block the rest.
+ */
+export async function syncConnectionReviews(conn, locations) {
+  // Lazy import to avoid a require cycle (models import nothing from gmb.js).
+  const { default: GmbReview } = await import("../models/GmbReview.js");
+  const { default: GmbLocation } = await import("../models/GmbLocation.js");
+
+  let accessToken;
+  try {
+    accessToken = await getValidAccessToken(conn);
+  } catch (e) {
+    return { totalSynced: 0, errors: [`Token refresh failed: ${e.message}`] };
+  }
+
+  let totalSynced = 0;
+  const errors = [];
+
+  for (const loc of locations) {
+    try {
+      const data = await listReviews(accessToken, loc.accountName, loc.locationName);
+      const reviews = data.reviews ?? [];
+      for (const raw of reviews) {
+        const r = normalizeReview(raw);
+        if (!r.reviewId) continue;
+        await GmbReview.findOneAndUpdate(
+          { location: loc._id, reviewId: r.reviewId },
+          { $set: { ...r, user: conn.user, connection: conn._id, location: loc._id } },
+          { upsert: true, setDefaultsOnInsert: true }
+        );
+        totalSynced += 1;
+      }
+      await GmbLocation.updateOne(
+        { _id: loc._id },
+        {
+          $set: {
+            reviewCount: data.totalReviewCount ?? reviews.length,
+            averageRating: data.averageRating ?? 0,
+            lastSyncedAt: new Date(),
+          },
+        }
+      );
+    } catch (e) {
+      errors.push(`${loc.title || loc.locationName}: ${e.message}`);
+    }
+  }
+
+  return { totalSynced, errors };
+}
+
 export function formatAddress(storefrontAddress) {
   if (!storefrontAddress) return "";
   const lines = storefrontAddress.addressLines ?? [];

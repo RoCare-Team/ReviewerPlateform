@@ -28,6 +28,15 @@ const SubmissionSchema = new mongoose.Schema(
     aiConfidence: { type: Number, default: 0 }, // 0..1
     aiReason: { type: String, default: "" },
 
+    // Step 2: cross-check against the business's connected Google Business
+    // Profile (only runs when the campaign is linked to a GmbLocation).
+    // gmbChecked=false means the check didn't run at all (no linked location,
+    // or the business's Google account isn't connected) — not a failed check.
+    gmbChecked: { type: Boolean, default: false },
+    gmbMatched: { type: Boolean, default: false },
+    gmbReviewId: { type: String, default: "" },
+    gmbReason: { type: String, default: "" },
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],

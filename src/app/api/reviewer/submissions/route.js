@@ -5,6 +5,7 @@ import Submission from "../../../../models/Submission";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 import { uploadImage, cloudinaryConfigured } from "../../../../lib/cloudinary";
 import { verifyScreenshot } from "../../../../lib/aiVerification";
+import { verifyAgainstGmb } from "../../../../lib/gmbVerification";
 import { approveSubmission, rejectSubmission } from "../../../../lib/verification";
 import { getSettings } from "../../../../lib/settings";
 
@@ -15,13 +16,17 @@ import { getSettings } from "../../../../lib/settings";
  * The screenshot is uploaded to Cloudinary (signed) and referenced by URL — never
  * stored on the app server. All uploads validate type, size and magic bytes.
  *
- * After upload, the screenshot is checked by AI (gpt-4o-mini vision, see
- * lib/aiVerification.js). A confident verdict (confidence >= AI_CONFIDENCE_THRESHOLD)
- * approves/rejects immediately — the reviewer sees the result right away and, on
- * approval, is paid instantly. Anything uncertain (no API key configured, low
- * confidence, or the model itself unsure) lands as `pending` for an admin to verify
- * manually. An admin can always override an AI verdict — approve a rejected
- * submission or leave it pending — from the verification queue.
+ * Two-step auto-verification after upload:
+ *   1. AI (gpt-4o-mini vision, lib/aiVerification.js) looks at the screenshot itself.
+ *   2. If the campaign is linked to a Google Business Profile location
+ *      (Campaign.location), lib/gmbVerification.js cross-checks that a matching
+ *      review actually landed on Google.
+ * The reviewer is only auto-approved and paid instantly when step 1 confidently
+ * approves AND — whenever a location is linked — step 2 finds a matching review.
+ * A confident AI *rejection* short-circuits immediately (no point checking Google
+ * for a screenshot that already fails). Anything else (no AI key, low confidence,
+ * AI approves but Google hasn't shown the review yet, no location linked) lands
+ * as `pending` for an admin, who sees both verdicts and can always override.
  */
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
@@ -100,13 +105,25 @@ export async function POST(request) {
     return Response.json({ error: `Upload failed: ${e.message}` }, { status: 502 });
   }
 
-  // Ask AI to look at the screenshot before writing the submission, so the AI
-  // fields can be set on creation rather than in a second write.
+  // Step 1 — AI looks at the screenshot itself.
   const ai = await verifyScreenshot(upload.url, {
     campaignName: campaign.name,
     platform: campaign.platform,
   });
   const aiFields = { aiDecision: ai.decision, aiConfidence: ai.confidence, aiReason: ai.reason };
+
+  // Step 2 — cross-check against the connected Google Business Profile. Only
+  // worth running if the AI hasn't already confidently rejected the screenshot.
+  const skipGmb = ai.decision === "reject" && ai.confidence >= AI_CONFIDENCE_THRESHOLD;
+  const gmb = skipGmb
+    ? { checked: false, matched: false, reviewId: "", reason: "Skipped — AI already rejected the screenshot." }
+    : await verifyAgainstGmb({ campaign, reviewerUser: user });
+  const gmbFields = {
+    gmbChecked: gmb.checked,
+    gmbMatched: gmb.matched,
+    gmbReviewId: gmb.reviewId || "",
+    gmbReason: gmb.reason,
+  };
 
   let submission;
   if (existing) {
@@ -127,6 +144,7 @@ export async function POST(request) {
           reviewedBy: null,
           reviewedAt: null,
           ...aiFields,
+          ...gmbFields,
         },
       },
       { returnDocument: "after" }
@@ -146,6 +164,7 @@ export async function POST(request) {
         note,
         status: "pending",
         ...aiFields,
+        ...gmbFields,
       });
     } catch (e) {
       if (e?.code === 11000) {
@@ -155,10 +174,14 @@ export async function POST(request) {
     }
   }
 
-  // A confident AI verdict resolves the submission immediately. Anything else
-  // (no API key, low confidence, model itself uncertain) stays pending for an
-  // admin — who can also always override the AI's call later.
-  if (ai.decision === "approve" && ai.confidence >= AI_CONFIDENCE_THRESHOLD) {
+  const aiApproved = ai.decision === "approve" && ai.confidence >= AI_CONFIDENCE_THRESHOLD;
+  const aiRejected = ai.decision === "reject" && ai.confidence >= AI_CONFIDENCE_THRESHOLD;
+  // When a location IS linked, both steps must agree to auto-approve. When
+  // none is linked, gmb.checked is false and step 1 alone decides — same
+  // behavior as before this feature existed for campaigns with no GMB link.
+  const gmbBlocksApproval = gmb.checked && !gmb.matched;
+
+  if (aiApproved && !gmbBlocksApproval) {
     const settings = await getSettings();
     const outcome = await approveSubmission(submission._id, settings.reviewerReward, { verifiedBy: "ai" });
     if (outcome === "approved") {
@@ -169,10 +192,16 @@ export async function POST(request) {
     }
     // "already_processed" shouldn't happen for a brand-new/just-reset submission,
     // but fall through to pending rather than erroring.
-  } else if (ai.decision === "reject" && ai.confidence >= AI_CONFIDENCE_THRESHOLD) {
+  } else if (aiRejected) {
     await rejectSubmission(submission._id, ai.reason || "Screenshot did not pass AI verification.", { verifiedBy: "ai" });
     return Response.json({ ok: true, status: "rejected", reason: ai.reason || "Screenshot did not pass AI verification." });
   }
 
-  return Response.json({ ok: true, status: "pending", reason: "Submitted for review. You'll be paid once it's verified." });
+  // AI approved but Google hasn't shown a matching review yet (or AI/Google
+  // are both uncertain) — stays pending for an admin, who sees both verdicts.
+  const reason =
+    aiApproved && gmbBlocksApproval
+      ? "AI verified your screenshot, but we couldn't find a matching review on Google yet. An admin will check manually."
+      : "Submitted for review. You'll be paid once it's verified.";
+  return Response.json({ ok: true, status: "pending", reason });
 }

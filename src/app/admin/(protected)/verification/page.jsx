@@ -21,7 +21,9 @@ export default async function AdminVerificationPage({ searchParams }) {
   // admin still needs to see what it decided, not just the leftover
   // pending/uncertain cases.
   const subs = await Submission.find({})
-    .select("screenshotUrl note status verifiedBy aiDecision aiConfidence aiReason rejectionReason campaign reviewer reviewedBy createdAt reviewedAt")
+    .select(
+      "screenshotUrl note status verifiedBy aiDecision aiConfidence aiReason gmbChecked gmbMatched gmbReason rejectionReason campaign reviewer reviewedBy createdAt reviewedAt"
+    )
     .sort({ createdAt: -1 })
     .lean();
 
@@ -49,6 +51,9 @@ export default async function AdminVerificationPage({ searchParams }) {
       aiDecision: s.aiDecision || "",
       aiConfidence: s.aiConfidence || 0,
       aiReason: s.aiReason || "",
+      gmbChecked: s.gmbChecked || false,
+      gmbMatched: s.gmbMatched || false,
+      gmbReason: s.gmbReason || "",
       rejectionReason: s.rejectionReason || "",
       reviewedByName: reviewedByAdmin ? (reviewedByAdmin.name || reviewedByAdmin.email) : "",
       campaignName: c?.name ?? "Campaign",
