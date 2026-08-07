@@ -2,6 +2,7 @@ import { z } from "zod";
 import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import Campaign from "../../../../models/Campaign";
+import GmbLocation from "../../../../models/GmbLocation";
 import WalletTransaction from "../../../../models/WalletTransaction";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 import { approxReviews } from "../../../../lib/campaigns";
@@ -12,17 +13,39 @@ import { getSettings } from "../../../../lib/settings";
  * session user. Creating a campaign DEDUCTS its budget from the wallet atomically
  * (a conditional $inc that only applies if the balance is sufficient), records a
  * spend ledger entry, and computes targetReviews = floor(budget / ₹100).
+ *
+ * Two request shapes:
+ *  - Single campaign (any platform): { name, platform, budget, notes, targetUrl, locationId }.
+ *  - Multi-location batch, Google only: { name, platform: "google", notes, locations: [{locationId, budget, targetUrl?}, ...] }
+ *    — one Campaign doc per selected location, each with its own budget slice.
+ *    targetUrl defaults to that location's synced GmbLocation.reviewUrl but the
+ *    owner can override it per location. The whole batch is funded by a single
+ *    atomic wallet debit (sum of the per-location budgets) so it can't
+ *    partially succeed against the wallet.
  */
+const locationItemSchema = z.object({
+  locationId: z.string().min(1),
+  budget: z.number().int().positive().max(10_000_000),
+  // Defaults to the location's own synced reviewUrl when omitted — this lets
+  // the owner override it per-location (see createBatch below).
+  targetUrl: z.string().trim().max(500).optional(),
+});
+
 const createSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required").max(120),
     platform: z.enum(["google", "trustpilot", "capterra", "amazon", "playstore"]).default("google"),
-    budget: z.number().int().positive().max(10_000_000),
+    budget: z.number().int().positive().max(10_000_000).optional(),
     notes: z.string().trim().max(500).optional().default(""),
     targetUrl: z.string().trim().max(500).optional().default(""),
     locationId: z.string().optional(),
+    locations: z.array(locationItemSchema).min(1).max(25).optional(),
   })
-  .strict();
+  .strict()
+  .refine((d) => Boolean(d.locations) || typeof d.budget === "number", {
+    message: "Budget is required.",
+    path: ["budget"],
+  });
 
 export async function GET() {
   const { user, response } = await apiRequirePermission("campaign:read");
@@ -45,10 +68,16 @@ export async function POST(request) {
       { status: 400 }
     );
   }
-  const { name, platform, budget, notes, targetUrl, locationId } = parsed.data;
+  const { name, platform, budget, notes, targetUrl, locationId, locations } = parsed.data;
 
   // Live, admin-controlled rate — the single source of truth.
   const { reviewRate } = await getSettings();
+
+  await dbConnect();
+
+  if (locations) {
+    return createBatch({ user, name, platform, notes, locations, reviewRate });
+  }
 
   if (budget < reviewRate) {
     return Response.json(
@@ -56,8 +85,6 @@ export async function POST(request) {
       { status: 400 }
     );
   }
-
-  await dbConnect();
 
   // Atomic wallet debit: only succeeds if the balance is sufficient. This is the
   // single guard against overspend — no read-then-write race.
@@ -96,4 +123,106 @@ export async function POST(request) {
   });
 
   return Response.json({ ok: true, campaign, balance: debited.walletBalance });
+}
+
+/**
+ * Multi-location batch — Google only (only Google locations carry a real,
+ * connected "write a review" link). One Campaign per selected location.
+ */
+async function createBatch({ user, name, platform, notes, locations, reviewRate }) {
+  if (platform !== "google") {
+    return Response.json(
+      { error: "Multiple locations are only supported for Google campaigns." },
+      { status: 400 }
+    );
+  }
+
+  const ids = locations.map((l) => l.locationId);
+  if (new Set(ids).size !== ids.length) {
+    return Response.json({ error: "The same location was selected more than once." }, { status: 400 });
+  }
+
+  const locDocs = await GmbLocation.find({ _id: { $in: ids }, user: user.id });
+  if (locDocs.length !== ids.length) {
+    return Response.json({ error: "One or more locations weren't found." }, { status: 400 });
+  }
+  const locMap = new Map(locDocs.map((l) => [String(l._id), l]));
+
+  for (const l of locations) {
+    if (l.budget < reviewRate) {
+      const label = locMap.get(l.locationId)?.title || "a location";
+      return Response.json({ error: `Minimum budget for ${label} is ₹${reviewRate} (one review).` }, { status: 400 });
+    }
+  }
+
+  const totalBudget = locations.reduce((sum, l) => sum + l.budget, 0);
+  if (totalBudget > 10_000_000) {
+    return Response.json({ error: "Total budget across locations is too large." }, { status: 400 });
+  }
+
+  // One atomic debit for the whole batch — same overspend guarantee as a
+  // single campaign, just summed across every selected location up front.
+  const debited = await User.findOneAndUpdate(
+    { _id: user.id, walletBalance: { $gte: totalBudget } },
+    { $inc: { walletBalance: -totalBudget } },
+    { returnDocument: "after" }
+  ).select("walletBalance");
+
+  if (!debited) {
+    return Response.json(
+      { error: `Insufficient wallet balance. You need ₹${totalBudget} for ${locations.length} locations.` },
+      { status: 400 }
+    );
+  }
+
+  await WalletTransaction.create({
+    user: user.id,
+    amount: -totalBudget,
+    type: "spend",
+    note: `Campaign: ${name} (${locations.length} locations)`,
+    balanceAfter: debited.walletBalance,
+  });
+
+  let created;
+  try {
+    created = await Campaign.insertMany(
+      locations.map((l) => {
+        const loc = locMap.get(l.locationId);
+        return {
+          user: user.id,
+          name: locations.length > 1 ? `${name} — ${loc.title || loc.locationName}` : name,
+          platform: "google",
+          budget: l.budget,
+          ratePerReview: reviewRate,
+          targetReviews: approxReviews(l.budget, reviewRate),
+          notes,
+          targetUrl: l.targetUrl || loc.reviewUrl || "",
+          location: loc._id,
+          status: "active",
+        };
+      }),
+      { ordered: true }
+    );
+  } catch {
+    // Compensate — a DB failure here shouldn't strand money already debited
+    // from the wallet with no campaigns to show for it.
+    const refunded = await User.findOneAndUpdate(
+      { _id: user.id },
+      { $inc: { walletBalance: totalBudget } },
+      { returnDocument: "after" }
+    ).select("walletBalance");
+    await WalletTransaction.create({
+      user: user.id,
+      amount: totalBudget,
+      type: "refund",
+      note: `Refund — campaign batch creation failed: ${name}`,
+      balanceAfter: refunded?.walletBalance ?? totalBudget,
+    });
+    return Response.json({ error: "Couldn't create the campaigns — your wallet was refunded." }, { status: 500 });
+  }
+
+  return Response.json(
+    { ok: true, campaigns: created, balance: debited.walletBalance },
+    { status: 201 }
+  );
 }

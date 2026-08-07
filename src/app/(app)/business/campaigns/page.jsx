@@ -19,13 +19,17 @@ export default async function BusinessCampaignsPage() {
   const [me, campaigns, locs, settings] = await Promise.all([
     User.findById(user.id).select("walletBalance").lean(),
     Campaign.find({ user: user.id }).sort({ createdAt: -1 }).lean(),
-    GmbLocation.find({ user: user.id }).select("title locationName reviewUrl").lean(),
+    GmbLocation.find({ user: user.id }).select("title locationName reviewUrl address").lean(),
     getSettings(),
   ]);
 
   const locations = locs.map((l) => ({
     id: String(l._id),
     title: l.title || l.locationName,
+    // Address's leading segment reads as the city/area in Google's format
+    // ("123 MG Road, Bengaluru, Karnataka") — good enough for a compact label
+    // without needing a dedicated city field on GmbLocation.
+    city: (l.address || "").split(",").slice(1, 2)[0]?.trim() || l.address || "",
     reviewUrl: l.reviewUrl || "",
   }));
 
