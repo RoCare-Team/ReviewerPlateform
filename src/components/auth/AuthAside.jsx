@@ -103,11 +103,11 @@ export default function AuthAside() {
         aria-label="RapportLook home"
         className="relative inline-flex w-fit items-center rounded-lg bg-white/95 px-3 py-2 shadow-sm"
       >
-        <Image src="/img/logo2.png" alt="RapportLook" width={1138} height={358} className="h-8 w-auto" />
+        <Image src="/img/logo3.png" alt="RapportLook" width={1628} height={469} className="h-8 w-auto" />
       </Link>
 
       <div className="relative">
-        <h2 className="max-w-md text-3xl font-extrabold leading-tight tracking-tight text-on-brand xl:text-4xl">
+        <h2 className="max-w-md text-3xl font-bold leading-tight tracking-tight text-on-brand xl:text-4xl">
           {headline}
         </h2>
         <ul className="mt-8 space-y-4">

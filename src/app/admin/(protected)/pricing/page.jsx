@@ -19,15 +19,15 @@ export default async function AdminPricingPage() {
       <div className="mt-6 grid gap-4 sm:grid-cols-3 lg:max-w-3xl">
         <div className="rounded-card border border-default bg-surface-raised p-5 shadow-sm">
           <p className="text-sm text-secondary">Business pays / review</p>
-          <p className="mt-1 text-2xl font-extrabold text-primary">{inr(settings.reviewRate)}</p>
+          <p className="mt-1 text-2xl font-bold text-primary">{inr(settings.reviewRate)}</p>
         </div>
         <div className="rounded-card border border-default bg-surface-raised p-5 shadow-sm">
           <p className="text-sm text-secondary">Reviewer earns / verified review</p>
-          <p className="mt-1 text-2xl font-extrabold text-primary">{inr(settings.reviewerReward)}</p>
+          <p className="mt-1 text-2xl font-bold text-primary">{inr(settings.reviewerReward)}</p>
         </div>
         <div className="rounded-card border border-default bg-surface-raised p-5 shadow-sm">
           <p className="text-sm text-secondary">Minimum withdrawal</p>
-          <p className="mt-1 text-2xl font-extrabold text-primary">{inr(settings.minWithdrawal)}</p>
+          <p className="mt-1 text-2xl font-bold text-primary">{inr(settings.minWithdrawal)}</p>
         </div>
       </div>
 

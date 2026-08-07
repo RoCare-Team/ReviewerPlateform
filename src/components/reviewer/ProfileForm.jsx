@@ -112,7 +112,7 @@ export default function ProfileForm({ initial, endpoint = "/api/reviewer/profile
             rows={3}
             maxLength={280}
             placeholder="A short line about yourself."
-            className="w-full rounded-btn border border-default bg-surface px-3 py-2.5 text-primary outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/50"
+            className="w-full rounded-2xl border border-default bg-surface px-3 py-2.5 text-primary outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/50"
           />
           <p className="mt-1.5 text-xs text-muted">{values.bio.length}/280</p>
         </div>

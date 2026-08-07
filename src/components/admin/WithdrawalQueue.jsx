@@ -118,7 +118,7 @@ export default function WithdrawalQueue({ requests }) {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="nums text-lg font-extrabold text-primary">{inr(r.amount)}</p>
+                      <p className="nums text-lg font-bold text-primary">{inr(r.amount)}</p>
                       <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[r.status] ?? "pill-accent"}`}>
                         {r.status}
                       </span>

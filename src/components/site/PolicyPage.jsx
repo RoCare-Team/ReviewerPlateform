@@ -16,7 +16,7 @@ export default function PolicyPage({ title, updated, intro, sections }) {
         <section className="border-b border-default/60 bg-surface-sunken py-14 sm:py-16">
           <Container className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-widest text-accent">Legal</p>
-            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl">
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-primary sm:text-4xl">
               {title}
             </h1>
             <p className="mt-4 text-sm font-semibold text-muted">Last updated: {updated}</p>

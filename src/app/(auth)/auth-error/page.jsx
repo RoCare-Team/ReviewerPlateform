@@ -3,6 +3,7 @@ import AuthCard from "../../../components/auth/AuthCard";
 
 export const metadata = {
   title: "Sign-in problem · RapportLook",
+  robots: { index: false, follow: false },
 };
 
 /**

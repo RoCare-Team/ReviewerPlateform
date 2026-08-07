@@ -75,10 +75,10 @@ function Card({ campaign, reward }) {
           <tone.Icon className="h-7 w-7" aria-hidden="true" />
         </span>
         <h3 className="mt-3 text-base font-bold text-primary">{campaign.name}</h3>
-        <p className="mt-1 text-lg font-extrabold text-primary">{tone.headline}</p>
+        <p className="mt-1 text-lg font-bold text-primary">{tone.headline}</p>
 
         {approved && (
-          <p className="nums mt-1 text-2xl font-extrabold text-verified">+{inr(result.reward)}</p>
+          <p className="nums mt-1 text-2xl font-bold text-verified">+{inr(result.reward)}</p>
         )}
 
         {result.reason && (
@@ -217,7 +217,7 @@ function Card({ campaign, reward }) {
 
           <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500}
             placeholder="Optional note for the reviewer team…"
-            className="mt-3 w-full rounded-btn border border-default bg-surface px-3 py-2.5 text-sm text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50" />
+            className="mt-3 w-full rounded-2xl border border-default bg-surface px-3 py-2.5 text-sm text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50" />
 
           {error && <p className="mt-2 text-sm text-danger">{error}</p>}
 

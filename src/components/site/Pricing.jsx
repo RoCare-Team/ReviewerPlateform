@@ -75,7 +75,7 @@ export default function Pricing() {
           <p className="text-xs font-bold uppercase tracking-widest text-accent">
             Plans & Cost
           </p>
-          <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.15]">
+          <h2 className="mt-3 text-3xl font-bold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.15]">
             Simple pricing for honest growth
           </h2>
           <p className="mt-4 max-w-2xl mx-auto text-base leading-relaxed text-secondary sm:text-lg">
@@ -117,7 +117,7 @@ export default function Pricing() {
                   
                   {/* Primary Pricing Figure */}
                   <p className="mt-5 flex items-baseline gap-1.5">
-                    <span className="text-4xl font-extrabold tracking-tight text-primary sm:text-5xl">
+                    <span className="text-4xl font-bold tracking-tight text-primary sm:text-5xl">
                       {plan.priceDisplay}
                     </span>
                     {plan.billingPeriod && (

@@ -4,11 +4,12 @@ import AuthAside from "../../components/auth/AuthAside";
 
 // Public. No session required — these ARE the pages you use to get one.
 // Already-authenticated users are bounced to their home by src/middleware.js.
-// Login/signup/reset forms carry no search intent and are noindexed.
-export const metadata = {
-  robots: { index: false, follow: false },
-};
-
+//
+// No blanket robots directive here on purpose: /signup, /signup/business and
+// /signup/reviewer are real marketing landing pages worth indexing (they're
+// linked from the footer's "For businesses" / "For reviewers"). Only the
+// forms with no search intent — login, forgot/reset password, verify-otp,
+// auth-error — set their own noindex, in their own page.jsx.
 export default function AuthLayout({ children }) {
   return (
     <div className="grid h-dvh overflow-hidden lg:grid-cols-2">
@@ -25,7 +26,7 @@ export default function AuthLayout({ children }) {
             aria-label="RapportLook home"
             className="mb-8 inline-flex items-center lg:hidden"
           >
-            <Image src="/img/logo.png" alt="RapportLook" width={1138} height={358} className="h-9 w-auto" />
+            <Image src="/img/logo3.png" alt="RapportLook" width={1628} height={469} className="h-9 w-auto" />
           </Link>
           {children}
         </div>

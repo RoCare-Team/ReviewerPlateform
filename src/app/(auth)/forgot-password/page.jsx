@@ -4,6 +4,7 @@ import ForgotPasswordForm from "../../../components/auth/ForgotPasswordForm";
 
 export const metadata = {
   title: "Forgot password · RapportLook",
+  robots: { index: false, follow: false },
 };
 
 export default function ForgotPasswordPage() {

@@ -4,8 +4,15 @@ import AuthCard from "../../../components/auth/AuthCard";
 import CrossRoleRedirect from "../../../components/auth/CrossRoleRedirect";
 import { getContact } from "../../../lib/contact";
 
+const TITLE = `Sign up · ${getContact("brand.productName", "RapportLook")}`;
+const DESCRIPTION =
+  "Create a RapportLook account as a business collecting verified reviews, or as a reviewer earning rewards for verified participation.";
+
 export const metadata = {
-  title: `Sign up · ${getContact("brand.productName", "RapportLook")}`,
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: "/signup" },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: "/signup" },
 };
 
 // Role picker. Each choice routes to a distinct signup page, which posts to a

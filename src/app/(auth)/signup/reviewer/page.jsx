@@ -5,8 +5,16 @@ import SignupForm from "../../../../components/auth/SignupForm";
 import GoogleSignupButton from "../../../../components/auth/GoogleSignupButton";
 import { ROLES } from "../../../../lib/auth/roles";
 
+const TITLE = "Sign up as a reviewer · RapportLook";
+const DESCRIPTION =
+  "Join campaigns and get rewarded for verified participation — never for a positive rating. Create a free RapportLook reviewer account.";
+
 export const metadata = {
-  title: "Sign up as a reviewer · RapportLook",
+  title: TITLE,
+  description: DESCRIPTION,
+  keywords: ["reviewer signup", "get paid for reviews", "verified reviewer rewards"],
+  alternates: { canonical: "/signup/reviewer" },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: "/signup/reviewer" },
 };
 
 export default function ReviewerSignupPage() {

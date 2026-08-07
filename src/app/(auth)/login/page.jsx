@@ -6,6 +6,7 @@ import GoogleButton from "../../../components/auth/GoogleButton";
 
 export const metadata = {
   title: "Sign in · RapportLook",
+  robots: { index: false, follow: false },
 };
 
 // Shared by reviewers and business owners. Admin has its own at /admin/login.

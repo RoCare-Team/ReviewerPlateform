@@ -4,6 +4,7 @@ import ResetPasswordForm from "../../../components/auth/ResetPasswordForm";
 
 export const metadata = {
   title: "Reset password · RapportLook",
+  robots: { index: false, follow: false },
 };
 
 export default function ResetPasswordPage() {

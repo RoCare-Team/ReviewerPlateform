@@ -6,6 +6,7 @@ import Container from "./Container";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import ContactModal from "../models/ContactModal";
+import RoleSignupModal from "../models/RoleSignupModal";
 
 /**
  * Hero — text + CTAs on the left, product illustration on the right (stacks on
@@ -58,6 +59,7 @@ const LOGOS = [
 
 export default function Hero() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   // Signed-in visitor lands back on this marketing page (e.g. via logo
   // click) → the CTA should send them to their dashboard, not back through
   // signup. Cosmetic only, same caveat as SiteHeader.
@@ -118,16 +120,30 @@ export default function Hero() {
 
           {/* Call to Actions */}
           <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-            <Link
-              href={isLoggedIn ? "/post-login" : "/signup/business"}
-              className="group inline-flex items-center justify-center gap-2 rounded-btn bg-accent px-6 py-3.5 text-center font-semibold text-on-brand shadow-sm transition-all duration-200 hover:bg-accent-hover hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-            >
-              {isLoggedIn ? "Go to dashboard" : "Start Now"}
-              <ArrowRight
-                className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1"
-                aria-hidden="true"
-              />
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/post-login"
+                className="group inline-flex items-center justify-center gap-2 rounded-btn bg-accent px-6 py-3.5 text-center font-semibold text-on-brand shadow-sm transition-all duration-200 hover:bg-accent-hover hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+              >
+                Go to dashboard
+                <ArrowRight
+                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1"
+                  aria-hidden="true"
+                />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsRoleModalOpen(true)}
+                className="group inline-flex items-center justify-center gap-2 rounded-btn bg-accent px-6 py-3.5 text-center font-semibold text-on-brand shadow-sm transition-all duration-200 hover:bg-accent-hover hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+              >
+                Start Now
+                <ArrowRight
+                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1"
+                  aria-hidden="true"
+                />
+              </button>
+            )}
             <button
               onClick={() => setIsModalOpen(true)}
               type="button"
@@ -193,10 +209,10 @@ export default function Hero() {
           />
 
           <Image
-            src="/img/hero4.png"
+            src="/img/hero5.png"
             alt="RapportLook dashboard showing verified reviews, ratings over time and reviews by platform"
-            width={1536}
-            height={1024}
+            width={612}
+            height={408}
             priority
             sizes="(max-width: 1024px) 100vw, 50vw"
             className="animate-float h-auto w-full object-contain drop-shadow-2xl rounded-2xl"
@@ -207,6 +223,10 @@ export default function Hero() {
       <ContactModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+      />
+      <RoleSignupModal
+        isOpen={isRoleModalOpen}
+        onClose={() => setIsRoleModalOpen(false)}
       />
     </section>
   );

@@ -42,13 +42,13 @@
 
   "addresses": {
     "registered": {
-      "line1": "TODO",
-      "line2": "TODO",
-      "city": "TODO",
-      "state": "TODO",
+      "line1": "8th Floor, Unit No. 831",
+      "line2": "JMD Megapolis",
+      "city": "Gurugram",
+      "state": "Haryana",
       "postalCode": "TODO",
       "country": "India",
-      "full": "TODO — single-line rendering for footer, invoice, and GBP listing"
+      "full": "8th Floor, Unit No. 831, JMD Megapolis, Gurugram, Haryana, India"
     },
     "operations": {
       "sameAs": "registered"
@@ -132,7 +132,7 @@
   },
 
   "support": {
-    "hours": "TODO — e.g. Mon–Fri 10:00–19:00 IST",
+    "hours": "Mon–Sat 9:00 AM–7:00 PM IST",
     "timezone": "Asia/Kolkata",
     "channels": ["email", "in-app chat", "phone (Business & Enterprise only)"],
     "sla": {

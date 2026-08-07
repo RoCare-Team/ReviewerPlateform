@@ -4,8 +4,16 @@ import SignupForm from "../../../../components/auth/SignupForm";
 import GoogleSignupButton from "../../../../components/auth/GoogleSignupButton";
 import { ROLES } from "../../../../lib/auth/roles";
 
+const TITLE = "Sign up your business · RapportLook";
+const DESCRIPTION =
+  "Collect verified customer reviews across Google, Trustpilot, Play Store and more. Create a free RapportLook business account.";
+
 export const metadata = {
-  title: "Sign up your business · RapportLook",
+  title: TITLE,
+  description: DESCRIPTION,
+  keywords: ["business review signup", "collect verified reviews", "review management signup"],
+  alternates: { canonical: "/signup/business" },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: "/signup/business" },
 };
 
 export default function BusinessSignupPage() {

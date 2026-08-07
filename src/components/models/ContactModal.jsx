@@ -110,7 +110,7 @@ export default function ContactModal({ isOpen, onClose }) {
         ) : (
           /* Main Form */
           <form onSubmit={handleSubmit} noValidate>
-            <h3 className="text-xl font-extrabold tracking-tight text-primary">Book a demo</h3>
+            <h3 className="text-xl font-bold tracking-tight text-primary">Book a demo</h3>
             
             <div className="mt-6 space-y-4">
               <div>
@@ -173,7 +173,7 @@ export default function ContactModal({ isOpen, onClose }) {
                     value={formData.description}
                     onChange={handleChange}
                     placeholder="Tell us about your brand/campaign…"
-                    className="w-full resize-none rounded-btn border border-default bg-surface py-2.5 pl-10 pr-3 text-primary outline-none transition-all duration-200 placeholder:text-muted/70 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent/50 disabled:opacity-60"
+                    className="w-full resize-none rounded-2xl border border-default bg-surface py-2.5 pl-10 pr-3 text-primary outline-none transition-all duration-200 placeholder:text-muted/70 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent/50 disabled:opacity-60"
                   />
                 </div>
               </div>

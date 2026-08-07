@@ -19,7 +19,7 @@ export default function WalletCard({ balance, transactions }) {
           </span>
           <div>
             <p className="text-sm text-secondary">Wallet balance</p>
-            <p className="nums text-2xl font-extrabold tracking-tight text-primary">{inr(balance)}</p>
+            <p className="nums text-2xl font-bold tracking-tight text-primary">{inr(balance)}</p>
           </div>
         </div>
       </div>

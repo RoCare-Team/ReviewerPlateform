@@ -81,7 +81,7 @@ export default function DonutChart({ segments, centerLabel, size = 160, thicknes
           ))}
         </svg>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-4 text-center">
-          <span className="nums text-2xl font-extrabold tracking-tight text-primary">{centerValue}</span>
+          <span className="nums text-2xl font-bold tracking-tight text-primary">{centerValue}</span>
           <span className="truncate text-xs text-muted">{centerText}</span>
         </div>
       </div>

@@ -36,7 +36,7 @@ export default function Stats() {
               }`}
             >
               {/* Stat value: Transitioned to extrabold + tight tracking for high visual authority */}
-              <dt className="nums text-4xl font-extrabold tracking-tight text-accent transition-transform duration-300 group-hover:scale-110 sm:text-5xl lg:text-[3.25rem]">
+              <dt className="nums text-4xl font-bold tracking-tight text-accent transition-transform duration-300 group-hover:scale-110 sm:text-5xl lg:text-[3.25rem]">
                 {value}
               </dt>
               {/* Stat label: Constrained max-width for balanced multi-line text wraps */}

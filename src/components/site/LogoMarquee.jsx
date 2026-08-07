@@ -13,11 +13,11 @@ const PLATFORMS = [
   { name: "Google", className: "font-semibold tracking-tight" },
   { name: "Play Store", className: "font-bold tracking-tight" },
   { name: "App Store", className: "font-medium tracking-wide" },
-  { name: "Trustpilot", className: "font-extrabold lowercase tracking-tighter text-[1.05em]" },
+  { name: "Trustpilot", className: "font-bold lowercase tracking-tighter text-[1.05em]" },
   { name: "AmbitionBox", className: "font-bold tracking-tight" },
   { name: "Glassdoor", className: "font-semibold tracking-normal lowercase" },
   { name: "Amazon", className: "font-black lowercase tracking-tighter" },
-  { name: "Flipkart", className: "font-extrabold italic tracking-tight" },
+  { name: "Flipkart", className: "font-bold italic tracking-tight" },
   { name: "G2", className: "font-black uppercase tracking-widest text-[0.9em]" },
   { name: "Capterra", className: "font-normal tracking-widest uppercase text-[0.85em]" },
 ];

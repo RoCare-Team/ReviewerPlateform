@@ -31,7 +31,7 @@ function SummaryTile({ label, value, Icon, tone }) {
         <p className="text-sm text-secondary">{label}</p>
         <Icon className={`h-5 w-5 ${tone}`} aria-hidden="true" />
       </div>
-      <p className="nums mt-3 text-3xl font-extrabold tracking-tight text-primary">{value}</p>
+      <p className="nums mt-3 text-3xl font-bold tracking-tight text-primary">{value}</p>
     </div>
   );
 }

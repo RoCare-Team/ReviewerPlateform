@@ -179,7 +179,7 @@ function Fig({ label, value, Icon }) {
         <Icon className="h-3 w-3" aria-hidden="true" />
         {label}
       </dt>
-      <dd className="nums mt-0.5 text-base font-extrabold tracking-tight text-primary">{value}</dd>
+      <dd className="nums mt-0.5 text-base font-bold tracking-tight text-primary">{value}</dd>
     </div>
   );
 }

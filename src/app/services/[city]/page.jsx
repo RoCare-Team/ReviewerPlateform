@@ -202,7 +202,7 @@ export default async function CityPage({ params }) {
                 {city.region}
               </p>
 
-              <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.1]">
+              <h1 className="mt-4 text-3xl font-bold tracking-tight text-primary sm:text-4xl lg:text-[2.5rem] lg:leading-[1.1]">
                 Review Services in {city.name}
               </h1>
 
@@ -281,7 +281,7 @@ export default async function CityPage({ params }) {
         <section className="py-8 sm:py-12 border-b border-default/60 bg-surface-sunken">
           <Container className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-widest text-accent">Overview</p>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary">
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-primary">
               What is RapportLook in {city.name}?
             </h2>
             <div className="mt-5 space-y-4 text-base leading-relaxed text-secondary sm:text-lg">
@@ -316,7 +316,7 @@ export default async function CityPage({ params }) {
               
               {/* Left Column: Content Details */}
               <div className="lg:col-span-2">
-                <h2 className="text-3xl font-extrabold tracking-tight text-primary">
+                <h2 className="text-3xl font-bold tracking-tight text-primary">
                   Why {city.name} businesses choose RapportLook
                 </h2>
                 <p className="mt-4 text-base leading-relaxed text-secondary sm:text-lg">
@@ -409,7 +409,7 @@ export default async function CityPage({ params }) {
               <p className="text-xs font-bold uppercase tracking-widest text-accent">
                 The Process
               </p>
-              <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary">
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-primary">
                 Smarter verification for {city.name} campaigns
               </h2>
               <p className="mt-4 text-base leading-relaxed text-secondary">
@@ -439,7 +439,7 @@ export default async function CityPage({ params }) {
               <p className="text-xs font-bold uppercase tracking-widest text-accent">
                 Who it&rsquo;s for
               </p>
-              <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary">
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-primary">
                 Industries collecting reviews in {city.name}
               </h2>
               <p className="mt-4 text-base leading-relaxed text-secondary">
@@ -469,7 +469,7 @@ export default async function CityPage({ params }) {
               <p className="text-xs font-bold uppercase tracking-widest text-accent">
                 Explore more
               </p>
-              <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary">
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-primary">
                 Review services in other cities
               </h2>
             </div>
@@ -506,7 +506,7 @@ export default async function CityPage({ params }) {
               <p className="text-xs font-bold uppercase tracking-widest text-accent">
                 Location Compliance
               </p>
-              <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-primary">
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-primary">
                 Local FAQ for {city.name}
               </h2>
             </div>

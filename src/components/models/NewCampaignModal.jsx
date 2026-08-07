@@ -289,7 +289,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                       <Star className="h-4 w-4 fill-accent text-accent" aria-hidden="true" />
                       You&apos;ll get approximately
                     </span>
-                    <span className="text-2xl font-extrabold tracking-tight text-primary">{reviews} reviews</span>
+                    <span className="text-2xl font-bold tracking-tight text-primary">{reviews} reviews</span>
                   </div>
                   <p className="mt-1 text-xs text-secondary">
                     {inr(budgetNum)} ÷ {inr(rate)} per review
@@ -310,7 +310,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                       onChange={set("notes")}
                       maxLength={500}
                       placeholder="e.g. Focus on our new outlet, verified customers only, target a 4.5+ average."
-                      className="w-full resize-none rounded-btn border border-default bg-surface py-2.5 pl-10 pr-3 text-primary outline-none transition-all duration-200 placeholder:text-muted/70 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent/50"
+                      className="w-full resize-none rounded-2xl border border-default bg-surface py-2.5 pl-10 pr-3 text-primary outline-none transition-all duration-200 placeholder:text-muted/70 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent/50"
                     />
                   </div>
                 </div>

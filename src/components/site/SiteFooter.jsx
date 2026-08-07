@@ -61,10 +61,9 @@ function Github({ className }) {
  * scopes reviewers to feedback:submit and nothing here may contradict that. See
  * the copy note at the top of src/app/page.jsx before editing it.
  *
- * Some linked pages (pricing, about, legal) don't exist yet. They're part of the
- * planned platform, so they're linked rather than hidden — but until each page
- * ships, those hrefs 404. Build them, or comment the link out, before launch:
- * a footer full of 404s is a crawl-budget and trust cost.
+ * Every linked page exists — About, Careers, Contact, and the legal pages are
+ * real routes; Blog is a real route too but is an honest "coming soon" page
+ * (noindexed) until posts actually ship, rather than a 404.
  */
 const COLUMNS = [
   {
@@ -125,13 +124,13 @@ export default function SiteFooter() {
           {/* Brand & Social Column */}
           <div className="lg:col-span-2">
             <Link href="/" aria-label={`${BRAND_NAME} home`} className="inline-flex items-center">
-              {/* Intrinsic 1138×358; rendered at a fixed height with auto width. */}
+              {/* Intrinsic 1628×469; rendered at a fixed height with auto width. */}
               <Image
-                src="/img/logo2.png"
+                src="/img/logo3.png"
                 alt={BRAND_NAME}
-                width={1138}
-                height={358}
-                className="h-9 w-auto"
+                width={1628}
+                height={469}
+                className="h-14 w-auto"
               />
             </Link>
             <p className="mt-3 max-w-sm text-base leading-relaxed text-secondary">
