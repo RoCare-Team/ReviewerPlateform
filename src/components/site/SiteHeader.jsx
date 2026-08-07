@@ -72,6 +72,22 @@ export default function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Same escape-to-close + scroll-lock pattern as the app's modals
+  // (ContactModal, RoleSignupModal) — this drawer is functionally a modal,
+  // just anchored to the right edge instead of centered.
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileMenuOpen]);
+
   return (
     <header
       className={`sticky top-0 z-20 transition-all duration-300 ${
@@ -148,41 +164,66 @@ export default function SiteHeader() {
 
           {/* Mobile Hamburguer Toggle Button */}
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => setMobileMenuOpen(true)}
             className="inline-flex items-center justify-center justify-self-end p-2 rounded-lg text-secondary hover:text-primary hover:bg-default/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden transition-colors"
             aria-expanded={mobileMenuOpen}
-            aria-label="Toggle navigation menu"
+            aria-label="Open navigation menu"
           >
-            {mobileMenuOpen ? (
-              <X className="h-6 w-6" aria-hidden="true" />
-            ) : (
-              <Menu className="h-6 w-6" aria-hidden="true" />
-            )}
+            <Menu className="h-6 w-6" aria-hidden="true" />
           </button>
         </Container>
+      </div>
 
-        {/* 
-          Mobile Navigation Dropdown Panel:
-          Expands gracefully directly within the glass frame container on smaller screens.
-        */}
-        {mobileMenuOpen && (
-          <nav 
-            aria-label="Mobile" 
-            className="border-t border-default/40 px-6 py-5 flex flex-col gap-4 lg:hidden bg-surface-raised/40 backdrop-blur-md animate-in slide-in-from-top-4 duration-200"
-          >
+      {/* Mobile nav — a real side drawer (fixed, full height, slides in from
+          the right) instead of a dropdown squeezed inside the rounded pill
+          above. The pill's rounded-full shape has no sane way to host a tall
+          expanding panel; stretching it to fit was clipping the logo. */}
+      <div
+        className={`fixed inset-0 z-50 lg:hidden ${mobileMenuOpen ? "" : "pointer-events-none"}`}
+        aria-hidden={!mobileMenuOpen}
+      >
+        {/* Backdrop */}
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          className={`absolute inset-0 bg-surface-inverse/60 backdrop-blur-sm transition-opacity duration-300 ${
+            mobileMenuOpen ? "opacity-100" : "opacity-0"
+          }`}
+          aria-hidden="true"
+        />
+
+        {/* Panel */}
+        <nav
+          aria-label="Mobile"
+          className={`absolute inset-y-0 right-0 flex h-full w-full max-w-xs flex-col overflow-y-auto bg-surface-raised shadow-2xl transition-transform duration-300 ease-out ${
+            mobileMenuOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div className="flex items-center justify-between border-b border-default px-5 py-4">
+            <Image src="/img/logo3.png" alt="RapportLook" width={1628} height={469} className="h-8 w-auto" />
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close navigation menu"
+              className="rounded-full p-1.5 text-muted transition-all duration-200 hover:scale-110 hover:bg-surface-sunken hover:text-primary"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div className="flex flex-1 flex-col gap-1 px-3 py-4">
             {NAV.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="text-secondary font-semibold text-base transition-colors hover:text-accent"
+                className="rounded-btn px-3 py-2.5 text-base font-semibold text-secondary transition-colors hover:bg-surface-sunken hover:text-accent"
               >
                 {n.label}
               </Link>
             ))}
-            
-            <div className="my-1 border-t border-default/40" />
+          </div>
 
+          <div className="mt-auto flex flex-col gap-2.5 border-t border-default p-4">
             {isLoggedIn ? (
               <>
                 <Link
@@ -207,11 +248,10 @@ export default function SiteHeader() {
                 <Link
                   href="/login"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-secondary font-semibold text-base transition-colors hover:text-accent"
+                  className="rounded-btn border border-default px-4 py-2.5 text-center font-semibold text-secondary transition-colors hover:bg-surface-sunken"
                 >
                   Log in
                 </Link>
-
                 <button
                   type="button"
                   onClick={() => {
@@ -224,8 +264,8 @@ export default function SiteHeader() {
                 </button>
               </>
             )}
-          </nav>
-        )}
+          </div>
+        </nav>
       </div>
 
       <RoleSignupModal isOpen={roleModalOpen} onClose={() => setRoleModalOpen(false)} />
