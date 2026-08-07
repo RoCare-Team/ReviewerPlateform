@@ -101,15 +101,21 @@ export default async function BlogPostPage({ params }) {
               article body below it. */}
           <section className="relative">
             <Container className="pt-4 sm:pt-6">
-              <div className="relative h-64 w-full overflow-hidden rounded-3xl sm:h-80 lg:h-96">
-                <Image
-                  src={post.coverImage}
-                  alt=""
-                  fill
-                  priority
-                  sizes="(max-width: 1280px) 100vw, 1280px"
-                  className="object-cover"
-                />
+              <div className="relative h-64 w-full overflow-hidden rounded-3xl bg-accent-subtle sm:h-80 lg:h-96">
+                {/* Guard against a post with no cover image (e.g. a
+                    pre-migration row) — next/image throws on an empty src,
+                    so this must stay conditional. Same height either way so
+                    the title card below still lands at the same offset. */}
+                {post.coverImage && (
+                  <Image
+                    src={post.coverImage}
+                    alt=""
+                    fill
+                    priority
+                    sizes="(max-width: 1280px) 100vw, 1280px"
+                    className="object-cover"
+                  />
+                )}
                 <div
                   className="absolute inset-0 bg-linear-to-t from-surface-inverse/85 via-surface-inverse/25 to-surface-inverse/10"
                   aria-hidden="true"

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Clock } from "lucide-react";
+import { ArrowRight, Clock, Newspaper } from "lucide-react";
 import Container from "../../components/site/Container";
 import Reveal from "../../components/site/Reveal";
 import SiteHeader from "../../components/site/SiteHeader";
@@ -104,13 +104,23 @@ export default async function BlogIndexPage() {
                       className="group flex h-full flex-col overflow-hidden rounded-card border border-default bg-surface-raised shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/30 hover:shadow-lg"
                     >
                       <div className="relative h-44 w-full overflow-hidden bg-surface-sunken">
-                        <Image
-                          src={post.coverImage}
-                          alt=""
-                          fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          className="object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
+                        {/* Guard against a post with no cover image (e.g. a
+                            pre-migration row) — next/image throws on an empty
+                            src, so this must stay conditional, not just a
+                            missing alt. */}
+                        {post.coverImage ? (
+                          <Image
+                            src={post.coverImage}
+                            alt=""
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-accent-subtle text-accent">
+                            <Newspaper className="h-8 w-8 opacity-40" aria-hidden="true" />
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex flex-1 flex-col p-6">
