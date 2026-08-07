@@ -12,6 +12,7 @@ import {
   Play,
   Target,
 } from "lucide-react";
+import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = { active: "pill-verified", paused: "pill-pending", draft: "pill-accent", completed: "pill-accent" };
 const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
@@ -61,9 +62,12 @@ export default function CampaignCard({ campaign }) {
     setPending(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Couldn't update the campaign.");
+      const message = data.error ?? "Couldn't update the campaign.";
+      setError(message);
+      toast.error(message);
       return;
     }
+    toast.success(action === "pause" ? "Campaign closed." : "Campaign reopened.");
     setConfirming(false);
     router.refresh();
   }

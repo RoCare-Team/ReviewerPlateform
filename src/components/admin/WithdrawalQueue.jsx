@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Banknote, Check, CreditCard, Hash, Inbox, X } from "lucide-react";
+import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = {
   approved: "pill-verified",
@@ -53,7 +54,15 @@ export default function WithdrawalQueue({ requests }) {
     setBusy(null);
     setRejecting(null);
     setReason("");
-    if (res.ok) router.refresh();
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error ?? "Couldn't update the request.");
+      return;
+    }
+
+    toast.success(action === "approve" ? "Marked as paid." : "Request rejected and refunded.");
+    router.refresh();
   }
 
   return (

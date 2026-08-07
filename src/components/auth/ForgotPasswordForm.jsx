@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Mail } from "lucide-react";
 import { Label, Input, SubmitButton } from "./Field";
+import { toast } from "../../lib/toast";
 
 export default function ForgotPasswordForm() {
   const [pending, setPending] = useState(false);
@@ -23,6 +24,7 @@ export default function ForgotPasswordForm() {
     // Always the same confirmation, whatever the server did. The endpoint is
     // opaque by design; showing "no such account" here would undo that.
     setSent(true);
+    toast.success("If an account exists for that address, we've sent a reset link.");
   }
 
   if (sent) {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Loader2, CheckCircle2, User, Mail, Phone, MessageSquare } from "lucide-react";
 import { Label, Input, FormError } from "../auth/Field";
+import { toast } from "../../lib/toast";
 
 export default function ContactModal({ isOpen, onClose }) {
   const [formData, setFormData] = useState({
@@ -55,10 +56,12 @@ export default function ContactModal({ isOpen, onClose }) {
       }
 
       setStatus("success");
+      toast.success("Request received — we'll reach out to you soon.");
       setFormData({ name: "", email: "", phone: "", description: "" });
     } catch (error) {
       setErrorMessage(error.message);
       setStatus("error");
+      toast.error(error.message);
     }
   };
 

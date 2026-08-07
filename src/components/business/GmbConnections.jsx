@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Clock, MapPin, MessageSquare, RefreshCw, Star, Trash2 } from "lucide-react";
+import { toast } from "../../lib/toast";
 
 /**
  * Client UI for connected Google Business Profile accounts. Receives already-
@@ -13,11 +14,9 @@ import { CheckCircle2, Clock, MapPin, MessageSquare, RefreshCw, Star, Trash2 } f
 export default function GmbConnections({ connections }) {
   const router = useRouter();
   const [busy, setBusy] = useState(null); // connection id currently working
-  const [msg, setMsg] = useState(null);
 
   async function sync(id) {
     setBusy(id);
-    setMsg(null);
     const res = await fetch("/api/business/gmb/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -26,43 +25,30 @@ export default function GmbConnections({ connections }) {
     const data = await res.json().catch(() => ({}));
     setBusy(null);
     if (!res.ok) {
-      setMsg({ tone: "error", text: data.error ?? "Sync failed." });
+      toast.error(data.error ?? "Sync failed.");
       return;
     }
     const errNote = data.errors?.length ? ` (${data.errors.length} location error(s))` : "";
-    setMsg({ tone: "ok", text: `Synced ${data.synced} review(s)${errNote}.` });
+    toast.success(`Synced ${data.synced} review(s)${errNote}.`);
     router.refresh();
   }
 
   async function disconnect(id) {
     if (!confirm("Disconnect this Google account? Its synced locations and reviews will be removed.")) return;
     setBusy(id);
-    setMsg(null);
     const res = await fetch(`/api/business/gmb/${id}`, { method: "DELETE" });
     setBusy(null);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setMsg({ tone: "error", text: data.error ?? "Disconnect failed." });
+      toast.error(data.error ?? "Disconnect failed.");
       return;
     }
-    setMsg({ tone: "ok", text: "Disconnected." });
+    toast.success("Disconnected.");
     router.refresh();
   }
 
   return (
     <div>
-      {msg && (
-        <div
-          className={`mb-4 rounded-btn border px-3 py-2 text-sm ${
-            msg.tone === "ok"
-              ? "border-verified bg-verified-subtle text-verified"
-              : "border-danger bg-danger-subtle text-danger"
-          }`}
-        >
-          {msg.text}
-        </div>
-      )}
-
       {connections.length === 0 ? (
         <div className="rounded-card border border-dashed border-default bg-surface-raised p-8 text-center">
           <p className="text-sm text-secondary">No Google account connected yet.</p>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PasswordField from "./PasswordField";
 import { FormError, SubmitButton } from "./Field";
+import { toast } from "../../lib/toast";
 
 export default function ResetPasswordForm() {
   const router = useRouter();
@@ -38,10 +39,13 @@ export default function ResetPasswordForm() {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data.error ?? "Something went wrong.");
+      const message = data.error ?? "Something went wrong.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
+    toast.success("Password updated. Sign in with your new password.");
     router.push("/login?reset=1");
   }
 

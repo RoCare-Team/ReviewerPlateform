@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Label, Input, FieldError, FormError } from "../auth/Field";
+import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = {
   pending: "pill-pending",
@@ -103,13 +104,19 @@ export default function WithdrawForm({ balance, minWithdrawal, bankDetails, hasP
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      if (data.details) setFieldErrors(data.details);
-      else setError(data.error ?? "Couldn't submit the request.");
+      if (data.details) {
+        setFieldErrors(data.details);
+      } else {
+        const message = data.error ?? "Couldn't submit the request.";
+        setError(message);
+        toast.error(message);
+      }
       return;
     }
 
     setValues((v) => ({ ...v, amount: "" }));
     setDone(true);
+    toast.success("Withdrawal request submitted.");
     router.refresh();
   }
 

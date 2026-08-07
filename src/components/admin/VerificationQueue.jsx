@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bot, Check, ExternalLink, Inbox, ShieldCheck, X } from "lucide-react";
 import ScreenshotViewer from "../shared/ScreenshotViewer";
+import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = {
   approved: "pill-verified",
@@ -62,7 +63,15 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
     setRejecting(null);
     setReason("");
     setOverriding(null);
-    if (res.ok) router.refresh();
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error ?? "Couldn't update the submission.");
+      return;
+    }
+
+    toast.success(action === "approve" ? "Submission approved." : "Submission rejected.");
+    router.refresh();
   }
 
   return (

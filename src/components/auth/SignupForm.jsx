@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { User, Mail } from "lucide-react";
 import { Label, Input, FieldError, FormError, SubmitButton } from "./Field";
 import PasswordField from "./PasswordField";
-import Toast from "../shared/Toast";
+import { toast } from "../../lib/toast";
 
 const ROLE_LABEL = { reviewer: "reviewer", business_owner: "business" };
 
@@ -28,7 +28,6 @@ export default function SignupForm({ role }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
-  const [toast, setToast] = useState("");
 
   const endpoint = ENDPOINT[role];
 
@@ -57,14 +56,21 @@ export default function SignupForm({ role }) {
       const data = await res.json().catch(() => ({}));
       if (data.error === "cross_role") {
         const label = ROLE_LABEL[data.role] ?? "different";
-        setToast(`You already have a ${label} account with this email. Redirecting to login…`);
+        toast(`You already have a ${label} account with this email. Redirecting to login…`, { icon: "ℹ️" });
         setTimeout(() => router.push("/login"), 2500);
         return;
       }
-      if (data.details) setFieldErrors(data.details);
-      else setError(data.error ?? "Something went wrong. Please try again.");
+      if (data.details) {
+        setFieldErrors(data.details);
+      } else {
+        const message = data.error ?? "Something went wrong. Please try again.";
+        setError(message);
+        toast.error(message);
+      }
       return;
     }
+
+    toast.success("Account created — check your email for the verification code.");
 
     // Always lands here, existing account or not — the endpoint answers
     // identically either way so it can't be used to test which emails exist.
@@ -73,7 +79,6 @@ export default function SignupForm({ role }) {
 
   return (
     <form onSubmit={onSubmit} noValidate>
-      <Toast message={toast} tone="info" duration={0} onClose={() => setToast("")} />
       <FormError>{error}</FormError>
 
       <div className="space-y-4">

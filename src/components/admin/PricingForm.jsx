@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "../../lib/toast";
 
 /**
  * Admin pricing control. Edits the global prices that drive the whole app:
@@ -27,9 +28,17 @@ export default function PricingForm({ initial }) {
       !Number.isInteger(reward) || reward <= 0 ||
       !Number.isInteger(minOut) || minOut <= 0
     ) {
-      return setMsg({ tone: "error", text: "Enter valid whole-rupee amounts." });
+      const text = "Enter valid whole-rupee amounts.";
+      setMsg({ tone: "error", text });
+      toast.error(text);
+      return;
     }
-    if (reward > rate) return setMsg({ tone: "error", text: "Reviewer reward can't exceed the review rate." });
+    if (reward > rate) {
+      const text = "Reviewer reward can't exceed the review rate.";
+      setMsg({ tone: "error", text });
+      toast.error(text);
+      return;
+    }
 
     setPending(true);
     const res = await fetch("/api/admin/settings", {
@@ -39,8 +48,14 @@ export default function PricingForm({ initial }) {
     });
     setPending(false);
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return setMsg({ tone: "error", text: data.error ?? "Update failed." });
+    if (!res.ok) {
+      const text = data.error ?? "Update failed.";
+      setMsg({ tone: "error", text });
+      toast.error(text);
+      return;
+    }
     setMsg({ tone: "ok", text: "Pricing updated." });
+    toast.success("Pricing updated.");
     router.refresh();
   }
 

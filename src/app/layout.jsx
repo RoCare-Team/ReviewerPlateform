@@ -1,5 +1,6 @@
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
+import { Toaster } from "react-hot-toast";
 
 // APP_URL is used for server-side redirects/emails (localhost in dev is correct
 // there). For SEO metadata we must always resolve against the real production
@@ -73,6 +74,31 @@ export default function RootLayout({ children }) {
         {/* Client-side session for useSession()/RoleGate. It is a convenience for
             rendering, never an authorization boundary — see components/auth/RoleGate. */}
         <SessionProvider>{children}</SessionProvider>
+
+        {/* Single app-wide toast host. Every event (form submit, save, delete,
+            connect, resend, etc.) reports through toast.success/toast.error
+            from react-hot-toast — see src/lib/toast.js for the shared config. */}
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: "var(--color-surface)",
+              color: "var(--color-primary)",
+              border: "1px solid var(--color-default)",
+              borderRadius: "10px",
+              padding: "10px 14px",
+              fontSize: "0.875rem",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+            },
+            success: {
+              iconTheme: { primary: "var(--color-verified)", secondary: "#fff" },
+            },
+            error: {
+              iconTheme: { primary: "var(--color-danger)", secondary: "#fff" },
+            },
+          }}
+        />
       </body>
     </html>
   );

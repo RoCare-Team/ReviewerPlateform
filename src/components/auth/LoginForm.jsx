@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Mail, KeyRound } from "lucide-react";
 import { Label, Input, FormError, SubmitButton } from "./Field";
 import PasswordField from "./PasswordField";
+import { toast } from "../../lib/toast";
 
 /**
  * scope="user"  → /login       (reviewers + business owners; Google allowed)
@@ -52,13 +53,15 @@ export default function LoginForm({ scope = "user", requireTotp = false }) {
       // in production, so we can't branch on the message reliably. One message
       // for every failure is also the correct posture: "wrong password" vs
       // "no such account" is an enumeration oracle.
-      setError(
-        requireTotp
-          ? "Incorrect email, password, or authenticator code."
-          : "Incorrect email or password."
-      );
+      const message = requireTotp
+        ? "Incorrect email, password, or authenticator code."
+        : "Incorrect email or password.";
+      setError(message);
+      toast.error(message);
       return;
     }
+
+    toast.success("Signed in.");
 
     // Let the server decide the landing page from the session role — the client
     // must not pick a destination based on a role it believes it has.

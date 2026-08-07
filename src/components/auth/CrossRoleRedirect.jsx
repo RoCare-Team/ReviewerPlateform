@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Toast from "../shared/Toast";
+import { toast } from "../../lib/toast";
 
 /**
  * Shows a toast then redirects to /login after a short delay — used when the
@@ -11,12 +11,12 @@ import Toast from "../shared/Toast";
  */
 export default function CrossRoleRedirect({ message, delay = 2500 }) {
   const router = useRouter();
-  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
+    toast(message, { icon: "ℹ️", duration: delay });
     const t = setTimeout(() => router.push("/login"), delay);
     return () => clearTimeout(t);
-  }, [router, delay]);
+  }, [message, delay, router]);
 
-  return <Toast message={visible ? message : ""} tone="info" duration={0} onClose={() => setVisible(false)} />;
+  return null;
 }

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { approxReviews, inr } from "../../lib/campaigns";
 import { Label, Input, FormError } from "../auth/Field";
-import Toast from "../shared/Toast";
+import { toast } from "../../lib/toast";
 
 const selectClass =
   "w-full appearance-none rounded-btn border border-default bg-surface py-2.5 pl-10 pr-3 text-primary outline-none transition-all duration-200 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent/50";
@@ -35,7 +35,6 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   const [values, setValues] = useState({ name: "", platform: "google", budget: "", notes: "", locationId: "", targetUrl: "" });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
 
   const budgetNum = Number(values.budget) || 0;
   const reviews = approxReviews(budgetNum, rate);
@@ -55,7 +54,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         const n = Number(value);
         if (!Number.isNaN(n) && n > walletBalance) {
           value = String(walletBalance);
-          setToast("You don't have enough funds in your wallet. Add funds to increase your budget.");
+          toast.error("You don't have enough funds in your wallet. Add funds to increase your budget.");
         }
       }
 
@@ -106,7 +105,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     if (!values.targetUrl.trim()) return setError("Add the review URL where customers should leave a review.");
     if (budgetNum < rate) return setError(`Minimum budget is ${inr(rate)} (one review).`);
     if (overBudget) {
-      setToast("You don't have enough funds in your wallet. Add funds to increase your budget.");
+      toast.error("You don't have enough funds in your wallet. Add funds to increase your budget.");
       return;
     }
 
@@ -130,12 +129,16 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
       // wallet could have been spent elsewhere between page load and submit)
       // — still surfaced as the same toast, not a generic inline error.
       if (/insufficient/i.test(data.error ?? "")) {
-        setToast("You don't have enough funds in your wallet. Add funds to increase your budget.");
+        toast.error("You don't have enough funds in your wallet. Add funds to increase your budget.");
         return;
       }
-      return setError(data.error ?? "Couldn't create the campaign.");
+      const message = data.error ?? "Couldn't create the campaign.";
+      setError(message);
+      toast.error(message);
+      return;
     }
 
+    toast.success("Campaign created.");
     setValues({ name: "", platform: "google", budget: "", notes: "", locationId: "", targetUrl: "" });
     setOpen(false);
     router.refresh();
@@ -189,7 +192,6 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
 
             {/* Body — the only part that scrolls */}
             <form id="new-campaign-form" onSubmit={onSubmit} className="min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-8">
-              <Toast message={toast} tone="error" onClose={() => setToast("")} />
               <FormError>{error}</FormError>
 
               <div className="space-y-4">

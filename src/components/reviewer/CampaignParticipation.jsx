@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Clock, ExternalLink, Megaphone, RotateCcw, Upload, Star, X, XCircle } from "lucide-react";
+import { toast } from "../../lib/toast";
 
 /**
  * Available-campaign cards for reviewers. Each card lets the reviewer open the
@@ -25,7 +26,11 @@ function Card({ campaign, reward }) {
   async function submit(e) {
     e.preventDefault();
     setError("");
-    if (!file) return setError("Upload a screenshot of your review.");
+    if (!file) {
+      setError("Upload a screenshot of your review.");
+      toast.error("Upload a screenshot of your review.");
+      return;
+    }
 
     const fd = new FormData();
     fd.append("campaignId", campaign.id);
@@ -36,9 +41,18 @@ function Card({ campaign, reward }) {
     const res = await fetch("/api/reviewer/submissions", { method: "POST", body: fd });
     setPending(false);
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return setError(data.error ?? "Submission failed.");
+    if (!res.ok) {
+      const message = data.error ?? "Submission failed.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
 
     // AI decided instantly — show the outcome; refresh on dismiss.
+    if (data.status === "approved") toast.success(`Verified! +${inr(data.reward)} credited.`);
+    else if (data.status === "rejected") toast.error("Submission not verified.");
+    else toast("Submitted — pending review.", { icon: "⏳" });
+
     setResult({ status: data.status, reward: data.reward, reason: data.reason });
     setOpen(false);
   }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Megaphone, Pause, Play } from "lucide-react";
 import CampaignCard from "./CampaignCard";
+import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = { active: "pill-verified", paused: "pill-pending", draft: "pill-accent", completed: "pill-accent" };
 const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
@@ -38,9 +39,12 @@ export default function CampaignsTable({ campaigns }) {
     setBusyId(null);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setRowError((e) => ({ ...e, [c.id]: data.error ?? "Couldn't update the campaign." }));
+      const message = data.error ?? "Couldn't update the campaign.";
+      setRowError((e) => ({ ...e, [c.id]: message }));
+      toast.error(message);
       return;
     }
+    toast.success(action === "pause" ? "Campaign closed." : "Campaign reopened.");
     setConfirmingId(null);
     router.refresh();
   }

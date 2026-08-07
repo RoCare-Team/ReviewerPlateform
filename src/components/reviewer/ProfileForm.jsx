@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { User, Phone, Mail } from "lucide-react";
 import { Label, Input, FieldError, FormError } from "../auth/Field";
+import { toast } from "../../lib/toast";
 
 /**
  * Reviewer profile form. Email is read-only (identity, not editable here). Name,
@@ -46,12 +47,18 @@ export default function ProfileForm({ initial, endpoint = "/api/reviewer/profile
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      if (data.details) setFieldErrors(data.details);
-      else setError(data.error ?? "Something went wrong. Please try again.");
+      if (data.details) {
+        setFieldErrors(data.details);
+      } else {
+        const message = data.error ?? "Something went wrong. Please try again.";
+        setError(message);
+        toast.error(message);
+      }
       return;
     }
 
     setSaved(true);
+    toast.success("Profile updated.");
     // Re-run the server component so any name shown elsewhere on the page refreshes.
     router.refresh();
   }
