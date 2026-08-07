@@ -113,7 +113,7 @@ export default async function BlogPostPage({ params }) {
                     fill
                     priority
                     sizes="(max-width: 1280px) 100vw, 1280px"
-                    className="object-cover"
+                    className="object-cover object-top"
                   />
                 )}
                 <div
@@ -229,7 +229,7 @@ export default async function BlogPostPage({ params }) {
                             alt=""
                             fill
                             sizes="(max-width: 640px) 100vw, 33vw"
-                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                            className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
                           />
                         </div>
                       )}

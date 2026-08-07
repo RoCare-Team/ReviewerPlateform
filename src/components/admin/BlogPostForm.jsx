@@ -122,7 +122,7 @@ export default function BlogPostForm({ mode, postId, initial }) {
               alt=""
               width={1200}
               height={630}
-              className="h-48 w-full object-cover"
+              className="h-48 w-full object-cover object-top"
               unoptimized
             />
             <button
