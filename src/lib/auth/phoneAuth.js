@@ -37,15 +37,37 @@ export function isValidPhone(phone) {
   return typeof phone === "string" && PHONE_RE.test(phone);
 }
 
-/** Step 1: send the OTP. No user lookup here — sending doesn't reveal whether
- *  a phone is registered, since both login and signup send unconditionally. */
-export async function requestPhoneOtp(phone, request) {
+/**
+ * Step 1: send the OTP.
+ *
+ * `intent: "signup"` (with `role`) checks for a cross-role account BEFORE
+ * sending anything — a number already registered as a business shouldn't
+ * burn an OTP (and the reviewer's patience) on a reviewer signup that's
+ * going to be rejected anyway once verified. Plain login sends unconditionally
+ * (no role to check against, and login doesn't reveal whether a phone is
+ * registered — the cross-role check IS a real business-vs-reviewer signal,
+ * only surfaced here on signup where the caller already declared an intent).
+ */
+export async function requestPhoneOtp(phone, { intent, role } = {}, request) {
   const ip = clientIp(request);
   const byIp = rateLimit(`phone-otp:send:ip:${ip}`, { limit: 10, windowMs: 60 * 60 * 1000 });
   if (!byIp.ok) return { ok: false, message: "Too many requests. Try again later." };
 
   const byPhone = rateLimit(`phone-otp:send:phone:${phone}`, { limit: 5, windowMs: 60 * 60 * 1000 });
   if (!byPhone.ok) return { ok: false, message: "Too many requests for this number. Try again later." };
+
+  if (intent === "signup" && role) {
+    await dbConnect();
+    const existing = await User.findOne({ phone, role: { $ne: "admin" } }).select("role");
+    if (existing && existing.role !== role) {
+      return {
+        ok: false,
+        code: "CROSS_ROLE",
+        role: existing.role,
+        message: `This number is already registered as a ${existing.role === "business_owner" ? "business" : "reviewer"} account.`,
+      };
+    }
+  }
 
   return sendSmsOtp(phone);
 }

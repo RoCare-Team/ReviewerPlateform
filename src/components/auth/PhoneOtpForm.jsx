@@ -79,12 +79,20 @@ export default function PhoneOtpForm({ mode = "login", role }) {
     const res = await fetch("/api/auth/otp/phone/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ phone, intent: mode, ...(mode === "signup" ? { role } : {}) }),
     });
     const data = await res.json().catch(() => ({}));
     setPending(false);
 
     if (!res.ok) {
+      // Cross-role is caught here, BEFORE an OTP is even sent — a number
+      // already registered under the other role never gets this far.
+      if (data.code === "CROSS_ROLE") {
+        const label = data.role === "business_owner" ? "business" : "reviewer";
+        toast(`This number already has a ${label} account. Redirecting to login…`, { icon: "ℹ️" });
+        setTimeout(() => router.push("/login"), 2000);
+        return;
+      }
       const message = data.error ?? "Failed to send OTP. Please try again.";
       setError(message);
       toast.error(message);
