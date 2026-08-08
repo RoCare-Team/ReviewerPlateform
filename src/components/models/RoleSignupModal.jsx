@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Building2, Check, MessageSquareQuote, X } from "lucide-react";
 
@@ -51,7 +52,9 @@ export default function RoleSignupModal({ isOpen, onClose }) {
     router.push(href);
   }
 
-  return (
+  // Portal to <body> so the modal always escapes ancestor stacking contexts
+  // (e.g. a section with `isolate`) instead of being trapped behind them.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -113,6 +116,7 @@ export default function RoleSignupModal({ isOpen, onClose }) {
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

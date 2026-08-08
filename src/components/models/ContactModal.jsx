@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Loader2, CheckCircle2, User, Mail, Phone, MessageSquare } from "lucide-react";
 import { Label, Input, FormError } from "../auth/Field";
 import { toast } from "../../lib/toast";
@@ -67,7 +68,9 @@ export default function ContactModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  return (
+  // Portal to <body> so the modal always escapes ancestor stacking contexts
+  // (e.g. a section with `isolate`) instead of being trapped behind them.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -211,6 +214,7 @@ export default function ContactModal({ isOpen, onClose }) {
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

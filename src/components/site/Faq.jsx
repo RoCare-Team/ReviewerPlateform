@@ -45,7 +45,7 @@ export default function Faq() {
       id="faq"
       className="scroll-mt-28 border-t border-default bg-surface-sunken py-8 sm:py-12 sm:scroll-mt-32"
     >
-      <Container className="max-w-3xl">
+      <Container className="max-w-7xl">
         {/* Header Block following standard typographic system spacing */}
         <Reveal>
           <p className="text-xs font-bold uppercase tracking-widest text-accent">
@@ -55,7 +55,7 @@ export default function Faq() {
             Frequently asked questions
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-secondary sm:text-base">
-            Got questions about verified compliance, reward logistics, or platform verification? We've got answers.
+            Got questions about verified compliance, reward logistics, or platform verification? We&apos;ve got answers.
           </p>
         </Reveal>
 

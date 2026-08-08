@@ -15,6 +15,7 @@ import {
 import Container from "../../../components/site/Container";
 import SiteHeader from "../../../components/site/SiteHeader";
 import SiteFooter from "../../../components/site/SiteFooter";
+import CityCtaButtons from "../../../components/site/CityCtaButtons";
 import { getCity, getCities, getCitySlugs } from "../../../lib/cities";
 
 // Prerender one static page per known city.
@@ -238,20 +239,7 @@ export default async function CityPage({ params }) {
               </ul>
 
               {/* CTAs */}
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/signup/business"
-                  className="inline-flex items-center justify-center rounded-btn bg-accent px-6 py-3 text-center text-sm font-bold text-on-brand shadow-md transition-all duration-200 hover:bg-accent-hover hover:shadow-lg active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                >
-                  Start free trial
-                </Link>
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center justify-center rounded-btn border border-strong bg-surface px-6 py-3 text-center text-sm font-bold text-primary transition-all duration-200 hover:bg-surface-sunken active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-strong"
-                >
-                  Book a demo
-                </Link>
-              </div>
+              <CityCtaButtons variant="hero" />
             </div>
 
             {/* Right: city photo card */}
@@ -279,7 +267,7 @@ export default async function CityPage({ params }) {
 
         {/* About / What is this — keyword-rich SEO intro */}
         <section className="py-8 sm:py-12 border-b border-default/60 bg-surface-sunken">
-          <Container className="max-w-3xl">
+          <Container className="max-w-7xl">
             <p className="text-xs font-bold uppercase tracking-widest text-accent">Overview</p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-primary">
               What is RapportLook in {city.name}?
@@ -382,20 +370,7 @@ export default async function CityPage({ params }) {
                     </div>
                   </dl>
 
-                  <div className="mt-6 flex flex-col gap-3">
-                    <Link
-                      href="/signup/business"
-                      className="rounded-btn bg-accent px-4 py-2.5 text-center text-sm font-bold text-on-brand shadow-md transition-all duration-200 hover:bg-accent-hover hover:shadow-lg active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
-                    >
-                      Start free trial
-                    </Link>
-                    <Link
-                      href="/contact"
-                      className="rounded-btn border border-strong bg-surface px-4 py-2.5 text-center text-sm font-bold text-primary transition-all duration-200 hover:bg-surface-sunken active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-strong"
-                    >
-                      Book a demo
-                    </Link>
-                  </div>
+                  <CityCtaButtons variant="aside" />
                 </div>
               </aside>
             </div>
@@ -501,7 +476,7 @@ export default async function CityPage({ params }) {
 
         {/* NEW SECTION 2: Dynamic Local Trust & Compliance FAQs */}
         <section className="py-8 sm:py-12">
-          <Container className="max-w-3xl">
+          <Container className="max-w-7xl">
             <div className="text-center sm:text-left">
               <p className="text-xs font-bold uppercase tracking-widest text-accent">
                 Location Compliance
