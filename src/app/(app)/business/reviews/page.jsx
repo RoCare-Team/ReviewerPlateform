@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Star, Reply, RefreshCw, MessageSquare } from "lucide-react";
+import { CornerDownRight, Star, RefreshCw, MessageSquare } from "lucide-react";
 import { requireRole } from "../../../../lib/auth/guards";
 import { ROLES } from "../../../../lib/auth/roles";
 import dbConnect from "../../../../lib/db";
@@ -8,6 +8,7 @@ import GmbLocation from "../../../../models/GmbLocation";
 import GmbConnection from "../../../../models/GmbConnection";
 import { syncConnectionReviews } from "../../../../lib/gmb";
 import SyncReviewsButton from "../../../../components/business/SyncReviewsButton";
+import ReplyToReview from "../../../../components/business/ReplyToReview";
 
 // Auto-sync throttle — visiting the page re-fetches from Google at most this
 // often per connection, so normal navigation doesn't hammer the GMB API.
@@ -124,20 +125,15 @@ export default async function BusinessReviewsPage() {
               {v.comment && <p className="mt-3 text-sm leading-relaxed text-secondary">{v.comment}</p>}
 
               {v.reply ? (
-                <div className="mt-3 rounded-btn border border-default bg-surface-sunken p-3">
-                  <p className="text-xs font-semibold text-muted">Your reply</p>
-                  <p className="mt-1 text-sm text-secondary">{v.reply}</p>
+                <div className="mt-3.5 ml-3 flex gap-2.5 border-l-2 border-accent/30 rounded-l-sm bg-surface-sunken py-3 pl-3.5 pr-4">
+                  <CornerDownRight className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-primary">Your reply</p>
+                    <p className="mt-1 text-sm leading-relaxed text-secondary">{v.reply}</p>
+                  </div>
                 </div>
               ) : (
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 rounded-btn border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken"
-                  >
-                    <Reply className="h-4 w-4" aria-hidden="true" />
-                    Reply
-                  </button>
-                </div>
+                <ReplyToReview reviewId={String(v._id)} />
               )}
             </li>
           ))}

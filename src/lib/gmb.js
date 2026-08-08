@@ -173,6 +173,29 @@ async function gapi(url, accessToken) {
   return json;
 }
 
+/** Same as gapi() but PUTs a JSON body — used for posting a review reply. */
+async function gapiPut(url, accessToken, body) {
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  let json = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    json = { raw: text };
+  }
+  if (!res.ok) {
+    const msg = json?.error?.message ?? `HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
+  }
+  return json;
+}
+
 /** List GMB accounts the connected Google account can manage. */
 export async function listAccounts(accessToken) {
   const data = await gapi(`${ACCOUNTS_API}/accounts`, accessToken);
@@ -200,6 +223,19 @@ export async function listReviews(accessToken, accountName, locationName) {
   const url = `${V4_API}/${accountName}/${locationName}/reviews?pageSize=50`;
   const data = await gapi(url, accessToken);
   return data; // { reviews, averageRating, totalReviewCount }
+}
+
+/**
+ * Post (or overwrite) the business's reply to a review. Google's v4 API only
+ * supports a single reply per review — calling this again replaces whatever
+ * reply is already there, same as editing a reply from the Google Maps app.
+ * `reviewId` must be the bare id (GmbReview.reviewId), matching how
+ * `listReviews`/`normalizeReview` store it.
+ */
+export async function postReviewReply(accessToken, accountName, locationName, reviewId, comment) {
+  const url = `${V4_API}/${accountName}/${locationName}/reviews/${reviewId}/reply`;
+  const data = await gapiPut(url, accessToken, { comment });
+  return data; // { comment, updateTime }
 }
 
 const STAR_MAP = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };

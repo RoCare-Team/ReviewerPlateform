@@ -170,21 +170,10 @@ export default async function BusinessOverviewPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-primary">
-        Welcome back{user.name ? `, ${user.name}` : ""}
-      </h1>
-      <p className="mt-2 text-secondary">
-        Your review collection at a glance
-        {campaignViews.length > 0 ? " — pick a campaign to scope the numbers to it" : ""}.
-      </p>
-
-      {/* 1. Stats on top — account-wide by default, per-campaign on click. */}
-      <div className="mt-8">
-        <CampaignStats overall={overall} campaigns={campaignViews} />
-      </div>
-
-      {/* 2. Google Business Profile — reflects real DB connection state */}
-      <div className="mt-8 rounded-card border border-accent-border bg-accent-subtle p-6 shadow-sm">
+      {/* 1. Google Business Profile — reflects real DB connection state. Up
+          top: whether GMB is connected governs everything below it (reviews,
+          campaign targeting), so it needs to be seen first. */}
+      <div className="rounded-card border border-accent-border bg-accent-subtle p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-default bg-surface shadow-sm">
@@ -237,6 +226,19 @@ export default async function BusinessOverviewPage() {
             )}
           </div>
         </div>
+      </div>
+
+      <h1 className="mt-8 text-2xl font-bold tracking-tight text-primary">
+        Welcome back{user.name ? `, ${user.name}` : ""}
+      </h1>
+      <p className="mt-2 text-secondary">
+        Your review collection at a glance
+        {campaignViews.length > 0 ? " — pick a campaign to scope the numbers to it" : ""}.
+      </p>
+
+      {/* 2. Stats — account-wide by default, per-campaign on click. */}
+      <div className="mt-8">
+        <CampaignStats overall={overall} campaigns={campaignViews} />
       </div>
     </div>
   );
