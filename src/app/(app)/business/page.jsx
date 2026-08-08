@@ -179,15 +179,19 @@ export default async function BusinessOverviewPage() {
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-default bg-surface shadow-sm">
               <Image src="/img/google.png" alt="Google" width={28} height={28} className="h-7 w-7 object-contain" />
             </span>
-            <div>
+            <div className="min-w-0">
               {gmbConnected ? (
                 <>
-                  <h2 className="inline-flex items-center gap-1.5 text-base font-bold text-primary">
-                    <CheckCircle2 className="h-4 w-4 text-verified" aria-hidden="true" />
-                    Google Business Profile connected
-                  </h2>
-                  <p className="mt-0.5 inline-flex flex-wrap items-center gap-x-3 text-sm text-secondary">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base font-bold text-primary">Google Business Profile</h2>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-verified-subtle px-2 py-0.5 text-xs font-semibold text-verified">
+                      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                      Connected
+                    </span>
+                  </div>
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-secondary">
                     <span>{gmbConnections} account{gmbConnections > 1 ? "s" : ""}</span>
+                    <span className="text-muted" aria-hidden="true">·</span>
                     <span className="inline-flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
                       {gmbLocations} location{gmbLocations === 1 ? "" : "s"}
@@ -197,7 +201,7 @@ export default async function BusinessOverviewPage() {
               ) : (
                 <>
                   <h2 className="text-base font-bold text-primary">Connect your Google Business Profile</h2>
-                  <p className="mt-0.5 text-sm text-secondary">
+                  <p className="mt-1 text-sm text-secondary">
                     Link your GMB account to automatically fetch and view your Google reviews.
                   </p>
                 </>
