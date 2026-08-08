@@ -2,25 +2,40 @@ import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema(
   {
+    // Admin-only now — reviewer/business_owner sign in by phone (below).
+    // Not `default: ""`: `sparse` only skips docs where the field is
+    // missing/null, so an empty-string default would still collide on the
+    // unique index the moment a second phone-only user was created.
     email: {
       type: String,
-      required: true,
+      required: function () {
+        return this.role === "admin";
+      },
       unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
       index: true,
     },
     emailVerified: { type: Date, default: null },
 
-    // null for OAuth-only users. select:false so it never leaks
-    // through a careless User.find() that gets serialised to JSON.
+    // null for OAuth-only and phone-only users. select:false so it never
+    // leaks through a careless User.find() that gets serialised to JSON.
     passwordHash: { type: String, default: null, select: false },
 
     name: { type: String, trim: true },
     image: { type: String },
 
-    // Optional self-service profile fields (editable by the user).
-    phone: { type: String, trim: true, default: "" },
+    // Login identity for reviewer/business_owner (phone+OTP — see
+    // src/lib/auth/phoneAuth.js). Admin has no phone. Same sparse-unique
+    // reasoning as email above — no default, so admins don't collide on "".
+    // Deliberately NOT user-editable once set (see api/{reviewer,business}
+    // /profile — changing your login number needs re-verification, not a
+    // plain profile PATCH).
+    phone: { type: String, trim: true, unique: true, sparse: true, index: true },
+    phoneVerified: { type: Date, default: null },
+
+    // Optional self-service profile field (editable by the user).
     bio: { type: String, trim: true, default: "" },
 
     // Wallet balance in whole rupees. Mutated only server-side via the wallet

@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Phone, Mail } from "lucide-react";
+import { User, Phone } from "lucide-react";
 import { Label, Input, FieldError, FormError } from "../auth/Field";
 import { toast } from "../../lib/toast";
 
 /**
- * Reviewer profile form. Email is read-only (identity, not editable here). Name,
- * phone and bio PATCH to /api/reviewer/profile, which re-checks the
- * profile:update permission and scopes the write to the session user.
+ * Reviewer/business profile form. Phone is read-only — it's this account's
+ * login identity (phone+OTP, see lib/auth/phoneAuth.js), not a plain profile
+ * field, so it can't be changed here. Name and bio PATCH to
+ * /api/{reviewer,business}/profile, which re-checks the profile:update
+ * permission and scopes the write to the session user.
  */
 export default function ProfileForm({ initial, endpoint = "/api/reviewer/profile" }) {
   const router = useRouter();
@@ -69,9 +71,9 @@ export default function ProfileForm({ initial, endpoint = "/api/reviewer/profile
 
       <div className="space-y-5">
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" value={initial.email} icon={Mail} disabled readOnly />
-          <p className="mt-1.5 text-xs text-muted">Your email is your login and can&apos;t be changed here.</p>
+          <Label htmlFor="phone">Phone</Label>
+          <Input id="phone" value={initial.phone ? `+91 ${initial.phone}` : ""} icon={Phone} disabled readOnly />
+          <p className="mt-1.5 text-xs text-muted">Your phone number is your login and can&apos;t be changed here.</p>
         </div>
 
         <div>
@@ -86,20 +88,6 @@ export default function ProfileForm({ initial, endpoint = "/api/reviewer/profile
             error={fieldErrors.name?.[0]}
           />
           <FieldError id="name-error">{fieldErrors.name?.[0]}</FieldError>
-        </div>
-
-        <div>
-          <Label htmlFor="phone">Phone</Label>
-          <Input
-            id="phone"
-            name="phone"
-            value={values.phone}
-            onChange={set("phone")}
-            icon={Phone}
-            placeholder="+91 98765 43210"
-            error={fieldErrors.phone?.[0]}
-          />
-          <FieldError id="phone-error">{fieldErrors.phone?.[0]}</FieldError>
         </div>
 
         <div>

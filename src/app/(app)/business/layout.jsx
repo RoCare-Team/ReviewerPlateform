@@ -30,7 +30,7 @@ export default async function BusinessLayout({ children }) {
     <AppShell
       brand={`${BRAND_NAME} Business`}
       nav={NAV}
-      user={{ name: user.name, email: user.email }}
+      user={{ name: user.name, phone: user.phone }}
       profileHref="/business/settings"
       walletBalance={me?.walletBalance ?? 0}
       walletHref="/business/settings"

@@ -32,7 +32,7 @@ export default async function ReviewerLayout({ children }) {
     <AppShell
       brand={BRAND_NAME}
       nav={NAV}
-      user={{ name: user.name, email: user.email }}
+      user={{ name: user.name, phone: user.phone }}
       profileHref="/reviewer/profile"
       // Same wallet field the business shell shows, framed as coins EARNED —
       // a reviewer accrues this from verified work, they don't fund from it.

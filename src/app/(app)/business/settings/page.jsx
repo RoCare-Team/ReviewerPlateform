@@ -13,13 +13,12 @@ export default async function BusinessSettingsPage() {
   const sessionUser = await requireRole(ROLES.BUSINESS_OWNER);
 
   await dbConnect();
-  const doc = await User.findById(sessionUser.id).select("name email phone bio walletBalance").lean();
+  const doc = await User.findById(sessionUser.id).select("name phone bio walletBalance").lean();
   const txns = await WalletTransaction.find({ user: sessionUser.id }).sort({ createdAt: -1 }).limit(10).lean();
 
   const initial = {
     name: doc?.name ?? "",
-    email: doc?.email ?? sessionUser.email,
-    phone: doc?.phone ?? "",
+    phone: doc?.phone ?? sessionUser.phone ?? "",
     bio: doc?.bio ?? "",
   };
 

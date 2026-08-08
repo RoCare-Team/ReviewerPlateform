@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import AuthCard from "../../../components/auth/AuthCard";
-import LoginForm from "../../../components/auth/LoginForm";
-import GoogleButton from "../../../components/auth/GoogleButton";
+import PhoneOtpForm from "../../../components/auth/PhoneOtpForm";
 
 export const metadata = {
   title: "Sign in · RapportLook",
@@ -16,7 +15,7 @@ export default async function LoginPage({ searchParams }) {
 
   const notice =
     params?.e === "inactive"
-      ? "Your account isn't active yet. Verify your email to continue."
+      ? "Your account isn't active yet."
       : null;
 
   return (
@@ -39,17 +38,8 @@ export default async function LoginPage({ searchParams }) {
       ) : null}
 
       <Suspense fallback={null}>
-        <LoginForm scope="user" />
+        <PhoneOtpForm mode="login" />
       </Suspense>
-
-      <div className="my-6 flex items-center gap-3">
-        <span className="h-px flex-1 bg-default" />
-        <span className="text-xs font-semibold tracking-wide text-muted">OR</span>
-        <span className="h-px flex-1 bg-default" />
-      </div>
-
-      {/* Identity only. Not the GBP connection — that lives in the business app. */}
-      <GoogleButton callbackUrl="/post-login" />
     </AuthCard>
   );
 }

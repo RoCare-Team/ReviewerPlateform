@@ -11,6 +11,10 @@ export const TOKEN_TTL_MS = {
   // password across a redirect. Short-lived and single-use — see
   // credentials.js's otpToken branch.
   post_verify_login: 5 * 60 * 1000, // 5m
+  // Same bridge, for the phone-OTP login/signup flow — see
+  // lib/auth/phoneAuth.js and providers/phoneOtp.js. Identifier is the phone
+  // number instead of an email.
+  phone_login: 5 * 60 * 1000, // 5m
 };
 
 /** SHA-256, not bcrypt: these are 256-bit random tokens, not guessable secrets.

@@ -3,18 +3,20 @@
 
   "roles": {
     "reviewer": {
+      "$comment_auth": "Phone+OTP only — no email/password, no Google. See src/lib/auth/providers/phoneOtp.js.",
       "name": "Reviewer",
       "signup": "open",
-      "auth": ["google", "credentials"],
+      "auth": ["phone-otp"],
       "otp": true,
       "totp": false,
       "home": "/reviewer",
       "sessionMaxAgeSeconds": 2592000
     },
     "business_owner": {
+      "$comment_auth": "Phone+OTP only — no email/password, no Google. See src/lib/auth/providers/phoneOtp.js.",
       "name": "Business Owner",
       "signup": "open",
-      "auth": ["google", "credentials"],
+      "auth": ["phone-otp"],
       "otp": true,
       "totp": false,
       "home": "/business",

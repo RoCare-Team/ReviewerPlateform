@@ -1,7 +1,7 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import AuthCard from "../../../../components/auth/AuthCard";
-import SignupForm from "../../../../components/auth/SignupForm";
-import GoogleSignupButton from "../../../../components/auth/GoogleSignupButton";
+import PhoneOtpForm from "../../../../components/auth/PhoneOtpForm";
 import { ROLES } from "../../../../lib/auth/roles";
 
 const TITLE = "Sign up your business · RapportLook";
@@ -30,22 +30,15 @@ export default function BusinessSignupPage() {
         </>
       }
     >
-      <SignupForm role={ROLES.BUSINESS_OWNER} />
+      <Suspense fallback={null}>
+        <PhoneOtpForm mode="signup" role={ROLES.BUSINESS_OWNER} />
+      </Suspense>
 
-      <div className="my-6 flex items-center gap-3">
-        <span className="h-px flex-1 bg-default" />
-        <span className="text-xs text-muted">OR</span>
-        <span className="h-px flex-1 bg-default" />
-      </div>
-
-      <GoogleSignupButton role={ROLES.BUSINESS_OWNER} label="Sign up with Google" />
-
-      {/* Signing in with Google here is identity only. Connecting the Google
-          Business Profile is a separate consent step inside the app — and it can
-          be a different Google account entirely. */}
+      {/* The Google Business Profile connection is a separate, later consent
+          step inside the app (a different OAuth client entirely) — unrelated
+          to how you sign in here. */}
       <p className="mt-6 text-xs text-muted">
-        You&apos;ll connect your Google Business Profile after setup — it can be a
-        different Google account.
+        You&apos;ll connect your Google Business Profile after setup.
       </p>
     </AuthCard>
   );

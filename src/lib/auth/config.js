@@ -4,6 +4,7 @@ import User from "../../models/User";
 import Account from "../../models/Account";
 import googleProvider from "./providers/google";
 import credentialsProvider from "./providers/credentials";
+import phoneOtpProvider from "./providers/phoneOtp";
 import { ROLES, canSelfSignup, supportsAuthMethod, sessionMaxAge } from "./roles";
 
 /** Set by /signup/reviewer and /signup/business before starting Google OAuth.
@@ -12,7 +13,10 @@ import { ROLES, canSelfSignup, supportsAuthMethod, sessionMaxAge } from "./roles
 export const SIGNUP_ROLE_COOKIE = "rh_signup_role";
 
 export const authConfig = {
-  providers: [googleProvider, credentialsProvider],
+  // google/credentials remain wired for admin (email+password+TOTP) — reviewer
+  // and business_owner no longer support either (data/roles.json), they only
+  // ever reach phoneOtpProvider now. See src/lib/auth/providers/phoneOtp.js.
+  providers: [googleProvider, credentialsProvider, phoneOtpProvider],
 
   session: {
     // `credentials` requires JWT sessions — Auth.js does not support database
@@ -123,6 +127,13 @@ export const authConfig = {
         // whether they're a reviewer or a business. Send them to pick.
         return "/signup?e=choose_role";
       }
+      // Defense in depth: reviewer/business_owner dropped "google" from
+      // roles.json (phone-OTP only now). Nothing in the UI links to this
+      // path for them anymore, but reject it here too rather than relying
+      // solely on the button being gone.
+      if (!supportsAuthMethod(intent, "google")) {
+        return "/auth-error?e=oauth_not_allowed";
+      }
 
       const created = await User.create({
         email,
@@ -158,6 +169,9 @@ export const authConfig = {
         token.id = user.id;
         token.role = user.role;
         token.status = user.status;
+        // Not auto-carried by Auth.js (unlike name/email/picture) — set
+        // explicitly so session.user.phone is available (AppShell, etc.).
+        if (user.phone) token.phone = user.phone;
         // Admin sessions expire in 8h, not 30d — the session cookie's maxAge is
         // global, so we carry an absolute deadline on the token and enforce it here.
         token.exp = Math.floor(Date.now() / 1000) + sessionMaxAge(user.role);
@@ -181,6 +195,7 @@ export const authConfig = {
         session.user.id = token.id;
         session.user.role = token.role;
         session.user.status = token.status;
+        if (token.phone) session.user.phone = token.phone;
       }
       return session;
     },

@@ -10,14 +10,13 @@ export default async function ReviewerProfilePage() {
   const sessionUser = await requireRole(ROLES.REVIEWER);
 
   // Read the full record so name/phone/bio reflect the latest saved values
-  // (the session JWT only carries id/email/role/status).
+  // (the session JWT only carries id/role/status/phone).
   await dbConnect();
-  const doc = await User.findById(sessionUser.id).select("name email phone bio").lean();
+  const doc = await User.findById(sessionUser.id).select("name phone bio").lean();
 
   const initial = {
     name: doc?.name ?? "",
-    email: doc?.email ?? sessionUser.email,
-    phone: doc?.phone ?? "",
+    phone: doc?.phone ?? sessionUser.phone ?? "",
     bio: doc?.bio ?? "",
   };
 
