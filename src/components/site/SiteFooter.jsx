@@ -105,14 +105,19 @@ const COLUMNS = [
 // section, so this strip can never drift out of sync with those pages.
 const CITIES = getCities();
 
-// Defined Social Media Configurations
-const SOCIALS = [
-  { href: "https://twitter.com/rapportlook", label: "Twitter", Icon: Twitter },
-  { href: "https://linkedin.com/company/rapportlook", label: "LinkedIn", Icon: Linkedin },
-  { href: "https://facebook.com/rapportlook", label: "Facebook", Icon: Facebook },
-  { href: "https://instagram.com/rapportlook", label: "Instagram", Icon: Instagram },
-  { href: "https://github.com/rapportlook", label: "GitHub", Icon: Github },
+// Handles/URLs live in data/contact.json (social.*) — the single source of
+// truth; a "TODO" placeholder there means the account doesn't exist yet, so
+// getContact() returns null and that icon just doesn't render (no dead links).
+const SOCIAL_DEFS = [
+  { key: "x", label: "Twitter", Icon: Twitter },
+  { key: "linkedin", label: "LinkedIn", Icon: Linkedin },
+  { key: "facebook", label: "Facebook", Icon: Facebook },
+  { key: "instagram", label: "Instagram", Icon: Instagram },
+  { key: "github", label: "GitHub", Icon: Github },
 ];
+const SOCIALS = SOCIAL_DEFS
+  .map((s) => ({ ...s, href: getContact(`social.${s.key}`) }))
+  .filter((s) => s.href);
 
 export default function SiteFooter() {
   return (

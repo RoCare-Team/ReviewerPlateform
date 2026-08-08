@@ -38,6 +38,17 @@ const UserSchema = new mongoose.Schema(
     // Optional self-service profile field (editable by the user).
     bio: { type: String, trim: true, default: "" },
 
+    // Reviewer-only: captured from the browser's geolocation on dashboard
+    // load and reverse-geocoded server-side — see api/reviewer/location and
+    // lib/googleMaps.js. Never set for business_owner/admin.
+    location: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+      address: { type: String, trim: true, default: "" },
+      city: { type: String, trim: true, default: "", index: true },
+      updatedAt: { type: Date, default: null },
+    },
+
     // Wallet balance in whole rupees. Mutated only server-side via the wallet
     // API — never from a client payload directly.
     walletBalance: { type: Number, default: 0, min: 0 },

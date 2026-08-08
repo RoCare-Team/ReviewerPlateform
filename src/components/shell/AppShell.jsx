@@ -173,7 +173,10 @@ export default function AppShell({
     ?? nav.find((i) => pathname.startsWith(i.href + "/"))?.label
     ?? "";
 
-  const initial = (user.name || user.phone || "?").charAt(0).toUpperCase();
+  // Reviewer/business identify by phone, admin by email — whichever this
+  // session actually has.
+  const identifier = user.phone || user.email || "";
+  const initial = (user.name || identifier || "?").charAt(0).toUpperCase();
 
   const wallet = WALLET_VARIANT[walletVariant] ?? WALLET_VARIANT.wallet;
 
@@ -264,14 +267,14 @@ export default function AppShell({
           >
             <span
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-xs font-bold text-accent"
-              title={isCollapsed ? (user.name || user.phone) : undefined}
+              title={isCollapsed ? (user.name || identifier) : undefined}
             >
               {initial}
             </span>
             {!isCollapsed && (
               <div className="min-w-0">
                 {user.name && <p className="truncate text-sm font-semibold text-primary">{user.name}</p>}
-                <p className="truncate text-xs text-muted" title={user.phone}>{user.phone}</p>
+                <p className="truncate text-xs text-muted" title={identifier}>{identifier}</p>
               </div>
             )}
           </div>
@@ -366,7 +369,7 @@ export default function AppShell({
                 {initial}
               </span>
               <span className="hidden max-w-[10rem] truncate font-semibold text-primary sm:inline">
-                {user.name || user.phone}
+                {user.name || identifier}
               </span>
               <ChevronDown className="h-4 w-4 text-muted" aria-hidden="true" />
             </button>
@@ -385,7 +388,7 @@ export default function AppShell({
                 >
                   <div className="border-b border-default px-4 py-3">
                     {user.name && <p className="truncate text-sm font-bold text-primary">{user.name}</p>}
-                    <p className="truncate text-xs text-muted">{user.phone}</p>
+                    <p className="truncate text-xs text-muted">{identifier}</p>
                   </div>
                   {profileHref && (
                     <Link

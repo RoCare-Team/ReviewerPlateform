@@ -8,6 +8,7 @@ import Campaign from "../../../models/Campaign";
 import Submission from "../../../models/Submission";
 import { getSettings, inr } from "../../../lib/settings";
 import OverviewStats from "../../../components/reviewer/OverviewStats";
+import LocationCapture from "../../../components/reviewer/LocationCapture";
 
 export const metadata = { title: "Your dashboard · RapportLook" };
 
@@ -39,6 +40,10 @@ export default async function ReviewerHomePage() {
 
   return (
     <div>
+      {/* Invisible — silently captures + saves the reviewer's current
+          location (browser geolocation, no UI) once per session. */}
+      <LocationCapture />
+
       <h1 className="text-2xl font-bold tracking-tight text-primary">
         Hi{user.name ? `, ${user.name}` : ""}
       </h1>

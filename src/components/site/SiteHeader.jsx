@@ -4,9 +4,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, Menu, X } from "lucide-react"; // Imported Menu and X icons for responsive layout
+import { LogOut, Menu, Phone, X } from "lucide-react"; // Imported Menu and X icons for responsive layout
 import Container from "./Container";
 import RoleSignupModal from "../models/RoleSignupModal";
+import { getContact } from "../../lib/contact";
+
+// Global contact number — single source of truth is data/contact.json
+// (phones.sales); null here just means it hasn't been filled in yet, so the
+// link quietly doesn't render instead of showing a dead "tel:" placeholder.
+const PHONE_DISPLAY = getContact("phones.sales.display");
+const PHONE_E164 = getContact("phones.sales.e164");
 
 /**
  * Public marketing header. NOT for signed-in surfaces — (app)/* and /admin have
@@ -130,6 +137,15 @@ export default function SiteHeader() {
 
           {/* Auth actions */}
           <div className="hidden items-center justify-end gap-6 text-[15px] font-medium lg:flex">
+            {PHONE_E164 && (
+              <a
+                href={`tel:${PHONE_E164}`}
+                className="hidden items-center gap-1.5 text-secondary transition-colors duration-200 hover:text-accent xl:inline-flex"
+              >
+                <Phone className="h-4 w-4" aria-hidden="true" />
+                {PHONE_DISPLAY}
+              </a>
+            )}
             {isLoggedIn ? (
               <>
                 <Link
@@ -221,6 +237,15 @@ export default function SiteHeader() {
           </div>
 
           <div className="mt-auto flex flex-col gap-2.5 border-t border-default p-4">
+            {PHONE_E164 && (
+              <a
+                href={`tel:${PHONE_E164}`}
+                className="inline-flex items-center justify-center gap-1.5 rounded-btn px-4 py-2 text-center text-sm font-semibold text-secondary transition-colors duration-200 hover:text-accent"
+              >
+                <Phone className="h-4 w-4" aria-hidden="true" />
+                {PHONE_DISPLAY}
+              </a>
+            )}
             {isLoggedIn ? (
               <>
                 <Link
