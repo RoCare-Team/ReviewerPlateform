@@ -61,7 +61,7 @@ function getLogoAttachment() {
   try {
     logoAttachment = {
       filename: "logo.png",
-      content: readFileSync(join(process.cwd(), "public", "img", "logo3.png")),
+      content: readFileSync(join(process.cwd(), "public", "img", "logo4.png")),
       cid: "brand-logo",
     };
   } catch {

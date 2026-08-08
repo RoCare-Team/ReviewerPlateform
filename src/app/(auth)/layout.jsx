@@ -26,7 +26,7 @@ export default function AuthLayout({ children }) {
             aria-label="RapportLook home"
             className="mb-8 inline-flex items-center lg:hidden"
           >
-            <Image src="/img/logo3.png" alt="RapportLook" width={1628} height={469} className="h-9 w-auto" />
+            <Image src="/img/logo4.png" alt="RapportLook" width={1824} height={456} className="h-9 w-auto" />
           </Link>
           {children}
         </div>

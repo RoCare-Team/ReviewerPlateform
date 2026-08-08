@@ -124,12 +124,12 @@ export default function SiteFooter() {
           {/* Brand & Social Column */}
           <div className="lg:col-span-2">
             <Link href="/" aria-label={`${BRAND_NAME} home`} className="inline-flex items-center">
-              {/* Intrinsic 1628×469; rendered at a fixed height with auto width. */}
+              {/* Intrinsic 1824×456; rendered at a fixed height with auto width. */}
               <Image
-                src="/img/logo3.png"
+                src="/img/logo4.png"
                 alt={BRAND_NAME}
-                width={1628}
-                height={469}
+                width={1824}
+                height={456}
                 className="h-14 w-auto"
               />
             </Link>

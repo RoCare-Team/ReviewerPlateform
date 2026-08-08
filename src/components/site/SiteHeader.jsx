@@ -108,13 +108,13 @@ export default function SiteHeader() {
             aria-label="RapportLook home"
             className="inline-flex w-fit items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            {/* Intrinsic 1628×469; rendered at a fixed height with auto width.
+            {/* Intrinsic 1824×456; rendered at a fixed height with auto width.
                 priority: it's above the fold on every page, so don't lazy-load it. */}
             <Image
-              src="/img/logo3.png"
+              src="/img/logo4.png"
               alt="RapportLook"
-              width={1628}
-              height={469}
+              width={1824}
+              height={456}
               priority
               className="h-11 w-auto sm:h-12"
             />
@@ -196,7 +196,7 @@ export default function SiteHeader() {
           }`}
         >
           <div className="flex items-center justify-between border-b border-default px-5 py-4">
-            <Image src="/img/logo3.png" alt="RapportLook" width={1628} height={469} className="h-8 w-auto" />
+            <Image src="/img/logo4.png" alt="RapportLook" width={1824} height={456} className="h-8 w-auto" />
             <button
               type="button"
               onClick={() => setMobileMenuOpen(false)}

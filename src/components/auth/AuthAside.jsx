@@ -103,7 +103,7 @@ export default function AuthAside() {
         aria-label="RapportLook home"
         className="relative inline-flex w-fit items-center rounded-lg bg-white/95 px-3 py-2 shadow-sm"
       >
-        <Image src="/img/logo3.png" alt="RapportLook" width={1628} height={469} className="h-8 w-auto" />
+        <Image src="/img/logo4.png" alt="RapportLook" width={1824} height={456} className="h-8 w-auto" />
       </Link>
 
       <div className="relative">
