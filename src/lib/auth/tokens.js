@@ -15,6 +15,13 @@ export const TOKEN_TTL_MS = {
   // lib/auth/phoneAuth.js and providers/phoneOtp.js. Identifier is the phone
   // number instead of an email.
   phone_login: 5 * 60 * 1000, // 5m
+  // Proves "this phone just passed OTP verification" for a NUMBER THAT HAS
+  // NO ACCOUNT YET — bridges to the name step (name is only ever asked after
+  // verification, never before) and then to account creation. See
+  // verifyPhoneOtp()/completePhoneSignup() in lib/auth/phoneAuth.js. Not a
+  // session token by itself — phone_login is still minted separately once
+  // the account actually exists.
+  phone_verified: 10 * 60 * 1000, // 10m — enough time to type a name
 };
 
 /** SHA-256, not bcrypt: these are 256-bit random tokens, not guessable secrets.

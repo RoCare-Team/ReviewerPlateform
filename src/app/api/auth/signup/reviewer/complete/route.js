@@ -1,17 +1,18 @@
 import { z } from "zod";
-import { verifyPhoneOtpForSignup, isValidPhone } from "../../../../../../lib/auth/phoneAuth";
+import { completePhoneSignup, isValidPhone } from "../../../../../../lib/auth/phoneAuth";
 import { ROLES } from "../../../../../../lib/auth/roles";
 
 /**
- * Step 2 of phone+OTP SIGNUP for reviewers. Role is fixed by this route,
- * never read from the body — mirrors /api/auth/signup/business/phone.
- * Body: { phone, otp, name }.
+ * Final step of reviewer signup — only reached for a phone that had NO
+ * account at OTP-verify time (see /api/auth/otp/phone/verify's
+ * `status: "new"`). Body: { phone, name, verifiedToken }. Role is fixed by
+ * this route, never the body — mirrors /api/auth/signup/business/complete.
  */
 const schema = z
   .object({
     phone: z.string().trim(),
-    otp: z.string().trim().regex(/^\d{4}$/, "Enter the 4-digit code"),
     name: z.string().trim().min(1, "Name is required").max(100),
+    verifiedToken: z.string().min(1),
   })
   .strict();
 
@@ -22,10 +23,7 @@ export async function POST(request) {
     return Response.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const result = await verifyPhoneOtpForSignup(
-    { ...parsed.data, role: ROLES.REVIEWER },
-    request
-  );
+  const result = await completePhoneSignup({ ...parsed.data, role: ROLES.REVIEWER });
   if (!result.ok) {
     return Response.json({ error: result.message, code: result.code, role: result.role }, { status: 400 });
   }

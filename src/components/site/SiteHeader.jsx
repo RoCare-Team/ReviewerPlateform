@@ -149,16 +149,13 @@ export default function SiteHeader() {
                 </button>
               </>
             ) : (
-              <>
-                <NavLink href="/login" label="Log in" />
-                <button
-                  type="button"
-                  onClick={() => setRoleModalOpen(true)}
-                  className="rounded-xl bg-accent px-5 py-2.5 font-semibold text-[15px] text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
-                >
-                  Get started
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => setRoleModalOpen(true)}
+                className="rounded-xl bg-accent px-5 py-2.5 font-semibold text-[15px] text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98]"
+              >
+                Get started
+              </button>
             )}
           </div>
 
@@ -244,25 +241,16 @@ export default function SiteHeader() {
                 </button>
               </>
             ) : (
-              <>
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-btn border border-default px-4 py-2.5 text-center font-semibold text-secondary transition-colors hover:bg-surface-sunken"
-                >
-                  Log in
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setRoleModalOpen(true);
-                  }}
-                  className="rounded-btn bg-accent px-4 py-2.5 text-center font-bold text-sm text-on-brand shadow-md transition-all duration-200 hover:bg-accent-hover active:scale-[0.98]"
-                >
-                  Get started
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setRoleModalOpen(true);
+                }}
+                className="rounded-btn bg-accent px-4 py-2.5 text-center font-bold text-sm text-on-brand shadow-md transition-all duration-200 hover:bg-accent-hover active:scale-[0.98]"
+              >
+                Get started
+              </button>
             )}
           </div>
         </nav>

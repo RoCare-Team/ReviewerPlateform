@@ -20,7 +20,7 @@ export default function BusinessSignupPage() {
   return (
     <AuthCard
       title="Create a business account"
-      subtitle="Start your 14-day trial. No card required."
+      subtitle="Set up your business in under a minute — just your phone number."
       footer={
         <>
           Want to leave feedback instead?{" "}

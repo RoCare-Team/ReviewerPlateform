@@ -8,10 +8,12 @@ const VerificationTokenSchema = new mongoose.Schema(
 
     purpose: {
       type: String,
-      // phone_login: the phone+OTP bridge token — see lib/auth/phoneAuth.js
+      // phone_login: the phone+OTP session bridge — see lib/auth/phoneAuth.js
       // and providers/phoneOtp.js. Same pattern as post_verify_login, just
       // identifier is a phone number instead of an email.
-      enum: ["password_reset", "email_verify", "post_verify_login", "phone_login"],
+      // phone_verified: OTP passed but no account exists yet for this phone —
+      // bridges to the name step, then to account creation (phoneAuth.js).
+      enum: ["password_reset", "email_verify", "post_verify_login", "phone_login", "phone_verified"],
       required: true,
     },
 

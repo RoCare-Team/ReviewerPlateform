@@ -1,22 +1,37 @@
 import { z } from "zod";
-import { verifyPhoneOtpForLogin, isValidPhone } from "../../../../../../lib/auth/phoneAuth";
+import { verifyPhoneOtp, isValidPhone } from "../../../../../../lib/auth/phoneAuth";
+import { ROLES } from "../../../../../../lib/auth/roles";
 
 /**
- * Step 2 of phone+OTP LOGIN (existing accounts only — role-agnostic, shared
- * by reviewer and business_owner). Signup has its own routes
- * (/api/auth/signup/{business,reviewer}/phone) since account creation needs
- * a role, which must come from the route, not this body.
+ * Unified phone+OTP verify step — used by BOTH /login (intent: "login",
+ * role-agnostic) and /signup/{business,reviewer} (intent: "signup", role
+ * fixed by the calling page, sent here as a hint only — see below).
  *
- * Body: { phone, otp }. On success returns a one-shot `otpToken` the client
- * redeems via `signIn("phone-otp", { phone, otpToken })` to establish the
- * real session — see src/lib/auth/providers/phoneOtp.js.
+ * Body: { phone, otp, intent, role? }. `role` is NOT how account creation
+ * decides its role (that only ever happens in completePhoneSignup(), fed by
+ * the URL of a specific signup route) — here it's only used to catch
+ * "this number already has an account under the OTHER role" before treating
+ * an existing account as a normal login.
+ *
+ * Responses:
+ *  - { ok:true, status:"existing", otpToken } — redeem via
+ *    signIn("phone-otp", { phone, otpToken }) to log straight in. No name
+ *    was asked, none was needed.
+ *  - { ok:true, status:"new", verifiedToken } — signup intent only: phone has
+ *    no account yet. Client shows a name field, then POSTs
+ *    /api/auth/signup/{business,reviewer}/complete with this token.
+ *  - { ok:false, error, code? } — invalid code, cross-role, suspended, or
+ *    (login intent) no account at all.
  */
 const schema = z
   .object({
     phone: z.string().trim(),
     otp: z.string().trim().regex(/^\d{4}$/, "Enter the 4-digit code"),
+    intent: z.enum(["login", "signup"]).default("login"),
+    role: z.enum([ROLES.BUSINESS_OWNER, ROLES.REVIEWER]).optional(),
   })
-  .strict();
+  .strict()
+  .refine((v) => v.intent !== "signup" || Boolean(v.role), { message: "role is required for signup" });
 
 export async function POST(request) {
   const body = await request.json().catch(() => null);
@@ -25,10 +40,13 @@ export async function POST(request) {
     return Response.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const result = await verifyPhoneOtpForLogin(parsed.data.phone, parsed.data.otp, request);
+  const result = await verifyPhoneOtp(parsed.data, request);
   if (!result.ok) {
-    return Response.json({ error: result.message, code: result.code }, { status: 400 });
+    return Response.json({ error: result.message, code: result.code, role: result.role }, { status: 400 });
   }
 
-  return Response.json({ ok: true, otpToken: result.otpToken });
+  if (result.status === "existing") {
+    return Response.json({ ok: true, status: "existing", otpToken: result.otpToken });
+  }
+  return Response.json({ ok: true, status: "new", verifiedToken: result.verifiedToken });
 }
