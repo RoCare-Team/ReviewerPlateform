@@ -3,7 +3,15 @@ import mongoose from "mongoose";
 /**
  * A review-collection campaign funded from the owner's wallet. `budget` is
  * deducted from the wallet at creation; `targetReviews` = floor(budget / rate).
- * `collected` grows as verified reviews come in.
+ * `collected` grows as verified (approved) reviews come in.
+ *
+ * `claimed` counts slots reserved-but-not-yet-decided: a reviewer opened the
+ * review link (src/models/Claim.js) or has a submission still `pending`
+ * verification. `collected + claimed` is the true number of spots spoken
+ * for, and is what gates both new claims (src/lib/claims.js) and the
+ * campaigns list shown to reviewers — not `collected` alone — so a campaign
+ * can't be handed out to more reviewers than it has slots left, only for
+ * most of them to find it already full after they've left a real review.
  */
 const CampaignSchema = new mongoose.Schema(
   {
@@ -23,6 +31,7 @@ const CampaignSchema = new mongoose.Schema(
     ratePerReview: { type: Number, required: true },
     targetReviews: { type: Number, required: true },
     collected: { type: Number, default: 0 },
+    claimed: { type: Number, default: 0 },
 
     status: {
       type: String,

@@ -2,11 +2,13 @@ import crypto from "node:crypto";
 import dbConnect from "../../../../lib/db";
 import Campaign from "../../../../models/Campaign";
 import Submission from "../../../../models/Submission";
+import Claim from "../../../../models/Claim";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 import { uploadImage, cloudinaryConfigured } from "../../../../lib/cloudinary";
-import { verifyScreenshot } from "../../../../lib/aiVerification";
+import { verifyScreenshot, AI_CONFIDENCE_THRESHOLD } from "../../../../lib/aiVerification";
 import { verifyAgainstGmb } from "../../../../lib/gmbVerification";
 import { approveSubmission, rejectSubmission } from "../../../../lib/verification";
+import { releaseClaim } from "../../../../lib/claims";
 import { getSettings } from "../../../../lib/settings";
 
 /**
@@ -30,7 +32,6 @@ import { getSettings } from "../../../../lib/settings";
  */
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
-const AI_CONFIDENCE_THRESHOLD = 0.75;
 
 // Magic-byte signatures so a renamed non-image can't slip past the mime check.
 function sniffImage(buf) {
@@ -77,6 +78,19 @@ export async function POST(request) {
   }
   if (campaign.collected >= campaign.targetReviews) {
     return Response.json({ error: "This campaign has reached its target." }, { status: 400 });
+  }
+
+  // A slot must have been reserved via /api/reviewer/campaigns/[id]/claim
+  // (clicking "Open review link") before a submission can be accepted — that
+  // reservation is what keeps this campaign from being handed out to more
+  // reviewers than it has slots for. If the claim expired (default 30 min),
+  // the reviewer needs to re-open the link to reserve a fresh slot.
+  const claim = await Claim.findOne({ campaign: campaignId, reviewer: user.id, expiresAt: { $gt: new Date() } });
+  if (!claim) {
+    return Response.json(
+      { error: "Your reserved slot expired. Open the review link again to reserve a new one." },
+      { status: 400 }
+    );
   }
 
   // One LIVE submission per reviewer per campaign. A previously rejected one
@@ -173,6 +187,12 @@ export async function POST(request) {
       throw e;
     }
   }
+
+  // The claim has done its job — the reservation is now a `pending`
+  // Submission instead, which has no timeout. `claimed` on the campaign
+  // stays as-is; it's only released once this submission is approved or
+  // rejected (see lib/verification.js).
+  await releaseClaim(campaign._id, user.id);
 
   const aiApproved = ai.decision === "approve" && ai.confidence >= AI_CONFIDENCE_THRESHOLD;
   const aiRejected = ai.decision === "reject" && ai.confidence >= AI_CONFIDENCE_THRESHOLD;

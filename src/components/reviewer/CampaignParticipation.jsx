@@ -1,27 +1,91 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Clock, ExternalLink, Megaphone, RotateCcw, Upload, Star, X, XCircle } from "lucide-react";
 import { toast } from "../../lib/toast";
 
 /**
- * Available-campaign cards for reviewers. Each card lets the reviewer open the
- * review URL, upload a screenshot proof, and submit — which posts multipart to
- * /api/reviewer/submissions (status pending until admin verifies).
+ * Available-campaign cards for reviewers. The review link is never sent down
+ * with the page — "Open review link" first reserves a slot via
+ * POST /api/reviewer/campaigns/[id]/claim, which is the only thing that
+ * returns the real URL. That reservation holds for a limited window (shown
+ * as a countdown below); a screenshot has to be submitted before it expires,
+ * otherwise the slot is released back to the pool. This is what stops a
+ * campaign needing e.g. 5 reviews from being started by every reviewer at
+ * once — see src/lib/claims.js for the reservation logic.
  */
 function inr(n) {
   return `₹${Number(n || 0).toLocaleString("en-IN")}`;
 }
 
+// `onExpire` fires from inside the interval tick (an event, not a render)
+// the moment the countdown hits zero, so the caller can react — e.g. bounce
+// back to the "start over" state — without a second effect watching the
+// derived countdown value.
+function useCountdown(expiresAt, onExpire) {
+  const [msLeft, setMsLeft] = useState(() => (expiresAt ? new Date(expiresAt).getTime() - Date.now() : 0));
+
+  useEffect(() => {
+    if (!expiresAt) return;
+    let firedExpiry = false;
+    const tick = () => {
+      const remaining = new Date(expiresAt).getTime() - Date.now();
+      setMsLeft(remaining);
+      if (remaining <= 0 && !firedExpiry) {
+        firedExpiry = true;
+        onExpire?.();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onExpire is a fresh closure each render by design
+  }, [expiresAt]);
+
+  if (!expiresAt) return null;
+  const totalSeconds = Math.max(0, Math.floor(msLeft / 1000));
+  const mm = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const ss = String(totalSeconds % 60).padStart(2, "0");
+  return { totalSeconds, label: `${mm}:${ss}` };
+}
+
 function Card({ campaign, reward }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [expiresAt, setExpiresAt] = useState(null);
   const [file, setFile] = useState(null);
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  // Slot expired before they submitted — bounce back to the "start over"
+  // state and refresh so the campaign's remaining count is accurate.
+  const countdown = useCountdown(expiresAt, () => {
+    toast.error("Your reserved slot expired. Open the review link again to reserve a new one.");
+    setOpen(false);
+    setExpiresAt(null);
+    router.refresh();
+  });
+
+  async function claimAndOpen() {
+    setClaiming(true);
+    setError("");
+    const res = await fetch(`/api/reviewer/campaigns/${campaign.id}/claim`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setClaiming(false);
+
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't reserve a slot.");
+      if (res.status === 400) router.refresh(); // likely just went full — drop it from the list
+      return;
+    }
+
+    window.open(data.targetUrl, "_blank", "noopener,noreferrer");
+    setExpiresAt(data.expiresAt);
+    setOpen(true);
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -162,25 +226,19 @@ function Card({ campaign, reward }) {
       )}
 
       {!open ? (
-        <div className="mt-5 space-y-2">
-          {campaign.targetUrl && (
-            <a
-              href={campaign.targetUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-btn border border-default bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:bg-surface-sunken hover:text-primary"
-            >
-              <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              Open review link
-            </a>
-          )}
+        <div className="mt-5">
           <button
             type="button"
-            onClick={() => setOpen(true)}
-            className="w-full rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md"
+            onClick={claimAndOpen}
+            disabled={claiming}
+            className="flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >
-            {campaign.previouslyRejected ? "Resubmit" : "Participate"}
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            {claiming ? "Reserving your slot…" : campaign.previouslyRejected ? "Resubmit" : "Open review link"}
           </button>
+          <p className="mt-1.5 text-center text-xs text-muted">
+            Reserves your spot and opens the review page — the reward stays with your slot for a limited time.
+          </p>
         </div>
       ) : (
         <form onSubmit={submit} className="animate-fade-up mt-5 border-t border-default pt-4" style={{ animationDuration: "200ms" }}>
@@ -188,7 +246,7 @@ function Card({ campaign, reward }) {
             <span className="text-sm font-semibold text-primary">Submit your review</span>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => { setOpen(false); setExpiresAt(null); }}
               aria-label="Close"
               className="rounded-full p-1 text-muted transition-all duration-200 hover:scale-110 hover:bg-surface-sunken hover:text-primary"
             >
@@ -196,13 +254,20 @@ function Card({ campaign, reward }) {
             </button>
           </div>
 
+          {countdown && (
+            <p className={`mt-2 flex items-center gap-1.5 text-xs font-semibold ${countdown.totalSeconds <= 60 ? "text-danger" : "text-pending"}`}>
+              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+              Slot reserved — submit within {countdown.label} or it&apos;s released to other reviewers.
+            </p>
+          )}
+
           <ol className="mt-3 space-y-2 text-sm text-secondary">
             <li className="flex items-start gap-2">
               <span className="font-bold text-accent">1.</span>
-              <a href={campaign.targetUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-semibold text-accent transition-colors duration-150 hover:underline">
-                Open the review link <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
+              <button type="button" onClick={claimAndOpen} disabled={claiming}
+                className="inline-flex items-center gap-1 font-semibold text-accent transition-colors duration-150 hover:underline disabled:opacity-60">
+                Reopen the review link <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
             </li>
             <li className="flex items-start gap-2"><span className="font-bold text-accent">2.</span> Leave your honest review.</li>
             <li className="flex items-start gap-2"><span className="font-bold text-accent">3.</span> Upload a screenshot as proof.</li>

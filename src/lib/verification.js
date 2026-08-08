@@ -35,11 +35,22 @@ export async function approveSubmission(submissionId, reward, { verifiedBy = "",
   const current = await Submission.findOne({ _id: submissionId, status: { $in: allowFrom } }).select("campaign reviewer");
   if (!current) return "already_processed";
 
+  // collected+1 and claimed-1 in the same atomic update: this submission's
+  // reserved slot (claimed) is settling into a real, approved one (collected).
   const campaign = await Campaign.findOneAndUpdate(
     { _id: current.campaign, $expr: { $lt: ["$collected", "$targetReviews"] } },
-    { $inc: { collected: 1 } },
+    { $inc: { collected: 1, claimed: -1 } },
     { returnDocument: "after" }
   );
+
+  // Safety clamp: a submission approved without ever going through the claim
+  // flow (e.g. data predating this feature, or an admin override) would push
+  // `claimed` negative here — floor it at 0 rather than let it skew capacity
+  // checks for every other submission on this campaign.
+  if (campaign && campaign.claimed < 0) {
+    await Campaign.updateOne({ _id: campaign._id }, { $set: { claimed: 0 } });
+    campaign.claimed = 0;
+  }
 
   if (!campaign) {
     await Submission.updateOne(
@@ -54,6 +65,9 @@ export async function approveSubmission(submissionId, reward, { verifiedBy = "",
         },
       }
     );
+    // This submission's slot reservation is now settled (as a rejection) —
+    // release it back to the pool.
+    await Campaign.updateOne({ _id: current.campaign, claimed: { $gte: 1 } }, { $inc: { claimed: -1 } });
     return "campaign_full";
   }
 
@@ -98,6 +112,10 @@ export async function rejectSubmission(submissionId, reason, { verifiedBy = "", 
     { $set: { status: "rejected", rejectionReason: reason, verifiedBy, reviewedBy, reviewedAt: new Date() } },
     { returnDocument: "after" }
   );
+  if (sub) {
+    // Settled as a rejection — release its reserved slot back to the pool.
+    await Campaign.updateOne({ _id: sub.campaign, claimed: { $gte: 1 } }, { $inc: { claimed: -1 } });
+  }
   return Boolean(sub);
 }
 

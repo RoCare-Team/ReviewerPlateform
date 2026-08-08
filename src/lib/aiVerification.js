@@ -13,6 +13,11 @@
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const MODEL = "gpt-4o-mini";
 
+// Shared with the reviewer-submission route and the GMB recheck cron
+// (src/app/api/cron/gmb-recheck/route.js) — both need the same bar for
+// "AI confidently approved" to agree on what's eligible for auto-approval.
+export const AI_CONFIDENCE_THRESHOLD = 0.75;
+
 export function aiVerificationConfigured() {
   return Boolean(OPENAI_API_KEY);
 }

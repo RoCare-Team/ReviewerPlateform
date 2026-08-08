@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X, ZoomIn } from "lucide-react";
 
 /**
@@ -35,35 +36,41 @@ export default function ScreenshotViewer({ url, alt = "Screenshot proof", size =
         </span>
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={alt}
-          className="animate-fade-up fixed inset-0 z-50 flex items-center justify-center bg-surface-inverse/60 p-4 backdrop-blur-sm"
-          style={{ animationDuration: "200ms" }}
-          onClick={() => setOpen(false)}
-        >
-          <div className="relative max-h-[90vh] max-w-3xl" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close"
-              className="absolute -top-3 -right-3 flex h-8 w-8 items-center justify-center rounded-full bg-surface-raised text-primary shadow-md transition-all duration-200 hover:scale-110 hover:bg-surface-sunken"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <Image
-              src={url}
-              alt={`${alt}, full size`}
-              width={960}
-              height={960}
-              className="max-h-[90vh] w-auto rounded-card border border-default object-contain shadow-lg"
-              unoptimized
-            />
-          </div>
-        </div>
-      )}
+      {open &&
+        createPortal(
+          // Portal to <body> so this fixed overlay always escapes ancestor
+          // containing blocks (e.g. a `.animate-fade-up` list row, which
+          // animates `transform` and would otherwise trap `fixed` here to
+          // that row's box instead of the full viewport).
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={alt}
+            className="animate-fade-up fixed inset-0 z-50 flex items-center justify-center bg-surface-inverse/60 p-4 backdrop-blur-sm"
+            style={{ animationDuration: "200ms" }}
+            onClick={() => setOpen(false)}
+          >
+            <div className="relative max-h-[90vh] max-w-3xl" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+                className="absolute -top-3 -right-3 flex h-8 w-8 items-center justify-center rounded-full bg-surface-raised text-primary shadow-md transition-all duration-200 hover:scale-110 hover:bg-surface-sunken"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <Image
+                src={url}
+                alt={`${alt}, full size`}
+                width={960}
+                height={960}
+                className="max-h-[90vh] w-auto rounded-card border border-default object-contain shadow-lg"
+                unoptimized
+              />
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }
