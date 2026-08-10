@@ -17,39 +17,48 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { approxReviews, inr } from "../../lib/campaigns";
+import { inr } from "../../lib/campaigns";
+import { findStateForCity } from "../../lib/data/indiaStatesCities";
 import { Label, Input, FormError } from "../auth/Field";
+import StateCitySelect from "../ui/StateCitySelect";
 import { toast } from "../../lib/toast";
 
 const selectClass =
   "w-full appearance-none rounded-btn border border-default bg-surface py-2.5 pl-10 pr-3 text-primary outline-none transition-all duration-200 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent/50";
 
 /**
- * Create-campaign modal. Shows a live "approx reviews" preview from the budget
- * at the admin-controlled ₹/review rate, and blocks submit when the budget
- * exceeds the wallet balance. Posts to /api/business/campaigns which debits
- * the wallet.
+ * Create-campaign modal. The owner enters how many reviews they want, not a
+ * ₹ amount — the price is derived live at the admin-controlled ₹/review rate
+ * and shown as a read-only total. Blocks submit when that price exceeds the
+ * wallet balance. Posts to /api/business/campaigns (still budget-based) which
+ * debits the wallet.
  *
  * Google + connected GMB locations gets a different mode: instead of one
- * review URL / one budget, the owner picks any number of locations (one row
- * each, "+ Add location") — each row auto-fills its own review URL from that
- * location and takes its own budget slice. Submitting creates one campaign
- * PER selected location, all funded from a single wallet debit. Any other
- * platform, or no connected locations at all, falls back to the original
- * single review-URL / single-budget form.
+ * review URL / one review count, the owner picks any number of locations
+ * (one row each, "+ Add location") — each row auto-fills its own review URL
+ * from that location and takes its own review-count slice. Submitting
+ * creates one campaign PER selected location, all funded from a single
+ * wallet debit. Any other platform, or no connected locations at all, falls
+ * back to the original single review-URL / single-count form.
  */
 export default function NewCampaignModal({ walletBalance, locations = [], rate = 100 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [values, setValues] = useState({ name: "", platform: "google", budget: "", notes: "", locationId: "", targetUrl: "" });
-  const [rows, setRows] = useState(locations.length > 0 ? [{ locationId: "", budget: "", targetUrl: "" }] : []);
+  const [values, setValues] = useState({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", state: "", city: "" });
+  const [rows, setRows] = useState(locations.length > 0 ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "" }] : []);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
   const multiMode = values.platform === "google" && locations.length > 0;
 
-  const budgetNum = Number(values.budget) || 0;
-  const reviews = approxReviews(budgetNum, rate);
+  // Max reviews the wallet can fund — the number-of-reviews field is clamped
+  // to this instead of a raw ₹ amount, so the price is always derived, never
+  // entered directly.
+  const maxReviews = Math.floor(walletBalance / rate);
+
+  const reviewsNum = Number(values.reviews) || 0;
+  const budgetNum = reviewsNum * rate;
+  const reviews = reviewsNum;
   const overBudget = budgetNum > walletBalance;
   const selectedLocation = locations.find((l) => l.id === values.locationId);
   const autoFilledUrl =
@@ -57,7 +66,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     Boolean(selectedLocation?.reviewUrl) &&
     values.targetUrl === selectedLocation.reviewUrl;
 
-  const rowsTotal = rows.reduce((sum, r) => sum + (Number(r.budget) || 0), 0);
+  const rowsTotal = rows.reduce((sum, r) => sum + (Number(r.reviews) || 0) * rate, 0);
   const rowsOverBudget = rowsTotal > walletBalance;
   const usedLocationIds = new Set(rows.map((r) => r.locationId).filter(Boolean));
   const canAddRow = rows.length < locations.length;
@@ -65,13 +74,13 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   function set(key) {
     return (e) => {
       let value = e.target.value;
-      // Budget can't even be TYPED past the wallet balance — clamp it live
-      // instead of only catching it on submit, and say why with a toast.
-      if (key === "budget" && value !== "") {
+      // Reviews can't even be TYPED past what the wallet affords — clamp it
+      // live instead of only catching it on submit, and say why with a toast.
+      if (key === "reviews" && value !== "") {
         const n = Number(value);
-        if (!Number.isNaN(n) && n > walletBalance) {
-          value = String(walletBalance);
-          toast.error("You don't have enough funds in your wallet. Add funds to increase your budget.");
+        if (!Number.isNaN(n) && n > maxReviews) {
+          value = String(maxReviews);
+          toast.error("You don't have enough funds in your wallet. Add funds to request more reviews.");
         }
       }
 
@@ -88,6 +97,21 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
           if (next.platform === "google" && loc?.reviewUrl) {
             next.targetUrl = loc.reviewUrl;
           }
+          // Same auto-fill for city — only when the field is still empty or
+          // still holding the previous location's auto-filled city, so a
+          // manual edit never gets clobbered by switching locations. Only
+          // applied when the derived city is an exact match in the dataset
+          // (findStateForCity) — otherwise the dropdown would have nothing
+          // valid to show and the owner picks manually instead.
+          const prevLoc = locations.find((l) => l.id === v.locationId);
+          const cityUntouched = !next.city || next.city === prevLoc?.city;
+          if (key === "locationId" && cityUntouched && loc?.city) {
+            const matchedState = findStateForCity(loc.city);
+            if (matchedState) {
+              next.state = matchedState;
+              next.city = loc.city;
+            }
+          }
         }
 
         return next;
@@ -96,7 +120,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   }
 
   function addRow() {
-    setRows((r) => [...r, { locationId: "", budget: "", targetUrl: "" }]);
+    setRows((r) => [...r, { locationId: "", reviews: "", targetUrl: "", state: "", city: "" }]);
   }
 
   function removeRow(index) {
@@ -117,16 +141,25 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         const untouched = !row.targetUrl || row.targetUrl === prevLoc?.reviewUrl;
         const newLoc = locations.find((l) => l.id === value);
         if (untouched && newLoc?.reviewUrl) row.targetUrl = newLoc.reviewUrl;
+
+        const cityUntouched = !row.city || row.city === prevLoc?.city;
+        if (cityUntouched && newLoc?.city) {
+          const matchedState = findStateForCity(newLoc.city);
+          if (matchedState) {
+            row.state = matchedState;
+            row.city = newLoc.city;
+          }
+        }
       }
 
-      // Clamp per-row budget so the running total can never be typed past
+      // Clamp per-row reviews so the running total can never be typed past
       // the wallet balance either.
-      if (key === "budget" && value !== "") {
+      if (key === "reviews" && value !== "") {
         const n = Number(value);
-        const otherTotal = next.reduce((sum, x, i) => (i === index ? sum : sum + (Number(x.budget) || 0)), 0);
-        if (!Number.isNaN(n) && otherTotal + n > walletBalance) {
-          row.budget = String(Math.max(0, walletBalance - otherTotal));
-          toast.error("You don't have enough funds in your wallet. Add funds to increase your budget.");
+        const otherTotal = next.reduce((sum, x, i) => (i === index ? sum : sum + (Number(x.reviews) || 0) * rate), 0);
+        if (!Number.isNaN(n) && otherTotal + n * rate > walletBalance) {
+          row.reviews = String(Math.max(0, Math.floor((walletBalance - otherTotal) / rate)));
+          toast.error("You don't have enough funds in your wallet. Add funds to request more reviews.");
         }
       }
 
@@ -162,19 +195,22 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
 
     let body;
     if (multiMode) {
-      const filled = rows.filter((r) => r.locationId && r.budget);
-      if (filled.length === 0) return setError("Add at least one location with a budget.");
+      const filled = rows.filter((r) => r.locationId && r.reviews);
+      if (filled.length === 0) return setError("Add at least one location with a number of reviews.");
       for (const r of filled) {
         const loc = locations.find((l) => l.id === r.locationId);
         if (!r.targetUrl?.trim()) {
           return setError(`Add a review URL for ${loc?.title || "each location"}.`);
         }
-        if ((Number(r.budget) || 0) < rate) {
-          return setError(`Minimum budget for ${loc?.title || "each location"} is ${inr(rate)} (one review).`);
+        if (!r.city?.trim()) {
+          return setError(`Add a city for ${loc?.title || "each location"}.`);
+        }
+        if ((Number(r.reviews) || 0) < 1) {
+          return setError(`Ask for at least 1 review for ${loc?.title || "each location"}.`);
         }
       }
       if (rowsOverBudget) {
-        toast.error("You don't have enough funds in your wallet. Add funds to increase your budget.");
+        toast.error("You don't have enough funds in your wallet. Add funds to request more reviews.");
         return;
       }
       body = {
@@ -183,15 +219,17 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         notes: values.notes.trim(),
         locations: filled.map((r) => ({
           locationId: r.locationId,
-          budget: Math.floor(Number(r.budget)),
+          budget: Math.floor(Number(r.reviews)) * rate,
           targetUrl: r.targetUrl?.trim() || undefined,
+          city: r.city?.trim() || undefined,
         })),
       };
     } else {
       if (!values.targetUrl.trim()) return setError("Add the review URL where customers should leave a review.");
-      if (budgetNum < rate) return setError(`Minimum budget is ${inr(rate)} (one review).`);
+      if (!values.city.trim()) return setError("Add the city this campaign is for.");
+      if (reviewsNum < 1) return setError("Ask for at least 1 review.");
       if (overBudget) {
-        toast.error("You don't have enough funds in your wallet. Add funds to increase your budget.");
+        toast.error("You don't have enough funds in your wallet. Add funds to request more reviews.");
         return;
       }
       body = {
@@ -200,6 +238,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         budget: Math.floor(budgetNum),
         notes: values.notes.trim(),
         targetUrl: values.targetUrl.trim(),
+        city: values.city.trim(),
         locationId: values.locationId || undefined,
       };
     }
@@ -227,8 +266,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     }
 
     toast.success(multiMode && body.locations.length > 1 ? `${body.locations.length} campaigns created.` : "Campaign created.");
-    setValues({ name: "", platform: "google", budget: "", notes: "", locationId: "", targetUrl: "" });
-    setRows(locations.length > 0 ? [{ locationId: "", budget: "", targetUrl: "" }] : []);
+    setValues({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", state: "", city: "" });
+    setRows(locations.length > 0 ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "" }] : []);
     setOpen(false);
     router.refresh();
   }
@@ -321,7 +360,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
 
                     {rows.map((row, i) => {
                       const loc = locations.find((l) => l.id === row.locationId);
-                      const rowReviews = approxReviews(Number(row.budget) || 0, rate);
+                      const rowReviews = Number(row.reviews) || 0;
+                      const rowPrice = rowReviews * rate;
                       return (
                         <div key={i} className="rounded-card border border-default bg-surface p-4">
                           {/* Row header — "Location N" + remove, so a stack of rows reads
@@ -383,32 +423,51 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                 ) : (
                                   <p className="mt-1 text-xs text-muted">Where reviewers should leave their review.</p>
                                 )}
+
+                                <div className="mt-2.5">
+                                  <StateCitySelect
+                                    idPrefix={`c-loc-${i}`}
+                                    state={row.state}
+                                    city={row.city}
+                                    onStateChange={(state) => {
+                                      setRow(i, "state", state);
+                                      setRow(i, "city", "");
+                                    }}
+                                    onCityChange={(city) => setRow(i, "city", city)}
+                                  />
+                                  {row.city && row.city === loc?.city && (
+                                    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-verified">
+                                      <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                      Auto-filled — edit if this isn&apos;t right.
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             )}
 
                             <div className="flex items-center gap-2.5 border-t border-default pt-2.5">
-                              <div className="w-40 shrink-0">
+                              <div className="w-32 shrink-0">
                                 <Input
-                                  id={`c-budget-${i}`}
+                                  id={`c-reviews-${i}`}
                                   type="number"
-                                  min={rate}
-                                  max={walletBalance}
-                                  step="100"
+                                  min={1}
+                                  max={maxReviews}
+                                  step="1"
                                   inputMode="numeric"
-                                  value={row.budget}
-                                  onChange={(e) => setRow(i, "budget", e.target.value)}
-                                  placeholder={`Min ₹${rate}`}
-                                  icon={IndianRupee}
+                                  value={row.reviews}
+                                  onChange={(e) => setRow(i, "reviews", e.target.value)}
+                                  placeholder="Reviews"
+                                  icon={Star}
                                   className="text-sm"
                                 />
                               </div>
                               <p className="text-xs text-secondary">
-                                {row.budget ? (
+                                {row.reviews ? (
                                   <>
-                                    <span className="font-semibold text-primary">≈ {rowReviews}</span> review{rowReviews === 1 ? "" : "s"} at this location
+                                    <span className="font-semibold text-primary">{inr(rowPrice)}</span> for this location
                                   </>
                                 ) : (
-                                  "Budget for this location"
+                                  `Number of reviews at this location (${inr(rate)} each)`
                                 )}
                               </p>
                             </div>
@@ -429,11 +488,12 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
 
                     {/* Live estimate — total across every row */}
                     {(() => {
-                      const filledCount = rows.filter((r) => r.locationId && r.budget).length;
+                      const filledCount = rows.filter((r) => r.locationId && r.reviews).length;
+                      const totalReviews = rows.reduce((sum, r) => sum + (Number(r.reviews) || 0), 0);
                       if (filledCount === 0) {
                         return (
                           <div className="rounded-card border border-dashed border-default bg-surface px-4 py-3 text-center text-xs text-muted">
-                            Pick a location and set its budget to see your review estimate.
+                            Pick a location and set the number of reviews to see the price.
                           </div>
                         );
                       }
@@ -443,9 +503,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                             <Star className="h-5 w-5 fill-accent text-accent" aria-hidden="true" />
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-accent">Estimated total</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-accent">Total reviews</p>
                             <p className="text-2xl font-bold leading-tight tracking-tight text-primary">
-                              {approxReviews(rowsTotal, rate)} reviews
+                              {totalReviews} review{totalReviews === 1 ? "" : "s"}
                             </p>
                           </div>
                           <div className="shrink-0 text-right">
@@ -498,34 +558,48 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                     </div>
 
                     <div>
-                      <Label htmlFor="c-budget">Budget (₹)</Label>
+                      <Label htmlFor="c-state-state">State &amp; city</Label>
+                      <StateCitySelect
+                        idPrefix="c-state"
+                        state={values.state}
+                        city={values.city}
+                        onStateChange={(state) => setValues((v) => ({ ...v, state, city: "" }))}
+                        onCityChange={(city) => setValues((v) => ({ ...v, city }))}
+                      />
+                      <p className="mt-1.5 text-xs text-muted">
+                        Reviewers only see this campaign if it&apos;s in (or near) their own city.
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="c-reviews">Number of reviews</Label>
                       <Input
-                        id="c-budget"
+                        id="c-reviews"
                         type="number"
-                        min={rate}
-                        max={walletBalance}
-                        step="100"
+                        min={1}
+                        max={maxReviews}
+                        step="1"
                         inputMode="numeric"
-                        value={values.budget}
-                        onChange={set("budget")}
-                        placeholder="10000"
-                        icon={IndianRupee}
+                        value={values.reviews}
+                        onChange={set("reviews")}
+                        placeholder="100"
+                        icon={Star}
                         error={overBudget}
                       />
                       <p className="mt-1.5 text-xs text-muted">Flat rate {inr(rate)} per verified review.</p>
                     </div>
 
-                    {/* Live estimate */}
+                    {/* Live price */}
                     <div className="rounded-btn border border-accent-border bg-accent-subtle px-4 py-3">
                       <div className="flex items-center justify-between">
                         <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent">
-                          <Star className="h-4 w-4 fill-accent text-accent" aria-hidden="true" />
-                          You&apos;ll get approximately
+                          <IndianRupee className="h-4 w-4 text-accent" aria-hidden="true" />
+                          Total price
                         </span>
-                        <span className="text-2xl font-bold tracking-tight text-primary">{reviews} reviews</span>
+                        <span className="text-2xl font-bold tracking-tight text-primary">{inr(budgetNum)}</span>
                       </div>
                       <p className="mt-1 text-xs text-secondary">
-                        {inr(budgetNum)} ÷ {inr(rate)} per review
+                        {reviews} review{reviews === 1 ? "" : "s"} × {inr(rate)} per review
                       </p>
                     </div>
                   </>

@@ -7,9 +7,12 @@ import { reverseGeocode } from "../../../../lib/googleMaps";
 
 /**
  * Saves a reviewer's current location, captured client-side via
- * navigator.geolocation right after they land on their dashboard
- * (src/components/reviewer/LocationCapture.jsx). Reviewer-only — a
- * business_owner's location is never captured or stored.
+ * navigator.geolocation. Reviewer-only — a business_owner's location is
+ * never captured or stored.
+ *
+ * This is mandatory, not best-effort: (app)/reviewer/layout.jsx blocks every
+ * /reviewer/* route behind src/components/reviewer/LocationGate.jsx until a
+ * location is on file, since campaigns are matched to reviewers by city.
  *
  * Body: { lat, lng }. The address is filled in server-side via reverse
  * geocoding (lib/googleMaps.js) so the Google Maps API key never reaches

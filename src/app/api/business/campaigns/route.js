@@ -29,6 +29,9 @@ const locationItemSchema = z.object({
   // Defaults to the location's own synced reviewUrl when omitted — this lets
   // the owner override it per-location (see createBatch below).
   targetUrl: z.string().trim().max(500).optional(),
+  // Defaults to the city parsed from the location's own address when
+  // omitted — same override pattern as targetUrl.
+  city: z.string().trim().max(120).optional(),
 });
 
 const createSchema = z
@@ -36,6 +39,9 @@ const createSchema = z
     name: z.string().trim().min(1, "Name is required").max(120),
     platform: z.enum(["google", "trustpilot", "capterra", "amazon", "playstore"]).default("google"),
     budget: z.number().int().positive().max(10_000_000).optional(),
+    // Single-campaign city (batch campaigns instead derive it per-location
+    // from the connected GMB location — see createBatch below).
+    city: z.string().trim().max(120).optional().default(""),
     notes: z.string().trim().max(500).optional().default(""),
     targetUrl: z.string().trim().max(500).optional().default(""),
     locationId: z.string().optional(),
@@ -45,6 +51,10 @@ const createSchema = z
   .refine((d) => Boolean(d.locations) || typeof d.budget === "number", {
     message: "Budget is required.",
     path: ["budget"],
+  })
+  .refine((d) => Boolean(d.locations) || d.city.length > 0, {
+    message: "City is required.",
+    path: ["city"],
   });
 
 export async function GET() {
@@ -68,7 +78,7 @@ export async function POST(request) {
       { status: 400 }
     );
   }
-  const { name, platform, budget, notes, targetUrl, locationId, locations } = parsed.data;
+  const { name, platform, budget, city, notes, targetUrl, locationId, locations } = parsed.data;
 
   // Live, admin-controlled rate — the single source of truth.
   const { reviewRate } = await getSettings();
@@ -78,6 +88,8 @@ export async function POST(request) {
   if (locations) {
     return createBatch({ user, name, platform, notes, locations, reviewRate });
   }
+
+  const trimmedCity = city.trim();
 
   if (budget < reviewRate) {
     return Response.json(
@@ -118,6 +130,7 @@ export async function POST(request) {
     targetReviews: approxReviews(budget, reviewRate),
     notes,
     targetUrl,
+    city: trimmedCity,
     location: locationId || null,
     status: "active",
   });
@@ -188,6 +201,10 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
     created = await Campaign.insertMany(
       locations.map((l) => {
         const loc = locMap.get(l.locationId);
+        // Address's leading segment reads as the city/area in Google's
+        // format ("123 Main St, Koramangala, Bengaluru, …") — same parse
+        // the create-campaign UI uses to label each location's city.
+        const derivedCity = (loc.address || "").split(",").slice(1, 2)[0]?.trim() || loc.address || "";
         return {
           user: user.id,
           name: locations.length > 1 ? `${name} — ${loc.title || loc.locationName}` : name,
@@ -197,6 +214,7 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
           targetReviews: approxReviews(l.budget, reviewRate),
           notes,
           targetUrl: l.targetUrl || loc.reviewUrl || "",
+          city: l.city?.trim() || derivedCity,
           location: loc._id,
           status: "active",
         };

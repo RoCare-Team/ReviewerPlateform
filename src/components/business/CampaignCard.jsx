@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   IndianRupee,
   Link2,
+  MapPin,
   Megaphone,
   Pause,
   Play,
@@ -83,6 +84,13 @@ export default function CampaignCard({ campaign }) {
             <h3 className="truncate text-base font-bold text-primary">{c.name}</h3>
             <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-medium text-muted">
               <span>{PLATFORM_LABEL[c.platform] ?? c.platform}</span>
+              {c.city && (
+                <span className="inline-flex items-center gap-1">
+                  <span aria-hidden="true">·</span>
+                  <MapPin className="h-3 w-3" aria-hidden="true" />
+                  {c.city}
+                </span>
+              )}
               {c.createdAt && (
                 <span className="inline-flex items-center gap-1">
                   <span aria-hidden="true">·</span>

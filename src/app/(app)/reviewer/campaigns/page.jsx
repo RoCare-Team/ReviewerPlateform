@@ -3,6 +3,7 @@ import { ROLES } from "../../../../lib/auth/roles";
 import dbConnect from "../../../../lib/db";
 import Campaign from "../../../../models/Campaign";
 import Submission from "../../../../models/Submission";
+import User from "../../../../models/User";
 import { getSettings, inr } from "../../../../lib/settings";
 import { releaseExpiredClaims } from "../../../../lib/claims";
 import CampaignParticipation from "../../../../components/reviewer/CampaignParticipation";
@@ -15,9 +16,10 @@ export default async function ReviewerCampaignsPage() {
   await dbConnect();
   const settings = await getSettings();
 
-  const [mySubs, openCampaigns] = await Promise.all([
+  const [mySubs, openCampaigns, me] = await Promise.all([
     Submission.find({ reviewer: user.id }).select("campaign status").lean(),
     Campaign.find({ status: "active" }).sort({ createdAt: -1 }).lean(),
+    User.findById(user.id).select("location.city").lean(),
   ]);
 
   // Best-effort: release any of these campaigns' abandoned claims (reviewer
@@ -35,6 +37,13 @@ export default async function ReviewerCampaignsPage() {
   // so it keeps showing up here for a resubmission with a new screenshot.
   const statusByCampaign = new Map(mySubs.map((s) => [String(s.campaign), s.status]));
 
+  // Reviewer's own detected city (src/models/User.js `location.city`, set
+  // from browser geolocation — see api/reviewer/location). A campaign with
+  // no city set is open to anyone; one WITH a city only shows to reviewers
+  // in that same city (case-insensitive) — this is the whole point of
+  // capturing city at campaign creation.
+  const reviewerCity = (me?.location?.city || "").trim().toLowerCase();
+
   const available = openCampaigns
     .filter((c) => {
       const claimed = claimedById.get(String(c._id)) ?? 0;
@@ -45,7 +54,11 @@ export default async function ReviewerCampaignsPage() {
       // already claimed (or filled) every slot.
       if ((c.collected ?? 0) + claimed >= c.targetReviews) return false;
       const status = statusByCampaign.get(String(c._id));
-      return !status || status === "rejected";
+      if (status && status !== "rejected") return false;
+
+      const campaignCity = (c.city || "").trim().toLowerCase();
+      if (campaignCity && reviewerCity && campaignCity !== reviewerCity) return false;
+      return true;
     })
     .map((c) => {
       const claimed = claimedById.get(String(c._id)) ?? 0;
@@ -53,6 +66,7 @@ export default async function ReviewerCampaignsPage() {
         id: String(c._id),
         name: c.name,
         platform: c.platform,
+        city: c.city || "",
         notes: c.notes,
         collected: c.collected ?? 0,
         target: c.targetReviews,

@@ -1,4 +1,5 @@
 import AppShell from "../../../components/shell/AppShell";
+import LocationGate from "../../../components/reviewer/LocationGate";
 import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
 import { getContact } from "../../../lib/contact";
@@ -26,7 +27,21 @@ export default async function ReviewerLayout({ children }) {
   const user = await requireRole(ROLES.REVIEWER);
 
   await dbConnect();
-  const me = await User.findById(user.id).select("walletBalance").lean();
+  const me = await User.findById(user.id).select("walletBalance location").lean();
+
+  // Mandatory gate — every /reviewer/* route (not just the dashboard) is
+  // blocked until a location is on file, since campaigns are matched to
+  // reviewers by city. Replaces the whole shell, not just the page body, so
+  // there's no way to navigate around it via a direct URL.
+  //
+  // Gated on `updatedAt` (set whenever the coordinates were successfully
+  // saved), NOT on `city` — reverse geocoding (lib/googleMaps.js) can come
+  // back empty (no API key configured, rate-limited, a rural/unmapped spot)
+  // even though the reviewer genuinely granted permission. Requiring `city`
+  // specifically would trap them behind the gate forever with no way out.
+  if (!me?.location?.updatedAt) {
+    return <LocationGate />;
+  }
 
   return (
     <AppShell

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, ExternalLink, Megaphone, RotateCcw, Upload, Star, X, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, ExternalLink, MapPin, Megaphone, RotateCcw, Upload, Star, X, XCircle } from "lucide-react";
 import { toast } from "../../lib/toast";
 
 /**
@@ -184,6 +184,12 @@ function Card({ campaign, reward }) {
             <h3 className="truncate text-base font-bold text-primary">{campaign.name}</h3>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="text-xs font-medium capitalize text-muted">{campaign.platform}</span>
+              {campaign.city && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted">
+                  <MapPin className="h-3 w-3" aria-hidden="true" />
+                  {campaign.city}
+                </span>
+              )}
               <span className="inline-flex items-center gap-1 rounded-full bg-verified-subtle px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-verified">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-verified opacity-75" />

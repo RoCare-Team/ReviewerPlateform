@@ -24,6 +24,12 @@ const CampaignSchema = new mongoose.Schema(
       default: "google",
     },
     location: { type: mongoose.Schema.Types.ObjectId, ref: "GmbLocation", default: null },
+    // The city this campaign's reviews should come from — captured at
+    // creation (typed for a single campaign, auto-filled from the GMB
+    // location for a batch). Reviewers only see campaigns whose city is
+    // blank (open to anyone) or matches their own detected city — see
+    // /(app)/reviewer/campaigns/page.jsx.
+    city: { type: String, trim: true, default: "", index: true },
     targetUrl: { type: String, trim: true, default: "" },
     notes: { type: String, trim: true, default: "" },
 
