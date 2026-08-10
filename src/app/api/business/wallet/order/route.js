@@ -33,7 +33,9 @@ export async function POST(request) {
   try {
     const order = await createTopupOrder({
       amount: parsed.data.amount,
-      receipt: `topup_${user.id}_${Date.now()}`,
+      // Razorpay caps `receipt` at 40 chars — userId(24) + timestamp in
+      // base36 keeps this well under that even with the separators.
+      receipt: `tu_${user.id}_${Date.now().toString(36)}`,
       notes: { userId: user.id },
     });
     return Response.json({
