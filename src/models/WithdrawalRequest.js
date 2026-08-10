@@ -38,6 +38,11 @@ const WithdrawalRequestSchema = new mongoose.Schema(
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     reviewedAt: { type: Date, default: null },
 
+    // Internal-only diagnostic (never shown to the reviewer) — e.g. the real
+    // Razorpay error when an automatic payout fails, so an admin can tell
+    // "RazorpayX not activated" apart from "bad IFSC" without server logs.
+    adminNote: { type: String, default: "" },
+
     // RazorpayX payout tracking — set when admin approval triggers an
     // automated payout instead of a manual bank transfer.
     razorpayContactId: { type: String, default: null },

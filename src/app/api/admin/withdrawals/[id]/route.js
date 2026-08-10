@@ -88,13 +88,19 @@ export async function PATCH(request, { params }) {
       });
       return Response.json({ ok: true, payoutStatus: payout.status });
     } catch (err) {
-      console.error("razorpayx payout failed:", err);
+      console.error("razorpayx payout failed:", err, err?.razorpay);
       // Payout couldn't even be created — refund the hold and reject instead
-      // of leaving the reviewer's money stuck in limbo.
+      // of leaving the reviewer's money stuck in limbo. The reviewer only
+      // ever sees the generic half; the real Razorpay error (e.g. RazorpayX
+      // not activated on this account, invalid IFSC, insufficient balance in
+      // the RazorpayX current account) goes in `note` on this line, visible
+      // to admins in the withdrawal's audit trail without needing server logs.
+      const detail = err?.razorpay?.error?.description || err?.message || "Unknown error";
       await WithdrawalRequest.findByIdAndUpdate(claimed._id, {
         $set: {
           status: "rejected",
           rejectionReason: "Automatic payout failed — please contact support.",
+          adminNote: `Payout error: ${detail}`,
         },
       });
       const refunded = await User.findByIdAndUpdate(

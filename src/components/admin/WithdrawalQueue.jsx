@@ -58,6 +58,12 @@ export default function WithdrawalQueue({ requests }) {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       toast.error(data.error ?? "Couldn't update the request.");
+      // A failed "approve" can still have changed the request's status server-
+      // side — an automatic-payout failure auto-rejects and refunds it rather
+      // than leaving it stuck (see api/admin/withdrawals/[id]). Refresh even
+      // on failure, or this row keeps showing as "Pending" here after it's
+      // already been settled, and the next click just 404s confusingly.
+      router.refresh();
       return;
     }
 
@@ -155,6 +161,11 @@ export default function WithdrawalQueue({ requests }) {
 
                 {r.status === "rejected" && r.rejectionReason && (
                   <p className="mt-3 text-xs text-danger">Rejected: {r.rejectionReason}</p>
+                )}
+                {r.status === "rejected" && r.adminNote && (
+                  <p className="mt-1 text-xs text-muted" title="Admin-only — never shown to the reviewer">
+                    {r.adminNote}
+                  </p>
                 )}
                 {r.status === "approved" && (
                   <p className="mt-3 text-xs font-semibold text-verified">

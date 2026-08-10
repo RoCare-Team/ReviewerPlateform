@@ -146,7 +146,7 @@ function Card({ campaign, reward }) {
         )}
 
         {result.reason && (
-          <div className={`mt-4 w-full rounded-btn border px-4 py-3 text-left text-sm ${tone.box}`}>
+          <div className={`mt-4 w-full rounded-card border px-4 py-3 text-left text-sm leading-relaxed ${tone.box}`}>
             {result.reason}
           </div>
         )}
