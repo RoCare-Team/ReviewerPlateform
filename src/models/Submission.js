@@ -47,6 +47,20 @@ const SubmissionSchema = new mongoose.Schema(
     rejectionReason: { type: String, default: "" },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     reviewedAt: { type: Date, default: null },
+
+    // A reviewer's dispute of a final rejection — separate from resubmitting
+    // with a new screenshot (that's still available too, and better when
+    // there's genuinely new proof). An appeal is for "the same screenshot
+    // was right, please have a human look again" — no new upload involved.
+    // "pending" surfaces it to admins (VerificationQueue); "resolved" once
+    // an admin has acted on it, either by approving anyway (see
+    // api/admin/submissions/[id]) or by explicitly dismissing the appeal
+    // with a response the reviewer can see.
+    appealStatus: { type: String, enum: ["none", "pending", "resolved"], default: "none", index: true },
+    appealMessage: { type: String, trim: true, default: "" },
+    appealedAt: { type: Date, default: null },
+    appealResponse: { type: String, trim: true, default: "" },
+    appealResolvedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

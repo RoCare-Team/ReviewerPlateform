@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, Check, ExternalLink, Inbox, MapPin, ShieldCheck, ShieldOff, X } from "lucide-react";
+import { Bot, Check, ExternalLink, Gavel, Inbox, MapPin, ShieldCheck, ShieldOff, X } from "lucide-react";
 import ScreenshotViewer from "../shared/ScreenshotViewer";
 import { toast } from "../../lib/toast";
 
@@ -14,6 +14,7 @@ const STATUS_STYLES = {
 
 const TABS = [
   { key: "pending", label: "Pending" },
+  { key: "appealed", label: "Appealed" },
   { key: "approved", label: "Approved" },
   { key: "rejected", label: "Rejected" },
   { key: "all", label: "All" },
@@ -21,13 +22,20 @@ const TABS = [
 
 /**
  * Admin review-verification queue. Tabs default to "Pending" — the ones still
- * needing a human decision — but "Approved"/"Rejected"/"All" surface every
- * decided submission too. Approve/Reject render for pending items; a
- * REJECTED submission additionally gets an "Approve anyway" override (admin
- * only — see the API route) so a call reversed later doesn't need a whole new
- * submission. An APPROVED submission (whether the AI or an admin verified it)
- * can be "Unverified" — claws back the reviewer's reward and flips it to
- * rejected — for when a verdict (AI or human) turns out to be wrong.
+ * needing a human decision — but "Appealed"/"Approved"/"Rejected"/"All"
+ * surface every decided submission too. Approve/Reject render for pending
+ * items; a REJECTED submission additionally gets an "Approve anyway"
+ * override (admin only — see the API route) so a call reversed later doesn't
+ * need a whole new submission. An APPROVED submission (whether the AI or an
+ * admin verified it) can be "Unverified" — claws back the reviewer's reward
+ * and flips it to rejected — for when a verdict (AI or human) turns out to
+ * be wrong.
+ *
+ * "Appealed" (appealStatus === "pending") is a reviewer disputing a final
+ * rejection with a message (api/reviewer/submissions/[id]/appeal) — not a
+ * new upload, just "please have a human look again". Those get their own
+ * tab so they don't get lost in the full Rejected list, plus a "Dismiss
+ * appeal" action alongside the existing "Approve anyway" override.
  */
 export default function VerificationQueue({ submissions, reward, initialTab = "pending" }) {
   const router = useRouter();
@@ -39,20 +47,29 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
   const [unverifying, setUnverifying] = useState(null);
   const [unverifyReason, setUnverifyReason] = useState("");
   const [unverifyError, setUnverifyError] = useState("");
+  const [dismissing, setDismissing] = useState(null);
+  const [dismissReason, setDismissReason] = useState("");
+  const [dismissError, setDismissError] = useState("");
 
   const counts = {
     pending: submissions.filter((s) => s.status === "pending").length,
+    appealed: submissions.filter((s) => s.appealStatus === "pending").length,
     approved: submissions.filter((s) => s.status === "approved").length,
     rejected: submissions.filter((s) => s.status === "rejected").length,
     all: submissions.length,
   };
 
-  const visible = tab === "all" ? submissions : submissions.filter((s) => s.status === tab);
+  const visible =
+    tab === "all"
+      ? submissions
+      : tab === "appealed"
+        ? submissions.filter((s) => s.appealStatus === "pending")
+        : submissions.filter((s) => s.status === tab);
 
   const [reasonError, setReasonError] = useState("");
 
   async function act(id, action, reasonText = "") {
-    // A rejection/unverify must say WHY — the reviewer sees this reason.
+    // A rejection/unverify/appeal-dismissal must say WHY — the reviewer sees this reason.
     if (action === "reject" && !reasonText.trim()) {
       setReasonError("Please enter a reason for rejection.");
       return;
@@ -61,8 +78,13 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
       setUnverifyError("Please enter a reason for un-verifying.");
       return;
     }
+    if (action === "dismiss_appeal" && !reasonText.trim()) {
+      setDismissError("Please enter a response for the reviewer.");
+      return;
+    }
     setReasonError("");
     setUnverifyError("");
+    setDismissError("");
     setBusy(id);
     const res = await fetch(`/api/admin/submissions/${id}`, {
       method: "PATCH",
@@ -75,6 +97,8 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
     setOverriding(null);
     setUnverifying(null);
     setUnverifyReason("");
+    setDismissing(null);
+    setDismissReason("");
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -87,7 +111,13 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
       toast.error(data.warning);
     } else {
       toast.success(
-        action === "approve" ? "Submission approved." : action === "unverify" ? "Submission un-verified." : "Submission rejected."
+        action === "approve"
+          ? "Submission approved."
+          : action === "unverify"
+            ? "Submission un-verified."
+            : action === "dismiss_appeal"
+              ? "Appeal dismissed."
+              : "Submission rejected."
       );
     }
     router.refresh();
@@ -184,6 +214,15 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
                               {s.gmbMatched ? "Google · matched" : "Google · no match"}
                             </span>
                           )}
+                          {s.appealStatus === "pending" && (
+                            <span
+                              className="inline-flex items-center gap-1 rounded-full bg-pending-subtle px-2 py-0.5 text-[11px] font-semibold text-pending"
+                              title={s.appealedDate ? `Appealed ${s.appealedDate}` : "Reviewer appealed this decision"}
+                            >
+                              <Gavel className="h-3 w-3" aria-hidden="true" />
+                              Appealed
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-muted capitalize">
                           {s.platform} · by {s.reviewerName || s.reviewerEmail} · {s.date}
@@ -207,6 +246,21 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
 
                     {s.status === "rejected" && s.rejectionReason && (
                       <p className="mt-2 text-xs text-danger">Rejected: {s.rejectionReason}</p>
+                    )}
+                    {s.appealStatus === "pending" && (
+                      <div className="mt-2 flex items-start gap-1.5 rounded-btn border border-pending/40 bg-pending-subtle px-3 py-2 text-xs text-primary">
+                        <Gavel className="mt-0.5 h-3.5 w-3.5 shrink-0 text-pending" aria-hidden="true" />
+                        <div>
+                          <p className="font-semibold">Reviewer&apos;s appeal:</p>
+                          <p className="mt-0.5">&ldquo;{s.appealMessage}&rdquo;</p>
+                        </div>
+                      </div>
+                    )}
+                    {s.appealStatus === "resolved" && s.appealResponse && (
+                      <p className="mt-2 flex items-start gap-1.5 text-xs text-muted">
+                        <Gavel className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                        <span>Appeal dismissed: {s.appealResponse}</span>
+                      </p>
                     )}
                     {s.status === "approved" && (
                       <p className="nums mt-2 text-xs font-semibold text-verified">
@@ -311,16 +365,54 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
                             </button>
                           </div>
                         </div>
+                      ) : dismissing === s.id ? (
+                        <div className="mt-4 animate-fade-up" style={{ animationDuration: "200ms" }}>
+                          <label className="mb-1 block text-xs font-semibold text-primary">
+                            Response to the reviewer <span className="text-danger">*</span>
+                          </label>
+                          <input
+                            value={dismissReason}
+                            onChange={(e) => { setDismissReason(e.target.value); setDismissError(""); }}
+                            placeholder="e.g. Screenshot still doesn't show a valid review — decision stands"
+                            autoFocus
+                            className={`w-full rounded-btn border bg-surface px-3 py-2 text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-accent/50 ${dismissError ? "border-danger" : "border-default focus:border-accent"}`}
+                          />
+                          {dismissError && <p className="mt-1 text-xs text-danger">{dismissError}</p>}
+                          <p className="mt-1 text-xs text-muted">The rejection stands — no reward. The reviewer will see this response.</p>
+                          <div className="mt-2 flex gap-2">
+                            <button type="button" onClick={() => act(s.id, "dismiss_appeal", dismissReason)} disabled={busy === s.id || !dismissReason.trim()}
+                              className="rounded-btn border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-secondary shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0">
+                              {busy === s.id ? "Working…" : "Confirm dismissal"}
+                            </button>
+                            <button type="button" onClick={() => { setDismissing(null); setDismissReason(""); setDismissError(""); }}
+                              className="rounded-btn border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken">
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => setOverriding(s.id)}
-                          title="Only an admin can override a rejection"
-                          className="mt-4 inline-flex items-center gap-1.5 rounded-btn border border-verified/40 bg-surface px-3.5 py-2 text-sm font-semibold text-verified transition-all duration-200 hover:-translate-y-0.5 hover:bg-verified-subtle hover:shadow-sm"
-                        >
-                          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                          Approve anyway
-                        </button>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setOverriding(s.id)}
+                            title="Only an admin can override a rejection"
+                            className="inline-flex items-center gap-1.5 rounded-btn border border-verified/40 bg-surface px-3.5 py-2 text-sm font-semibold text-verified transition-all duration-200 hover:-translate-y-0.5 hover:bg-verified-subtle hover:shadow-sm"
+                          >
+                            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                            Approve anyway
+                          </button>
+                          {s.appealStatus === "pending" && (
+                            <button
+                              type="button"
+                              onClick={() => setDismissing(s.id)}
+                              title="Uphold the rejection and respond to the reviewer's appeal"
+                              className="inline-flex items-center gap-1.5 rounded-btn border border-default bg-surface px-3.5 py-2 text-sm font-semibold text-secondary transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-sunken hover:shadow-sm"
+                            >
+                              <Gavel className="h-4 w-4" aria-hidden="true" />
+                              Dismiss appeal
+                            </button>
+                          )}
+                        </div>
                       )
                     )}
                   </div>

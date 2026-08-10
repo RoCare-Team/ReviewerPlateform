@@ -157,6 +157,13 @@ export async function POST(request) {
           rewardAmount: 0,
           reviewedBy: null,
           reviewedAt: null,
+          // A fresh attempt supersedes any earlier appeal on the rejection
+          // it's replacing — nothing left to dispute once it's pending again.
+          appealStatus: "none",
+          appealMessage: "",
+          appealedAt: null,
+          appealResponse: "",
+          appealResolvedAt: null,
           ...aiFields,
           ...gmbFields,
         },

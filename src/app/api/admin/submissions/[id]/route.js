@@ -19,14 +19,22 @@ import { approveSubmission, unverifySubmission } from "../../../../../lib/verifi
  *             Claws back the reward from the reviewer's wallet, gives the
  *             campaign slot back, flips status to "rejected". Requires a
  *             reason, same as reject.
+ *   dismiss_appeal → a reviewer disputed a rejection (Submission.appealStatus
+ *             "pending", see api/reviewer/submissions/[id]/appeal) and the
+ *             admin is upholding the original rejection rather than
+ *             approving anyway. Doesn't touch submission status — only
+ *             resolves the appeal, with a response reason the reviewer sees.
  *
- * The status guard makes all three actions idempotent — approving/rejecting
- * an already-approved submission, or unverifying a non-approved one, matches
- * nothing, so a reviewer can never be double-paid or clawed back twice.
+ * The status guard makes all three status-changing actions idempotent —
+ * approving/rejecting an already-approved submission, or unverifying a
+ * non-approved one, matches nothing, so a reviewer can never be double-paid
+ * or clawed back twice. Any action here that resolves an outstanding appeal
+ * (approve, dismiss_appeal) also flips appealStatus to "resolved" — there's
+ * no dangling "pending" appeal once an admin has actually looked at it.
  */
 const schema = z
   .object({
-    action: z.enum(["approve", "reject", "unverify"]),
+    action: z.enum(["approve", "reject", "unverify", "dismiss_appeal"]),
     reason: z.string().trim().max(300).optional().default(""),
   })
   .strict();
@@ -48,13 +56,33 @@ export async function PATCH(request, { params }) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return Response.json({ error: "Invalid input" }, { status: 400 });
 
-  // A rejection or unverify must carry a reason — the reviewer is shown why.
-  if ((parsed.data.action === "reject" || parsed.data.action === "unverify") && !parsed.data.reason.trim()) {
-    const verb = parsed.data.action === "reject" ? "reject" : "un-verify";
-    return Response.json({ error: `A reason is required to ${verb} a submission.` }, { status: 400 });
+  // A rejection, unverify, or appeal dismissal must carry a reason — the
+  // reviewer is shown why.
+  if (
+    (parsed.data.action === "reject" || parsed.data.action === "unverify" || parsed.data.action === "dismiss_appeal") &&
+    !parsed.data.reason.trim()
+  ) {
+    const verb = parsed.data.action === "reject" ? "reject" : parsed.data.action === "unverify" ? "un-verify" : "respond to";
+    return Response.json({ error: `A reason is required to ${verb} this submission.` }, { status: 400 });
   }
 
   await dbConnect();
+
+  if (parsed.data.action === "dismiss_appeal") {
+    const dismissed = await Submission.findOneAndUpdate(
+      { _id: id, status: "rejected", appealStatus: "pending" },
+      {
+        $set: {
+          appealStatus: "resolved",
+          appealResponse: parsed.data.reason,
+          appealResolvedAt: new Date(),
+        },
+      },
+      { returnDocument: "after" }
+    );
+    if (!dismissed) return Response.json({ error: "No pending appeal found on this submission." }, { status: 404 });
+    return Response.json({ ok: true });
+  }
 
   if (parsed.data.action === "reject") {
     const rejected = await Submission.findOneAndUpdate(
@@ -96,6 +124,16 @@ export async function PATCH(request, { params }) {
     reviewedBy: admin.id,
     allowFrom,
   });
+
+  // Approving (whether the normal path or an override of a rejection with a
+  // pending appeal) settles any outstanding appeal too — nothing left to
+  // dispute once it's been paid.
+  if (outcome === "approved") {
+    await Submission.updateOne(
+      { _id: id, appealStatus: "pending" },
+      { $set: { appealStatus: "resolved", appealResolvedAt: new Date() } }
+    );
+  }
 
   if (outcome === "campaign_full") {
     return Response.json(

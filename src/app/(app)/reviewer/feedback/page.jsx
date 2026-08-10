@@ -36,6 +36,9 @@ export default async function ReviewerFeedbackPage() {
       status: s.status,
       rejectionReason: s.rejectionReason,
       rewardAmount: s.rewardAmount,
+      appealStatus: s.appealStatus || "none",
+      appealMessage: s.appealMessage || "",
+      appealResponse: s.appealResponse || "",
       createdAt: s.createdAt.toISOString(),
     };
   });

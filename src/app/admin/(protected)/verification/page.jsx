@@ -22,7 +22,7 @@ export default async function AdminVerificationPage({ searchParams }) {
   // pending/uncertain cases.
   const subs = await Submission.find({})
     .select(
-      "screenshotUrl note status verifiedBy aiDecision aiConfidence aiReason gmbChecked gmbMatched gmbReason rejectionReason campaign reviewer reviewedBy createdAt reviewedAt"
+      "screenshotUrl note status verifiedBy aiDecision aiConfidence aiReason gmbChecked gmbMatched gmbReason rejectionReason campaign reviewer reviewedBy createdAt reviewedAt appealStatus appealMessage appealedAt appealResponse"
     )
     .sort({ createdAt: -1 })
     .lean();
@@ -55,6 +55,10 @@ export default async function AdminVerificationPage({ searchParams }) {
       gmbMatched: s.gmbMatched || false,
       gmbReason: s.gmbReason || "",
       rejectionReason: s.rejectionReason || "",
+      appealStatus: s.appealStatus || "none",
+      appealMessage: s.appealMessage || "",
+      appealedDate: s.appealedAt ? new Date(s.appealedAt).toLocaleString("en-IN") : "",
+      appealResponse: s.appealResponse || "",
       reviewedByName: reviewedByAdmin ? (reviewedByAdmin.name || reviewedByAdmin.email) : "",
       campaignName: c?.name ?? "Campaign",
       platform: c?.platform ?? "",
