@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   Building2,
   Coins,
@@ -205,16 +206,13 @@ export default function AppShell({
           {/* Brand mark always goes to the public homepage, not the dashboard
               root — a logo click is "take me to the site", same as every
               marketing header, not "take me to my overview page". Hidden
-              when collapsed so the rail only shows the expand toggle. */}
+              when collapsed so the rail only shows the expand toggle. Just
+              the logo — deliberately no role text (Business/Reviewer/Admin)
+              alongside it, the sidebar shouldn't editorialize who's logged in. */}
           {!isCollapsed && (
-            <>
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-sm font-bold text-on-brand">
-                {brand.charAt(0)}
-              </span>
-              <Link href="/" className="text-base font-bold tracking-tight text-primary">
-                {brand}
-              </Link>
-            </>
+            <Link href="/" aria-label={`${brand} home`} className="flex items-center">
+              <Image src="/img/logo4.png" alt={brand} width={1824} height={456} className="h-8 w-auto" />
+            </Link>
           )}
           {!isCollapsed && badge && (
             <span className="rounded bg-danger-subtle px-1.5 py-0.5 text-xs font-semibold text-danger">
@@ -328,8 +326,8 @@ export default function AppShell({
           </button>
 
           {/* Mobile: brand, linked home same as the sidebar mark. Desktop: current page title. */}
-          <Link href="/" className="font-semibold tracking-tight text-primary lg:hidden">
-            {brand}
+          <Link href="/" aria-label={`${brand} home`} className="lg:hidden">
+            <Image src="/img/logo4.png" alt={brand} width={1824} height={456} className="h-7 w-auto" />
           </Link>
           <span className="hidden text-sm font-semibold text-primary lg:inline">{currentLabel}</span>
           {badge && (

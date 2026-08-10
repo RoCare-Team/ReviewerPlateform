@@ -128,21 +128,27 @@ export default function SiteHeader() {
           </Link>
 
           {/* Desktop Navigation Links — true center column, independent of how
-              wide the logo or the auth actions are on either side. */}
-          <nav aria-label="Main" className="hidden items-center gap-5 text-[15px] font-medium lg:flex">
+              wide the logo or the auth actions are on either side. Gap
+              trimmed slightly (was gap-5) to free up room for the phone
+              number below at `xl`, instead of hiding it until `2xl`. */}
+          <nav aria-label="Main" className="hidden items-center gap-4 text-[15px] font-medium lg:flex">
             {NAV.map((n) => (
               <NavLink key={n.href} href={n.href} label={n.label} />
             ))}
           </nav>
 
           {/* Auth actions */}
-          <div className="hidden items-center justify-end gap-6 text-[15px] font-medium lg:flex">
+          <div className="hidden items-center justify-end gap-4 text-[15px] font-medium lg:flex">
             {PHONE_E164 && (
+              // Back from `xl` (was briefly hidden until `2xl` — the number
+              // needs to stay visible here, not disappear). `whitespace-nowrap`
+              // plus the trimmed gaps above are what actually fix the wrap,
+              // not hiding it at a higher breakpoint.
               <a
                 href={`tel:${PHONE_E164}`}
-                className="hidden items-center gap-1.5 text-secondary transition-colors duration-200 hover:text-accent xl:inline-flex"
+                className="hidden items-center gap-1.5 whitespace-nowrap text-secondary transition-colors duration-200 hover:text-accent xl:inline-flex"
               >
-                <Phone className="h-4 w-4" aria-hidden="true" />
+                <Phone className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {PHONE_DISPLAY}
               </a>
             )}

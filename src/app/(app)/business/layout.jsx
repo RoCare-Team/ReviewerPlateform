@@ -28,7 +28,7 @@ export default async function BusinessLayout({ children }) {
 
   return (
     <AppShell
-      brand={`${BRAND_NAME} Business`}
+      brand={BRAND_NAME}
       nav={NAV}
       user={{ name: user.name, phone: user.phone }}
       profileHref="/business/settings"
