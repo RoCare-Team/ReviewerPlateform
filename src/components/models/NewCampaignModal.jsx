@@ -277,7 +277,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md sm:w-auto"
       >
         <Plus className="h-4 w-4" aria-hidden="true" />
         New campaign
@@ -297,12 +297,14 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header — sticky, stays put while the form body scrolls */}
-            <div className="flex shrink-0 items-center justify-between border-b border-default px-6 py-4 sm:px-8">
-              <div>
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-default px-6 py-4 sm:px-8">
+              <div className="min-w-0">
                 <h2 className="text-lg font-bold text-primary">New campaign</h2>
-                <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-secondary">
-                  <Wallet className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-                  Wallet: <span className="font-bold text-primary">{inr(walletBalance)}</span>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-secondary">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Wallet className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                    Wallet: <span className="font-bold text-primary">{inr(walletBalance)}</span>
+                  </span>
                   <Link href="/business/settings" className="font-semibold text-accent hover:underline">
                     Add funds
                   </Link>
@@ -445,8 +447,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                               </div>
                             )}
 
-                            <div className="flex items-center gap-2.5 border-t border-default pt-2.5">
-                              <div className="w-32 shrink-0">
+                            <div className="flex flex-col gap-2 border-t border-default pt-2.5 sm:flex-row sm:items-center sm:gap-2.5">
+                              <div className="w-full shrink-0 sm:w-32">
                                 <Input
                                   id={`c-reviews-${i}`}
                                   type="number"
@@ -626,12 +628,15 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
               </div>
             </form>
 
-            {/* Footer — sticky, buttons grouped on the right (Cancel, then the primary action) */}
-            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-default px-6 py-4 sm:px-8">
+            {/* Footer — sticky. Stacks full-width on mobile (primary action on
+                top) since the submit label is dynamic and can run long
+                ("Start 3 campaign(s) · ₹15,000") — side-by-side would clip it
+                on a narrow screen. */}
+            <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-default px-6 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-8">
               <button
                 type="button"
                 onClick={close}
-                className="rounded-btn border border-default bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken"
+                className="w-full rounded-btn border border-default bg-surface px-4 py-2.5 text-sm font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken sm:w-auto"
               >
                 Cancel
               </button>
@@ -639,7 +644,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                 type="submit"
                 form="new-campaign-form"
                 disabled={pending || (multiMode ? rowsOverBudget : overBudget)}
-                className="rounded-btn bg-accent px-5 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                className="w-full rounded-btn bg-accent px-5 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:w-auto"
               >
                 {pending
                   ? "Creating…"

@@ -188,8 +188,15 @@ export default function CampaignsTable({ campaigns }) {
         </table>
       </div>
 
-      {/* Mobile cards — a table would just force horizontal scroll per row here */}
-      <div className="mt-8 grid gap-5 lg:hidden">
+      {/* Mobile cards — a table would just force horizontal scroll per row here.
+          `grid-cols-1` is load-bearing, not decorative: without an explicit
+          track, a bare `grid` container sizes its single column to `auto`
+          (fit-content), and grid items get an implicit `min-width: auto` —
+          so a campaign with a long, unbroken review URL (no spaces to wrap
+          on) blows the column, the grid, and the whole page wider than the
+          viewport. `truncate` on that URL never gets a chance to kick in
+          because nothing upstream is actually constraining the width. */}
+      <div className="mt-8 grid grid-cols-1 gap-5 lg:hidden">
         {campaigns.map((c) => (
           <CampaignCard key={c.id} campaign={c} />
         ))}

@@ -74,7 +74,7 @@ export default function CampaignCard({ campaign }) {
   }
 
   return (
-    <div className="group flex h-full flex-col rounded-card border border-default bg-surface-raised p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/30 hover:shadow-lg">
+    <div className="group flex h-full min-w-0 flex-col rounded-card border border-default bg-surface-raised p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/30 hover:shadow-lg sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-subtle text-accent transition-transform duration-300 group-hover:scale-110">
@@ -134,7 +134,7 @@ export default function CampaignCard({ campaign }) {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-2.5">
+      <div className="mt-5 grid grid-cols-2 gap-2.5 min-[420px]:grid-cols-3">
         <Stat Icon={IndianRupee} label="Budget" value={inr(c.budget)} />
         <Stat Icon={CheckCircle2} label="Rate" value={inr(c.ratePerReview)} />
         <Stat Icon={Target} label="Target" value={c.targetReviews} />
