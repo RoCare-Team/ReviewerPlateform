@@ -3,8 +3,10 @@ import mongoose from "mongoose";
 /**
  * Wallet ledger entry. `amount` is in whole rupees; positive for a credit
  * (top-up), negative for a debit (campaign spend). Balance on the User is the
- * running total. This is a MOCK top-up ledger — no real payment gateway is wired
- * yet; a Razorpay integration would create the credit only after payment capture.
+ * running total. Top-ups are credited only after Razorpay confirms payment
+ * capture (signature-verified on the client-return path, and again via
+ * webhook as a backstop) — see api/business/wallet/{order,verify} and
+ * api/webhooks/razorpay.
  */
 const WalletTransactionSchema = new mongoose.Schema(
   {
@@ -18,6 +20,12 @@ const WalletTransactionSchema = new mongoose.Schema(
     // balance without a trace of who put it there is not auditable.
     by: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     balanceAfter: { type: Number, required: true },
+
+    // Razorpay payment id for a top-up. Sparse-unique so the same captured
+    // payment can never credit the wallet twice, even if both the client
+    // verify call AND the webhook race to process it.
+    razorpayPaymentId: { type: String, default: null, unique: true, sparse: true },
+    razorpayOrderId: { type: String, default: null },
   },
   { timestamps: true }
 );

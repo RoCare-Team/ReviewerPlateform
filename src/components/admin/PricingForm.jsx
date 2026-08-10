@@ -7,13 +7,15 @@ import { toast } from "../../lib/toast";
 /**
  * Admin pricing control. Edits the global prices that drive the whole app:
  * what a business pays per review, what a reviewer earns per verified review,
- * and the smallest amount a reviewer is allowed to request as a withdrawal.
+ * the smallest amount a reviewer is allowed to request as a withdrawal, and
+ * the smallest amount a business is allowed to add to its wallet.
  */
 export default function PricingForm({ initial }) {
   const router = useRouter();
   const [reviewRate, setReviewRate] = useState(String(initial.reviewRate));
   const [reviewerReward, setReviewerReward] = useState(String(initial.reviewerReward));
   const [minWithdrawal, setMinWithdrawal] = useState(String(initial.minWithdrawal));
+  const [minTopup, setMinTopup] = useState(String(initial.minTopup));
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -23,10 +25,12 @@ export default function PricingForm({ initial }) {
     const rate = Number(reviewRate);
     const reward = Number(reviewerReward);
     const minOut = Number(minWithdrawal);
+    const minIn = Number(minTopup);
     if (
       !Number.isInteger(rate) || rate <= 0 ||
       !Number.isInteger(reward) || reward <= 0 ||
-      !Number.isInteger(minOut) || minOut <= 0
+      !Number.isInteger(minOut) || minOut <= 0 ||
+      !Number.isInteger(minIn) || minIn <= 0
     ) {
       const text = "Enter valid whole-rupee amounts.";
       setMsg({ tone: "error", text });
@@ -44,7 +48,7 @@ export default function PricingForm({ initial }) {
     const res = await fetch("/api/admin/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reviewRate: rate, reviewerReward: reward, minWithdrawal: minOut }),
+      body: JSON.stringify({ reviewRate: rate, reviewerReward: reward, minWithdrawal: minOut, minTopup: minIn }),
     });
     setPending(false);
     const data = await res.json().catch(() => ({}));
@@ -85,6 +89,14 @@ export default function PricingForm({ initial }) {
           <input id="minWithdrawal" type="number" min="1" value={minWithdrawal} onChange={(e) => setMinWithdrawal(e.target.value)}
             className="w-full rounded-btn border border-default bg-surface px-3 py-2.5 text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50" />
           <p className="mt-1.5 text-xs text-muted">Smallest amount a reviewer can request as a payout.</p>
+        </div>
+        <div>
+          <label htmlFor="minTopup" className="mb-1.5 block text-sm font-medium text-primary">
+            Minimum wallet top-up (₹)
+          </label>
+          <input id="minTopup" type="number" min="1" value={minTopup} onChange={(e) => setMinTopup(e.target.value)}
+            className="w-full rounded-btn border border-default bg-surface px-3 py-2.5 text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50" />
+          <p className="mt-1.5 text-xs text-muted">Smallest amount a business can add to its wallet.</p>
         </div>
       </div>
 

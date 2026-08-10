@@ -11,11 +11,13 @@ import mongoose from "mongoose";
  * reviewer editing their saved bank details later never rewrites where a
  * past (already-paid) request was sent to.
  *
- *   pending  → awaiting admin action, amount already held (deducted).
- *   approved → admin paid it out manually (outside the app — no gateway
- *              yet); the held amount stays deducted, nothing more happens.
- *   rejected → admin declined; the held amount is refunded back to the
- *              reviewer's wallet.
+ *   pending    → awaiting admin action, amount already held (deducted).
+ *   processing → admin approved; a RazorpayX payout was created and is in
+ *                flight (queued/pending/processing on Razorpay's side).
+ *   approved   → RazorpayX confirmed the payout was processed — money has
+ *                actually landed in the reviewer's bank account.
+ *   rejected   → admin declined, OR the payout failed/reversed on Razorpay's
+ *                side; either way the held amount is refunded to the wallet.
  */
 const WithdrawalRequestSchema = new mongoose.Schema(
   {
@@ -28,13 +30,20 @@ const WithdrawalRequestSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "processing", "approved", "rejected"],
       default: "pending",
       index: true,
     },
     rejectionReason: { type: String, default: "" },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     reviewedAt: { type: Date, default: null },
+
+    // RazorpayX payout tracking — set when admin approval triggers an
+    // automated payout instead of a manual bank transfer.
+    razorpayContactId: { type: String, default: null },
+    razorpayFundAccountId: { type: String, default: null },
+    razorpayPayoutId: { type: String, default: null, index: true },
+    razorpayPayoutStatus: { type: String, default: "" },
   },
   { timestamps: true }
 );

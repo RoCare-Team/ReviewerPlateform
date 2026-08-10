@@ -4,10 +4,10 @@ import WalletTransaction from "../../../../models/WalletTransaction";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 
 /**
- * Wallet read. Top-up (POST) is disabled for now — no payment gateway is
- * wired up, so businesses can't self-credit their wallet. Re-enable POST only
- * once a real Razorpay flow credits after webhook-confirmed capture, not on
- * request.
+ * Wallet read. Top-ups go through a separate two-step flow — see
+ * api/business/wallet/order (create Razorpay order) and
+ * api/business/wallet/verify (verify signature, then credit) — never a
+ * plain POST here, so a client can't just assert an amount into its balance.
  *
  * GET → current balance + recent transactions.
  */

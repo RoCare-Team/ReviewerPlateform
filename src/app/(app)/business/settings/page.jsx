@@ -4,6 +4,7 @@ import { ROLES } from "../../../../lib/auth/roles";
 import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import WalletTransaction from "../../../../models/WalletTransaction";
+import { getSettings } from "../../../../lib/settings";
 import ProfileForm from "../../../../components/reviewer/ProfileForm";
 import WalletCard from "../../../../components/business/WalletCard";
 
@@ -15,6 +16,7 @@ export default async function BusinessSettingsPage() {
   await dbConnect();
   const doc = await User.findById(sessionUser.id).select("name phone bio walletBalance").lean();
   const txns = await WalletTransaction.find({ user: sessionUser.id }).sort({ createdAt: -1 }).limit(10).lean();
+  const { minTopup } = await getSettings();
 
   const initial = {
     name: doc?.name ?? "",
@@ -44,7 +46,7 @@ export default async function BusinessSettingsPage() {
           Wallet
         </h2>
         <div className="mt-4">
-          <WalletCard balance={doc?.walletBalance ?? 0} transactions={transactions} />
+          <WalletCard balance={doc?.walletBalance ?? 0} transactions={transactions} minTopup={minTopup} />
         </div>
       </div>
 
