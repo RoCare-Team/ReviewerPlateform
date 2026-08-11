@@ -246,9 +246,21 @@
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    height: 100%;
   }
 
+  /* Load-bearing for the dashboard shells (AppShell.jsx, used by
+     /admin, /business, /reviewer): their root is `lg:h-dvh lg:overflow-hidden`
+     so the sidebar stays fixed and only the main content area scrolls
+     internally. Without `html, body { height: 100% }`, that inner div can
+     end up a hair taller than the viewport (dvh vs. body's auto height
+     don't line up exactly), leaving the OUTER page ALSO scrollable — a
+     second, mostly-empty scrollbar next to the real one. Marketing pages
+     are unaffected: `height: 100%` only sets a basis, it doesn't cap
+     content that's genuinely taller, so normal page scrolling there is
+     untouched. */
   body {
+    height: 100%;
     background-color: var(--surface);
     color: var(--text-primary);
     font-family: var(--font-sans);

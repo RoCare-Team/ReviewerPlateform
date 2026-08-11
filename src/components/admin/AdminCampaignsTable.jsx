@@ -1,7 +1,9 @@
 "use client";
 
-import { ExternalLink, Megaphone } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ExternalLink, Inbox, Megaphone } from "lucide-react";
 import CampaignRewardControl from "./CampaignRewardControl";
+import SearchInput from "./SearchInput";
 
 const STATUS_STYLE = { active: "pill-verified", completed: "pill-accent", paused: "pill-pending", draft: "pill-pending" };
 const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
@@ -33,11 +35,46 @@ function ProgressBar({ collected, target, status, className = "w-28" }) {
  * mobile-card split as business/CampaignsTable.jsx and admin/UsersTable.jsx.
  *
  * Client component (not the page itself) only because CampaignRewardControl
- * needs interactivity — everything else here is static.
+ * needs interactivity — everything else here is static. Search is separate
+ * from the status tabs above the table on purpose: the tabs re-query the
+ * server (they're links, and survive a reload), while search filters what's
+ * already on screen — same split as admin/UsersTable.jsx.
  */
 export default function AdminCampaignsTable({ campaigns, globalReward }) {
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return campaigns;
+    return campaigns.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.ownerName.toLowerCase().includes(q) ||
+        (PLATFORM_LABEL[c.platform] ?? c.platform).toLowerCase().includes(q)
+    );
+  }, [campaigns, query]);
+
   return (
     <>
+      <SearchInput
+        value={query}
+        onChange={setQuery}
+        placeholder="Search by campaign name, owner, or platform"
+        resultLabel={query ? `${filtered.length} of ${campaigns.length} campaigns` : `${campaigns.length} shown`}
+      />
+
+      {filtered.length === 0 && (
+        <div className="mt-6 rounded-card border border-dashed border-default bg-surface-raised p-10 text-center">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface-sunken">
+            <Inbox className="h-6 w-6 text-muted" aria-hidden="true" />
+          </span>
+          <p className="mt-4 text-sm font-semibold text-primary">No campaigns match "{query}"</p>
+          <p className="mt-1 text-sm text-secondary">Try a different spelling — search covers the current status tab only.</p>
+        </div>
+      )}
+
+      {filtered.length > 0 && (
+      <>
       {/* Desktop table */}
       <div className="mt-6 hidden overflow-x-auto rounded-card border border-default bg-surface-raised shadow-sm lg:block">
         <table className="w-full text-sm">
@@ -53,7 +90,7 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-default">
-            {campaigns.map((c) => (
+            {filtered.map((c) => (
               <tr key={c.id} className="align-top transition-colors duration-150 hover:bg-surface-sunken/50">
                 <td className="max-w-72 px-5 py-4">
                   <div className="flex min-w-0 items-start gap-3">
@@ -118,7 +155,7 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
 
       {/* Mobile cards */}
       <div className="mt-6 grid grid-cols-1 gap-4 lg:hidden">
-        {campaigns.map((c) => (
+        {filtered.map((c) => (
           <div
             key={c.id}
             className="rounded-card border border-default bg-surface-raised p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md"
@@ -177,6 +214,8 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
           </div>
         ))}
       </div>
+      </>
+      )}
     </>
   );
 }
