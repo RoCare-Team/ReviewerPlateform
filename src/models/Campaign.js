@@ -34,10 +34,17 @@ const CampaignSchema = new mongoose.Schema(
     notes: { type: String, trim: true, default: "" },
 
     budget: { type: Number, required: true, min: 0 },
-    ratePerReview: { type: Number, required: true },
+    ratePerReview: { type: Number, required: true }, // ₹/review the BUSINESS pays into the budget
     targetReviews: { type: Number, required: true },
     collected: { type: Number, default: 0 },
     claimed: { type: Number, default: 0 },
+
+    // Admin-only override of what a REVIEWER earns per verified review on
+    // THIS campaign specifically — a completely different number from
+    // `ratePerReview` above (what the business pays in). null = no override,
+    // fall back to the global AppSettings.reviewerReward (lib/settings.js).
+    // Never set by the business owner — see api/admin/campaigns/[id]/reward.
+    reviewerReward: { type: Number, default: null, min: 0 },
 
     status: {
       type: String,

@@ -119,7 +119,7 @@ export async function PATCH(request, { params }) {
   if (!exists) return Response.json({ error: "Submission not found or already approved." }, { status: 404 });
 
   const settings = await getSettings();
-  const outcome = await approveSubmission(id, settings.reviewerReward, {
+  const { outcome, reward } = await approveSubmission(id, settings.reviewerReward, {
     verifiedBy: "admin",
     reviewedBy: admin.id,
     allowFrom,
@@ -145,5 +145,5 @@ export async function PATCH(request, { params }) {
     return Response.json({ error: "Submission not found or already reviewed." }, { status: 404 });
   }
 
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, reward });
 }

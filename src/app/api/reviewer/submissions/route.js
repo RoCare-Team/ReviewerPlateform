@@ -210,9 +210,12 @@ export async function POST(request) {
 
   if (aiApproved && !gmbBlocksApproval) {
     const settings = await getSettings();
-    const outcome = await approveSubmission(submission._id, settings.reviewerReward, { verifiedBy: "ai" });
+    // settings.reviewerReward is only the FALLBACK — approveSubmission pays
+    // this campaign's own reviewerReward override instead when the admin has
+    // set one, and hands back whichever amount actually got paid.
+    const { outcome, reward } = await approveSubmission(submission._id, settings.reviewerReward, { verifiedBy: "ai" });
     if (outcome === "approved") {
-      return Response.json({ ok: true, status: "approved", reward: settings.reviewerReward, reason: ai.reason });
+      return Response.json({ ok: true, status: "approved", reward, reason: ai.reason });
     }
     if (outcome === "campaign_full") {
       return Response.json({ ok: true, status: "rejected", reason: "Campaign already reached its review target." });

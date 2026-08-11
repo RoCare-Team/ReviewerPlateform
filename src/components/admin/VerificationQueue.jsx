@@ -37,7 +37,7 @@ const TABS = [
  * tab so they don't get lost in the full Rejected list, plus a "Dismiss
  * appeal" action alongside the existing "Approve anyway" override.
  */
-export default function VerificationQueue({ submissions, reward, initialTab = "pending" }) {
+export default function VerificationQueue({ submissions, initialTab = "pending" }) {
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
   const [busy, setBusy] = useState(null);
@@ -264,7 +264,7 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
                     )}
                     {s.status === "approved" && (
                       <p className="nums mt-2 text-xs font-semibold text-verified">
-                        Verified{s.reviewedDate ? ` · ${s.reviewedDate}` : ""} — reviewer paid ₹{reward}
+                        Verified{s.reviewedDate ? ` · ${s.reviewedDate}` : ""} — reviewer paid ₹{s.rewardAmount}
                       </p>
                     )}
 
@@ -337,7 +337,7 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
                           <button type="button" onClick={() => act(s.id, "approve")} disabled={busy === s.id}
                             className="inline-flex items-center gap-1.5 rounded-btn bg-verified px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0">
                             <Check className="h-4 w-4" aria-hidden="true" />
-                            {busy === s.id ? "Working…" : `Approve & pay ₹${reward}`}
+                            {busy === s.id ? "Working…" : `Approve & pay ₹${s.reward}`}
                           </button>
                           <button type="button" onClick={() => setRejecting(s.id)} disabled={busy === s.id}
                             className="inline-flex items-center gap-1.5 rounded-btn border border-default bg-surface px-4 py-2 text-sm font-semibold text-danger transition-all duration-200 hover:-translate-y-0.5 hover:bg-danger-subtle hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0">
@@ -352,7 +352,7 @@ export default function VerificationQueue({ submissions, reward, initialTab = "p
                       overriding === s.id ? (
                         <div className="mt-4 animate-fade-up rounded-btn border border-verified bg-verified-subtle p-3" style={{ animationDuration: "200ms" }}>
                           <p className="text-sm text-primary">
-                            Approve this rejected submission anyway and pay the reviewer <span className="font-bold">₹{reward}</span>?
+                            Approve this rejected submission anyway and pay the reviewer <span className="font-bold">₹{s.reward}</span>?
                           </p>
                           <div className="mt-2 flex gap-2">
                             <button type="button" onClick={() => act(s.id, "approve")} disabled={busy === s.id}

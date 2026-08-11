@@ -1,24 +1,13 @@
-import {
-  Megaphone,
-  ExternalLink,
-  IndianRupee,
-  Tag,
-  Target,
-  CheckCircle2,
-  BarChart3,
-  Inbox,
-} from "lucide-react";
+import { Megaphone, Inbox } from "lucide-react";
 import { requireAdmin } from "../../../../lib/auth/guards";
 import dbConnect from "../../../../lib/db";
 import Campaign from "../../../../models/Campaign";
 import User from "../../../../models/User";
 import Submission from "../../../../models/Submission";
-import { inr } from "../../../../lib/settings";
+import { getSettings, inr } from "../../../../lib/settings";
+import AdminCampaignsTable from "../../../../components/admin/AdminCampaignsTable";
 
 export const metadata = { title: "Campaigns · Admin", robots: { index: false } };
-
-const STATUS_STYLE = { active: "pill-verified", completed: "pill-accent", paused: "pill-pending", draft: "pill-pending" };
-const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
 
 export default async function AdminCampaignsPage({ searchParams }) {
   await requireAdmin();
@@ -27,7 +16,10 @@ export default async function AdminCampaignsPage({ searchParams }) {
 
   await dbConnect();
   const query = ["active", "completed", "paused", "draft"].includes(statusFilter) ? { status: statusFilter } : {};
-  const campaigns = await Campaign.find(query).sort({ createdAt: -1 }).limit(500).lean();
+  const [campaigns, settings] = await Promise.all([
+    Campaign.find(query).sort({ createdAt: -1 }).limit(500).lean(),
+    getSettings(),
+  ]);
 
   // Per-status counts, independent of the current filter — so the tabs can
   // show a count badge without the number changing to match whichever tab
@@ -111,75 +103,29 @@ export default async function AdminCampaignsPage({ searchParams }) {
           <p className="mt-1 text-sm text-secondary">Nothing matches this filter yet.</p>
         </div>
       ) : (
-        <div className="mt-6 space-y-4">
-          {campaigns.map((c, i) => {
+        <AdminCampaignsTable
+          globalReward={settings.reviewerReward}
+          campaigns={campaigns.map((c) => {
             const owner = oMap.get(String(c.user));
-            const pending = pendingMap.get(String(c._id)) ?? 0;
-            const pct = c.targetReviews ? Math.min(100, Math.round((c.collected / c.targetReviews) * 100)) : 0;
-            const barTone = c.status === "paused" || c.status === "draft" ? "bg-pending" : "bg-accent";
-            return (
-              <div
-                key={String(c._id)}
-                style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
-                className="animate-fade-up rounded-card border border-default bg-surface-raised p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-md"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-bold text-primary">{c.name}</h3>
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLE[c.status]}`}>
-                        {c.status}
-                      </span>
-                      {pending > 0 && (
-                        <span className="inline-flex rounded-full bg-pending-subtle px-2.5 py-0.5 text-xs font-semibold text-pending">
-                          {pending} pending
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-xs text-muted">
-                      {PLATFORM_LABEL[c.platform] ?? c.platform} · by {owner?.name || owner?.email || "Unknown"} ·{" "}
-                      {new Date(c.createdAt).toLocaleDateString("en-IN")}
-                    </p>
-                  </div>
-                  {c.targetUrl && (
-                    <a href={c.targetUrl} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex max-w-[16rem] shrink-0 items-center gap-1 truncate text-xs font-semibold text-accent transition-colors duration-150 hover:underline">
-                      Review link <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                    </a>
-                  )}
-                </div>
-
-                {c.notes && <p className="mt-3 text-sm text-secondary">{c.notes}</p>}
-
-                {/* Figures */}
-                <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
-                  <Fig label="Budget" value={inr(c.budget)} Icon={IndianRupee} />
-                  <Fig label="Rate" value={inr(c.ratePerReview)} Icon={Tag} />
-                  <Fig label="Target" value={`${c.targetReviews}`} Icon={Target} />
-                  <Fig label="Collected" value={`${c.collected}`} Icon={CheckCircle2} />
-                  <Fig label="Progress" value={`${pct}%`} Icon={BarChart3} />
-                </dl>
-
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-sunken">
-                  <div className={`h-full rounded-full ${barTone} transition-all duration-700 ease-out`} style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            );
+            return {
+              id: String(c._id),
+              name: c.name,
+              platform: c.platform,
+              status: c.status,
+              notes: c.notes,
+              targetUrl: c.targetUrl,
+              budget: c.budget,
+              ratePerReview: c.ratePerReview,
+              reviewerReward: c.reviewerReward ?? null,
+              collected: c.collected ?? 0,
+              targetReviews: c.targetReviews,
+              pending: pendingMap.get(String(c._id)) ?? 0,
+              ownerName: owner?.name || owner?.email || "Unknown",
+              date: new Date(c.createdAt).toLocaleDateString("en-IN"),
+            };
           })}
-        </div>
+        />
       )}
-    </div>
-  );
-}
-
-function Fig({ label, value, Icon }) {
-  return (
-    <div className="group rounded-btn border border-default bg-surface p-3 transition-colors duration-200 hover:bg-surface-sunken">
-      <dt className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
-        <Icon className="h-3 w-3" aria-hidden="true" />
-        {label}
-      </dt>
-      <dd className="nums mt-0.5 text-base font-bold tracking-tight text-primary">{value}</dd>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import dbConnect from "../../../../lib/db";
 import Campaign from "../../../../models/Campaign";
 import Submission from "../../../../models/Submission";
 import User from "../../../../models/User";
-import { getSettings, inr } from "../../../../lib/settings";
+import { getSettings } from "../../../../lib/settings";
 import { releaseExpiredClaims } from "../../../../lib/claims";
 import CampaignParticipation from "../../../../components/reviewer/CampaignParticipation";
 
@@ -72,6 +72,11 @@ export default async function ReviewerCampaignsPage() {
         target: c.targetReviews,
         remaining: c.targetReviews - (c.collected ?? 0) - claimed,
         previouslyRejected: statusByCampaign.get(String(c._id)) === "rejected",
+        // Admin can pay a specific campaign's reviewers more or less than
+        // the platform default (Campaign.reviewerReward — see
+        // api/admin/campaigns/[id]/reward). Falls back to the global rate
+        // when no override is set, same resolution approveSubmission() uses.
+        reward: c.reviewerReward ?? settings.reviewerReward,
       };
     });
 
@@ -79,12 +84,12 @@ export default async function ReviewerCampaignsPage() {
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-primary">Available campaigns</h1>
       <p className="mt-2 text-secondary">
-        Earn {inr(settings.reviewerReward)} for every verified review. Rewards are for verified
-        participation, never for positive ratings.
+        Earn a reward for every verified review — shown on each campaign below. Rewards are for
+        verified participation, never for positive ratings.
       </p>
 
       <div className="mt-8">
-        <CampaignParticipation campaigns={available} reward={settings.reviewerReward} />
+        <CampaignParticipation campaigns={available} />
       </div>
     </div>
   );

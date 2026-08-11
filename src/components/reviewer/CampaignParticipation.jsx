@@ -50,7 +50,8 @@ function useCountdown(expiresAt, onExpire) {
   return { totalSeconds, label: `${mm}:${ss}` };
 }
 
-function Card({ campaign, reward }) {
+function Card({ campaign }) {
+  const reward = campaign.reward;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -302,7 +303,7 @@ function Card({ campaign, reward }) {
   );
 }
 
-export default function CampaignParticipation({ campaigns, reward }) {
+export default function CampaignParticipation({ campaigns }) {
   if (campaigns.length === 0) {
     return (
       <div className="rounded-card border border-dashed border-default bg-surface-raised p-10 text-center">
@@ -318,7 +319,7 @@ export default function CampaignParticipation({ campaigns, reward }) {
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {campaigns.map((c, i) => (
         <div key={c.id} className="animate-fade-up h-full" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
-          <Card campaign={c} reward={reward} />
+          <Card campaign={c} />
         </div>
       ))}
     </div>

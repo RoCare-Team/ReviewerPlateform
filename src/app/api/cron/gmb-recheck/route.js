@@ -72,7 +72,7 @@ export async function GET() {
     );
 
     if (gmb.matched) {
-      const outcome = await approveSubmission(sub._id, settings.reviewerReward, { verifiedBy: "ai" });
+      const { outcome } = await approveSubmission(sub._id, settings.reviewerReward, { verifiedBy: "ai" });
       if (outcome === "approved") approved += 1;
     }
   }
