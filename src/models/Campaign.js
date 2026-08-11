@@ -64,6 +64,25 @@ const CampaignSchema = new mongoose.Schema(
       type: [
         {
           text: { type: String, required: true, trim: true },
+          // The local-search keyword this review was written around (see
+          // lib/aiKeywords.js) — stored just for visibility on the campaigns
+          // table; not read by any assignment/claim logic.
+          keyword: { type: String, trim: true, default: "" },
+          assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+          assignedAt: { type: Date, default: null },
+        },
+      ],
+      default: [],
+    },
+
+    // Optional pool of images (uploaded to Cloudinary) for reviewers to
+    // download and attach to the review they post — one reviewer per entry,
+    // same assign-on-claim / release-on-expiry lifecycle as reviewDrafts
+    // above. See lib/claims.js.
+    reviewImages: {
+      type: [
+        {
+          url: { type: String, required: true, trim: true },
           assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
           assignedAt: { type: Date, default: null },
         },

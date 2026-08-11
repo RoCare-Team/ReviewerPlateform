@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Globe2,
+  ImagePlus,
   IndianRupee,
   Link2,
+  Loader2,
   MapPin,
   MessageSquareText,
   Plus,
@@ -45,19 +47,37 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", state: "", city: "" });
-  const [rows, setRows] = useState(locations.length > 0 ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "", reviewDrafts: [] }] : []);
+  const [rows, setRows] = useState(
+    locations.length > 0
+      ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "", keywords: [], reviewDrafts: [], images: [] }]
+      : []
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
-  // AI-drafted reviews for reviewers to copy — single-campaign mode. Nothing
-  // is generated/saved until the owner explicitly asks for it and reviews
-  // the list; see aiReviewDrafts.js for why this exists and its risk. Multi
-  // mode keeps its own drafts PER ROW (row.reviewDrafts) instead — each
-  // location gets its own review-count's worth of keywords generated
-  // separately, never pooled and split across locations.
+  // Two-step review-draft flow for reviewers to copy — single-campaign mode.
+  // Step 1: suggest `reviewsNum` local-search KEYWORDS, owner picks/edits
+  // which to keep. Step 2: generate one full review PER CHOSEN keyword, so
+  // every review is guaranteed tied to a keyword the owner approved. Nothing
+  // is generated/saved until the owner explicitly asks; see aiKeywords.js /
+  // aiReviewDrafts.js for why this exists and its risk. Multi mode keeps its
+  // own keywords/drafts PER ROW instead — each location's own review-count's
+  // worth, generated separately, never pooled across locations.
+  const [keywords, setKeywords] = useState([]); // [{ text, selected }]
+  const [keywordsPending, setKeywordsPending] = useState(false);
   const [reviewDrafts, setReviewDrafts] = useState([]);
   const [draftsPending, setDraftsPending] = useState(false);
   const [rowDraftsPending, setRowDraftsPending] = useState({});
+  const [rowKeywordsPending, setRowKeywordsPending] = useState({});
+
+  // Optional pool of images for reviewers to download and attach to the
+  // review they post — one per review, same "up to reviewsNum" cap as
+  // keywords. Uploaded to Cloudinary as each file is picked (not deferred to
+  // submit), so the owner sees real thumbnails and upload failures
+  // immediately rather than at the very end. Single-campaign mode only;
+  // multi mode keeps its own pool PER ROW (row.images).
+  const [images, setImages] = useState([]); // [{ url, uploading }]
+  const [rowImagesUploading, setRowImagesUploading] = useState({});
 
   const multiMode = values.platform === "google" && locations.length > 0;
 
@@ -130,7 +150,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   }
 
   function addRow() {
-    setRows((r) => [...r, { locationId: "", reviews: "", targetUrl: "", state: "", city: "", reviewDrafts: [] }]);
+    setRows((r) => [...r, { locationId: "", reviews: "", targetUrl: "", state: "", city: "", keywords: [], reviewDrafts: [], images: [] }]);
   }
 
   function removeRow(index) {
@@ -188,9 +208,54 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   // ("RO service near me") instead of generic praise.
   const suggestCategory = locations.find((l) => l.id === values.locationId)?.category || "";
 
-  async function suggestReviews() {
+  // One click, two AI calls: suggest exactly `reviewsNum` keywords, then
+  // immediately write one review per keyword — no separate "now generate
+  // reviews" click needed. Keywords stay editable afterward; unchecking one
+  // and using "Regenerate reviews" below re-runs just the review step.
+  async function suggestKeywords() {
     if (reviewsNum < 1) {
       toast.error("Enter how many reviews you need first.");
+      return;
+    }
+    setKeywordsPending(true);
+    const res = await fetch("/api/business/campaigns/suggest-keywords", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: values.name.trim(), category: suggestCategory, count: Math.min(reviewsNum, 50) }),
+    });
+    setKeywordsPending(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't generate keywords.");
+      return;
+    }
+    const kw = data.keywords.map((text) => ({ text, selected: true }));
+    setKeywords(kw);
+    await generateReviewsFromKeywords(kw);
+  }
+
+  function toggleKeyword(i) {
+    setKeywords((list) => list.map((k, idx) => (idx === i ? { ...k, selected: !k.selected } : k)));
+  }
+
+  function updateKeyword(i, text) {
+    setKeywords((list) => list.map((k, idx) => (idx === i ? { ...k, text } : k)));
+  }
+
+  function removeKeyword(i) {
+    setKeywords((list) => list.filter((_, idx) => idx !== i));
+  }
+
+  // Write one full review PER SELECTED keyword, in order, so reviewDrafts[i]
+  // is guaranteed to be built around keywords[i]. `fromList` lets
+  // suggestKeywords() chain straight into this with the just-fetched list
+  // (state set via setKeywords() above isn't readable yet in the same tick);
+  // the "Regenerate reviews" button below calls this with no argument, which
+  // reads whatever the owner has since checked/unchecked/edited.
+  async function generateReviewsFromKeywords(fromList) {
+    const chosen = (fromList ?? keywords).filter((k) => k.selected && k.text.trim()).map((k) => k.text.trim());
+    if (chosen.length === 0) {
+      toast.error("Select at least one keyword first.");
       return;
     }
     setDraftsPending(true);
@@ -202,7 +267,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         platform: values.platform,
         notes: values.notes.trim(),
         category: suggestCategory,
-        count: Math.min(reviewsNum, 50),
+        keywords: chosen,
       }),
     });
     setDraftsPending(false);
@@ -211,26 +276,66 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
       toast.error(data.error ?? "Couldn't generate reviews.");
       return;
     }
-    setReviewDrafts(data.reviews);
+    // Reviews come back in the same order as `chosen` — pair each with the
+    // keyword it was written around, so the campaigns table (and the final
+    // save) can show which review goes with which keyword.
+    setReviewDrafts(data.reviews.map((text, i) => ({ text, keyword: chosen[i] || "" })));
   }
 
   function updateDraft(i, text) {
-    setReviewDrafts((list) => list.map((t, idx) => (idx === i ? text : t)));
+    setReviewDrafts((list) => list.map((d, idx) => (idx === i ? { ...d, text } : d)));
   }
 
   function removeDraft(i) {
     setReviewDrafts((list) => list.filter((_, idx) => idx !== i));
   }
 
-  // Multi mode: each location generates its OWN review-count's worth of
-  // drafts, sized and categorized to that location alone — never pooled
-  // across locations and sliced, so a 5-review location always gets exactly
-  // its own 5 keywords, not a share of some combined total.
-  async function suggestReviewsForRow(index) {
+  // Multi mode: each location runs its OWN keyword → review pipeline, sized
+  // and categorized to that location alone — never pooled across locations,
+  // so a 5-review location always gets exactly its own 5 keywords and 5
+  // reviews, not a share of some combined total.
+  async function suggestKeywordsForRow(index) {
     const row = rows[index];
     const n = Number(row.reviews) || 0;
     if (n < 1) {
       toast.error("Enter how many reviews this location needs first.");
+      return;
+    }
+    setRowKeywordsPending((p) => ({ ...p, [index]: true }));
+    const loc = locations.find((l) => l.id === row.locationId);
+    const res = await fetch("/api/business/campaigns/suggest-keywords", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: loc?.title || values.name.trim(), category: loc?.category || "", count: Math.min(n, 50) }),
+    });
+    setRowKeywordsPending((p) => ({ ...p, [index]: false }));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't generate keywords.");
+      return;
+    }
+    const kw = data.keywords.map((text) => ({ text, selected: true }));
+    setRow(index, "keywords", kw);
+    await generateReviewsFromRowKeywords(index, kw);
+  }
+
+  function toggleRowKeyword(rowIndex, i) {
+    setRow(rowIndex, "keywords", rows[rowIndex].keywords.map((k, idx) => (idx === i ? { ...k, selected: !k.selected } : k)));
+  }
+
+  function updateRowKeyword(rowIndex, i, text) {
+    setRow(rowIndex, "keywords", rows[rowIndex].keywords.map((k, idx) => (idx === i ? { ...k, text } : k)));
+  }
+
+  function removeRowKeyword(rowIndex, i) {
+    setRow(rowIndex, "keywords", rows[rowIndex].keywords.filter((_, idx) => idx !== i));
+  }
+
+  async function generateReviewsFromRowKeywords(index, fromList) {
+    const row = rows[index];
+    const chosen = (fromList ?? row.keywords).filter((k) => k.selected && k.text.trim()).map((k) => k.text.trim());
+    if (chosen.length === 0) {
+      toast.error("Select at least one keyword first.");
       return;
     }
     setRowDraftsPending((p) => ({ ...p, [index]: true }));
@@ -243,7 +348,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         platform: "google",
         notes: values.notes.trim(),
         category: loc?.category || "",
-        count: Math.min(n, 50),
+        keywords: chosen,
       }),
     });
     setRowDraftsPending((p) => ({ ...p, [index]: false }));
@@ -252,11 +357,95 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
       toast.error(data.error ?? "Couldn't generate reviews.");
       return;
     }
-    setRow(index, "reviewDrafts", data.reviews);
+    setRow(index, "reviewDrafts", data.reviews.map((text, i) => ({ text, keyword: chosen[i] || "" })));
+  }
+
+  async function uploadOneImage(file) {
+    const fd = new FormData();
+    fd.append("image", file);
+    const res = await fetch("/api/business/campaigns/upload-image", { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? "Upload failed.");
+    return data.url;
+  }
+
+  // Single-campaign mode — capped at `reviewsNum`, same as keywords. Files
+  // upload one at a time (not parallel) so a slow connection doesn't fire
+  // N simultaneous Cloudinary uploads; each success appends immediately so
+  // the owner sees progress rather than waiting for the whole batch.
+  async function addImages(fileList) {
+    const files = Array.from(fileList ?? []);
+    if (files.length === 0) return;
+    const room = Math.max(0, reviewsNum - images.length);
+    if (room === 0) {
+      toast.error(`You can only add ${reviewsNum || 0} image(s) — one per review.`);
+      return;
+    }
+    const toUpload = files.slice(0, room);
+    if (files.length > toUpload.length) {
+      toast.error(`Only ${room} more image(s) fit — one per review. The rest were skipped.`);
+    }
+    for (const file of toUpload) {
+      const placeholder = { url: "", uploading: true };
+      setImages((list) => [...list, placeholder]);
+      try {
+        const url = await uploadOneImage(file);
+        setImages((list) => {
+          const idx = list.indexOf(placeholder);
+          if (idx === -1) return list;
+          const next = [...list];
+          next[idx] = { url, uploading: false };
+          return next;
+        });
+      } catch (e) {
+        setImages((list) => list.filter((it) => it !== placeholder));
+        toast.error(e.message ?? "Couldn't upload image.");
+      }
+    }
+  }
+
+  function removeImage(i) {
+    setImages((list) => list.filter((_, idx) => idx !== i));
+  }
+
+  // Multi mode — each row capped at its OWN review count.
+  async function addRowImages(index, fileList) {
+    const files = Array.from(fileList ?? []);
+    if (files.length === 0) return;
+    const row = rows[index];
+    const cap = Number(row.reviews) || 0;
+    const room = Math.max(0, cap - row.images.length);
+    if (room === 0) {
+      toast.error(`You can only add ${cap} image(s) for this location — one per review.`);
+      return;
+    }
+    const toUpload = files.slice(0, room);
+    if (files.length > toUpload.length) {
+      toast.error(`Only ${room} more image(s) fit for this location. The rest were skipped.`);
+    }
+    setRowImagesUploading((p) => ({ ...p, [index]: true }));
+    // Accumulate locally rather than reading rows[index] inside the loop —
+    // setRow()'s state update isn't visible on `rows` again until the next
+    // render, so re-reading it mid-loop would drop every upload but the last.
+    let current = row.images;
+    for (const file of toUpload) {
+      try {
+        const url = await uploadOneImage(file);
+        current = [...current, { url, uploading: false }];
+        setRow(index, "images", current);
+      } catch (e) {
+        toast.error(e.message ?? "Couldn't upload image.");
+      }
+    }
+    setRowImagesUploading((p) => ({ ...p, [index]: false }));
+  }
+
+  function removeRowImage(rowIndex, i) {
+    setRow(rowIndex, "images", rows[rowIndex].images.filter((_, idx) => idx !== i));
   }
 
   function updateRowDraft(rowIndex, draftIndex, text) {
-    setRow(rowIndex, "reviewDrafts", rows[rowIndex].reviewDrafts.map((t, idx) => (idx === draftIndex ? text : t)));
+    setRow(rowIndex, "reviewDrafts", rows[rowIndex].reviewDrafts.map((d, idx) => (idx === draftIndex ? { ...d, text } : d)));
   }
 
   function removeRowDraft(rowIndex, draftIndex) {
@@ -282,6 +471,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     e.preventDefault();
     setError("");
     if (!values.name.trim()) return setError("Give your campaign a name.");
+    if (images.some((im) => im.uploading) || rows.some((r) => r.images?.some((im) => im.uploading))) {
+      return setError("Wait for the image uploads to finish.");
+    }
 
     let body;
     if (multiMode) {
@@ -312,13 +504,17 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         // however many it generated), independent of every other row.
         locations: filled.map((r) => {
           const n = Math.floor(Number(r.reviews)) || 0;
-          const drafts = (r.reviewDrafts ?? []).map((t) => t.trim()).filter(Boolean);
+          const drafts = (r.reviewDrafts ?? [])
+            .filter((d) => d.text.trim())
+            .map((d) => ({ text: d.text.trim(), keyword: d.keyword || undefined }));
+          const imgs = (r.images ?? []).filter((im) => !im.uploading && im.url).map((im) => im.url);
           return {
             locationId: r.locationId,
             budget: n * rate,
             targetUrl: r.targetUrl?.trim() || undefined,
             city: r.city?.trim() || undefined,
             reviewDrafts: drafts.length > 0 ? drafts : undefined,
+            reviewImages: imgs.length > 0 ? imgs : undefined,
           };
         }),
       };
@@ -338,7 +534,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         targetUrl: values.targetUrl.trim(),
         city: values.city.trim(),
         locationId: values.locationId || undefined,
-        reviewDrafts: reviewDrafts.map((t) => t.trim()).filter(Boolean),
+        reviewDrafts: reviewDrafts.filter((d) => d.text.trim()).map((d) => ({ text: d.text.trim(), keyword: d.keyword || undefined })),
+        reviewImages: images.filter((im) => !im.uploading && im.url).map((im) => im.url),
       };
     }
 
@@ -366,8 +563,14 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
 
     toast.success(multiMode && body.locations.length > 1 ? `${body.locations.length} campaigns created.` : "Campaign created.");
     setValues({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", state: "", city: "" });
-    setRows(locations.length > 0 ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "", reviewDrafts: [] }] : []);
+    setRows(
+      locations.length > 0
+        ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "", keywords: [], reviewDrafts: [], images: [] }]
+        : []
+    );
+    setKeywords([]);
     setReviewDrafts([]);
+    setImages([]);
     setOpen(false);
     router.refresh();
   }
@@ -393,7 +596,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
           onClick={close}
         >
           <div
-            className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-card border border-default bg-surface-raised shadow-xl"
+            className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-card border border-default bg-surface-raised shadow-xl lg:max-w-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header — sticky, stays put while the form body scrolls */}
@@ -574,9 +777,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                               </p>
                             </div>
 
-                            {/* This location's own AI-drafted reviews — sized
-                                to exactly this row's review count, never
-                                pooled with other locations. */}
+                            {/* This location's own keyword → review pipeline
+                                — sized to exactly this row's review count,
+                                never pooled with other locations. */}
                             {row.locationId && rowReviews >= 1 && (
                               <div className="rounded-card border border-default bg-surface-raised p-2.5">
                                 <div className="flex items-center justify-between gap-3">
@@ -585,38 +788,157 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                   </p>
                                   <button
                                     type="button"
-                                    onClick={() => suggestReviewsForRow(i)}
-                                    disabled={rowDraftsPending[i]}
+                                    onClick={() => suggestKeywordsForRow(i)}
+                                    disabled={rowKeywordsPending[i] || rowDraftsPending[i]}
                                     className="inline-flex shrink-0 items-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-2.5 py-1 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                                   >
                                     <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                                    {rowDraftsPending[i] ? "Generating…" : row.reviewDrafts?.length > 0 ? "Regenerate" : `Suggest ${rowReviews} with AI`}
+                                    {rowKeywordsPending[i]
+                                      ? "Finding keywords…"
+                                      : rowDraftsPending[i]
+                                        ? "Writing reviews…"
+                                        : row.keywords?.length > 0
+                                          ? "Regenerate"
+                                          : `Suggest ${rowReviews} with AI`}
                                   </button>
                                 </div>
 
-                                {row.reviewDrafts?.length > 0 && (
-                                  <ul className="mt-2.5 space-y-2">
-                                    {row.reviewDrafts.map((text, di) => (
-                                      <li key={di} className="flex items-start gap-2">
-                                        <textarea
-                                          rows={2}
-                                          value={text}
-                                          onChange={(e) => updateRowDraft(i, di, e.target.value)}
-                                          maxLength={1000}
-                                          className="w-full flex-1 resize-none rounded-2xl border border-default bg-surface-sunken px-3 py-2.5 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => removeRowDraft(i, di)}
-                                          aria-label="Remove"
-                                          className="shrink-0 rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                                        </button>
-                                      </li>
-                                    ))}
-                                  </ul>
+                                {row.keywords?.length > 0 && (
+                                  <>
+                                    <ul className="mt-2.5 space-y-1.5">
+                                      {row.keywords.map((k, ki) => (
+                                        <li key={ki} className="flex items-center gap-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={k.selected}
+                                            onChange={() => toggleRowKeyword(i, ki)}
+                                            className="h-4 w-4 shrink-0 rounded border-default accent-accent"
+                                            aria-label={`Use "${k.text}"`}
+                                          />
+                                          <input
+                                            type="text"
+                                            value={k.text}
+                                            onChange={(e) => updateRowKeyword(i, ki, e.target.value)}
+                                            maxLength={100}
+                                            className={`w-full flex-1 rounded-btn border border-default bg-surface-sunken px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
+                                              k.selected ? "text-primary" : "text-muted line-through"
+                                            }`}
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => removeRowKeyword(i, ki)}
+                                            aria-label="Remove"
+                                            className="shrink-0 rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+
+                                    {/* Only needed after editing which
+                                        keywords are checked — the first
+                                        click above already wrote reviews for
+                                        every keyword it suggested. */}
+                                    <button
+                                      type="button"
+                                      onClick={() => generateReviewsFromRowKeywords(i)}
+                                      disabled={rowDraftsPending[i] || row.keywords.filter((k) => k.selected).length === 0}
+                                      className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                                    >
+                                      <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                                      {rowDraftsPending[i]
+                                        ? "Writing reviews…"
+                                        : `Regenerate reviews (${row.keywords.filter((k) => k.selected).length})`}
+                                    </button>
+                                  </>
                                 )}
+
+                                {row.reviewDrafts?.length > 0 && (
+                                  <>
+                                    <p className="mt-3 text-xs font-semibold text-primary">Reviews for reviewers to copy</p>
+                                    <ul className="mt-2 space-y-2">
+                                      {row.reviewDrafts.map((d, di) => (
+                                        <li key={di} className="flex items-start gap-2">
+                                          <div className="w-full flex-1">
+                                            {d.keyword && (
+                                              <p className="mb-1 truncate text-[10px] font-semibold text-muted">Keyword: {d.keyword}</p>
+                                            )}
+                                            <textarea
+                                              rows={2}
+                                              value={d.text}
+                                              onChange={(e) => updateRowDraft(i, di, e.target.value)}
+                                              maxLength={1000}
+                                              className="w-full resize-none rounded-2xl border border-default bg-surface-sunken px-3 py-2.5 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
+                                            />
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => removeRowDraft(i, di)}
+                                            aria-label="Remove"
+                                            className="shrink-0 rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                          </button>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </>
+                                )}
+
+                                {/* This location's own images — capped at its
+                                    own review count, never pooled. */}
+                                <div className="mt-3 border-t border-default pt-2.5">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs font-semibold text-primary">
+                                      Images to attach <span className="font-normal text-muted">(optional, up to {rowReviews})</span>
+                                    </p>
+                                    <label
+                                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-2.5 py-1 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand ${
+                                        rowImagesUploading[i] || row.images.length >= rowReviews ? "pointer-events-none opacity-60" : "cursor-pointer"
+                                      }`}
+                                    >
+                                      <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+                                      Add
+                                      <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp"
+                                        multiple
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          addRowImages(i, e.target.files);
+                                          e.target.value = "";
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
+
+                                  {row.images.length > 0 && (
+                                    <div className="mt-2 grid grid-cols-4 gap-2">
+                                      {row.images.map((im, ii) => (
+                                        <div key={ii} className="relative aspect-square overflow-hidden rounded-lg border border-default bg-surface-sunken">
+                                          {im.uploading ? (
+                                            <div className="flex h-full w-full items-center justify-center">
+                                              <Loader2 className="h-4 w-4 animate-spin text-muted" aria-hidden="true" />
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <img src={im.url} alt="" className="h-full w-full object-cover" />
+                                              <button
+                                                type="button"
+                                                onClick={() => removeRowImage(i, ii)}
+                                                aria-label="Remove"
+                                                className="absolute right-0.5 top-0.5 rounded-full bg-surface-inverse/80 p-0.5 text-white transition-colors duration-150 hover:bg-danger"
+                                              >
+                                                <X className="h-3 w-3" aria-hidden="true" />
+                                              </button>
+                                            </>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -751,39 +1073,96 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                       </p>
                     </div>
 
-                    {/* Optional AI-drafted reviews — one per reviewer, ready
-                        to copy-paste. Never generated/saved unless the owner
-                        explicitly asks and reviews the list. */}
+                    {/* Step 1 — keywords. Never generated/saved unless the
+                        owner explicitly asks and reviews the list. */}
                     <div className="rounded-card border border-default bg-surface p-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-primary">Reviews for reviewers to copy (optional)</p>
                           <p className="mt-0.5 text-xs text-muted">
-                            AI drafts {reviewsNum || "N"} ready-to-post reviews — each reviewer gets one to copy-paste.
+                            One click: AI suggests {reviewsNum || "N"} local-search keywords (e.g. &quot;RO service near me&quot;), then writes a review for each.
                           </p>
                         </div>
                         <button
                           type="button"
-                          onClick={suggestReviews}
-                          disabled={draftsPending || reviewsNum < 1}
+                          onClick={suggestKeywords}
+                          disabled={keywordsPending || draftsPending || reviewsNum < 1}
                           className="inline-flex shrink-0 items-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                         >
                           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                          {draftsPending ? "Generating…" : reviewDrafts.length > 0 ? "Regenerate" : "Suggest with AI"}
+                          {keywordsPending ? "Finding keywords…" : draftsPending ? "Writing reviews…" : keywords.length > 0 ? "Regenerate" : "Suggest with AI"}
                         </button>
                       </div>
 
-                      {reviewDrafts.length > 0 && (
+                      {keywords.length > 0 && (
+                        <>
+                          <ul className="mt-3 space-y-1.5">
+                            {keywords.map((k, i) => (
+                              <li key={i} className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={k.selected}
+                                  onChange={() => toggleKeyword(i)}
+                                  className="h-4 w-4 shrink-0 rounded border-default accent-accent"
+                                  aria-label={`Use "${k.text}"`}
+                                />
+                                <input
+                                  type="text"
+                                  value={k.text}
+                                  onChange={(e) => updateKeyword(i, e.target.value)}
+                                  maxLength={100}
+                                  className={`w-full flex-1 rounded-btn border border-default bg-surface-sunken px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
+                                    k.selected ? "text-primary" : "text-muted line-through"
+                                  }`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeKeyword(i)}
+                                  aria-label="Remove"
+                                  className="shrink-0 rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+
+                          {/* Only needed after editing which keywords are
+                              checked — the first click above already wrote
+                              reviews for every keyword it suggested. */}
+                          <button
+                            type="button"
+                            onClick={() => generateReviewsFromKeywords()}
+                            disabled={draftsPending || keywords.filter((k) => k.selected).length === 0}
+                            className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-2 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                          >
+                            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                            {draftsPending
+                              ? "Writing reviews…"
+                              : `Regenerate reviews from selected keywords (${keywords.filter((k) => k.selected).length})`}
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Step 2 — one full review per chosen keyword. */}
+                    {reviewDrafts.length > 0 && (
+                      <div className="rounded-card border border-default bg-surface p-3">
+                        <p className="text-sm font-semibold text-primary">Reviews for reviewers to copy</p>
+                        <p className="mt-0.5 text-xs text-muted">Each is built around one of your chosen keywords — edit freely.</p>
                         <ul className="mt-3 space-y-2">
-                          {reviewDrafts.map((text, i) => (
+                          {reviewDrafts.map((d, i) => (
                             <li key={i} className="flex items-start gap-2">
-                              <textarea
-                                rows={2}
-                                value={text}
-                                onChange={(e) => updateDraft(i, e.target.value)}
-                                maxLength={1000}
-                                className="w-full flex-1 resize-none rounded-2xl border border-default bg-surface-sunken px-3 py-2.5 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
-                              />
+                              <div className="w-full flex-1">
+                                {d.keyword && <p className="mb-1 truncate text-[10px] font-semibold text-muted">Keyword: {d.keyword}</p>}
+                                <textarea
+                                  rows={2}
+                                  value={d.text}
+                                  onChange={(e) => updateDraft(i, e.target.value)}
+                                  maxLength={1000}
+                                  className="w-full resize-none rounded-2xl border border-default bg-surface-sunken px-3 py-2.5 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
+                                />
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => removeDraft(i)}
@@ -795,6 +1174,64 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                             </li>
                           ))}
                         </ul>
+                      </div>
+                    )}
+
+                    {/* Images for reviewers to download and attach to the
+                        review they post — one per review, never generated,
+                        just uploaded. */}
+                    <div className="rounded-card border border-default bg-surface p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-primary">Images for reviewers to attach (optional)</p>
+                          <p className="mt-0.5 text-xs text-muted">
+                            Up to {reviewsNum || "N"} images — one per reviewer to download and attach to their review.
+                          </p>
+                        </div>
+                        <label
+                          className={`inline-flex shrink-0 items-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand ${
+                            reviewsNum < 1 || images.length >= reviewsNum ? "pointer-events-none opacity-60" : "cursor-pointer"
+                          }`}
+                        >
+                          <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+                          Add images
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => {
+                              addImages(e.target.files);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+
+                      {images.length > 0 && (
+                        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                          {images.map((im, i) => (
+                            <div key={i} className="relative aspect-square overflow-hidden rounded-lg border border-default bg-surface-sunken">
+                              {im.uploading ? (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <Loader2 className="h-5 w-5 animate-spin text-muted" aria-hidden="true" />
+                                </div>
+                              ) : (
+                                <>
+                                  <img src={im.url} alt="" className="h-full w-full object-cover" />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeImage(i)}
+                                    aria-label="Remove"
+                                    className="absolute right-1 top-1 rounded-full bg-surface-inverse/80 p-1 text-white transition-colors duration-150 hover:bg-danger"
+                                  >
+                                    <X className="h-3 w-3" aria-hidden="true" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clipboard, ClipboardCheck, Clock, ExternalLink, MapPin, Megaphone, RotateCcw, Upload, Star, X, XCircle } from "lucide-react";
+import { CheckCircle2, Clipboard, ClipboardCheck, Clock, Download, ExternalLink, MapPin, Megaphone, RotateCcw, Upload, Star, X, XCircle } from "lucide-react";
 import { toast } from "../../lib/toast";
 
 /**
@@ -62,7 +62,10 @@ function Card({ campaign }) {
   const [claiming, setClaiming] = useState(false);
   const [expiresAt, setExpiresAt] = useState(() => campaign.activeClaimExpiresAt ?? null);
   const [reviewText, setReviewText] = useState(() => campaign.activeReviewText || "");
+  const [imageUrl, setImageUrl] = useState(() => campaign.activeImageUrl || "");
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
   const [file, setFile] = useState(null);
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
@@ -75,6 +78,8 @@ function Card({ campaign }) {
     setOpen(false);
     setExpiresAt(null);
     setReviewText("");
+    setImageUrl("");
+    setDownloaded(false);
     router.refresh();
   });
 
@@ -93,15 +98,19 @@ function Card({ campaign }) {
 
     setExpiresAt(data.expiresAt);
     setReviewText(data.reviewText || "");
+    setImageUrl(data.imageUrl || "");
     setOpen(true);
 
-    // Copy BEFORE opening the review link, not after — window.open() shifts
-    // focus to the new tab, and browsers refuse navigator.clipboard.writeText
-    // once this document isn't the focused one anymore, so copying afterward
-    // silently failed. Copying first (while this tab still has focus) then
-    // opening the link is also the order the reviewer actually wants: text
-    // ready to paste the moment the review page shows up.
+    // Order matters, and it's deliberate: copy the review text, download the
+    // attach-image, THEN open the review link — everything the reviewer
+    // needs is already in hand (clipboard + downloads folder) by the time
+    // the review page shows up, instead of them bouncing back to this tab
+    // mid-review to fetch it. window.open() also shifts focus to the new
+    // tab, and browsers refuse clipboard/programmatic-download actions once
+    // this document isn't the focused one anymore — so both have to happen
+    // BEFORE it, not after.
     if (data.reviewText) await copyReviewText(data.reviewText);
+    if (data.imageUrl) await downloadImage(data.imageUrl);
     window.open(data.targetUrl, "_blank", "noopener,noreferrer");
   }
 
@@ -113,6 +122,34 @@ function Card({ campaign }) {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error("Couldn't copy — select and copy the text manually.");
+    }
+  }
+
+  // A plain <a download href="https://res.cloudinary.com/..."> only works
+  // for same-origin URLs — browsers silently ignore the `download` attribute
+  // cross-origin and just navigate/open the image instead. Fetching the
+  // image ourselves and saving it as a blob forces an actual file download
+  // regardless of origin.
+  async function downloadImage(url = imageUrl) {
+    setDownloading(true);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Download failed.");
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `review-photo-${campaign.id}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+      setDownloaded(true);
+      toast.success("Image downloaded — attach it to your review.");
+    } catch {
+      toast.error("Couldn't download the image — try the button again.");
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -281,7 +318,7 @@ function Card({ campaign }) {
             <span className="text-sm font-semibold text-primary">Submit your review</span>
             <button
               type="button"
-              onClick={() => { setOpen(false); setExpiresAt(null); setReviewText(""); }}
+              onClick={() => { setOpen(false); setExpiresAt(null); setReviewText(""); setImageUrl(""); setDownloaded(false); }}
               aria-label="Close"
               className="rounded-full p-1 text-muted transition-all duration-200 hover:scale-110 hover:bg-surface-sunken hover:text-primary"
             >
@@ -311,6 +348,24 @@ function Card({ campaign }) {
             </div>
           )}
 
+          {imageUrl && (
+            <div className="mt-3 rounded-card border border-accent-border bg-accent-subtle p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-accent">
+                Attach this photo to your review {downloaded && <span className="text-verified">· Downloaded</span>}
+              </p>
+              <img src={imageUrl} alt="" className="mt-2 h-28 w-full rounded-btn border border-default object-cover" />
+              <button
+                type="button"
+                onClick={() => downloadImage()}
+                disabled={downloading}
+                className="mt-2.5 inline-flex items-center gap-1.5 rounded-btn border border-accent bg-surface px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                {downloading ? "Downloading…" : downloaded ? "Download again" : "Download image"}
+              </button>
+            </div>
+          )}
+
           <ol className="mt-3 space-y-2 text-sm text-secondary">
             <li className="flex items-start gap-2">
               <span className="font-bold text-accent">1.</span>
@@ -321,7 +376,8 @@ function Card({ campaign }) {
             </li>
             <li className="flex items-start gap-2">
               <span className="font-bold text-accent">2.</span>
-              {reviewText ? "Paste the copied review above (or write your own)." : "Leave your honest review."}
+              {reviewText ? "Paste the copied review above" : "Leave your honest review"}
+              {imageUrl ? " and attach the downloaded photo." : "."}
             </li>
             <li className="flex items-start gap-2"><span className="font-bold text-accent">3.</span> Upload a screenshot as proof.</li>
           </ol>

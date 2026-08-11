@@ -7,30 +7,57 @@ import Claim, { CLAIM_TTL_MINUTES } from "../models/Claim";
  */
 
 /**
- * Free a claim's assigned review-draft entry back to Campaign.reviewDrafts
- * (assignedTo/assignedAt reset to null) so another reviewer can be handed it.
- * No-op if the claim never had one assigned. Matches on the specific
+ * Free a claim's assigned pool entry (a reviewDrafts or reviewImages
+ * subdocument) back to `assignedTo: null` so another reviewer can be handed
+ * it. No-op if the claim never had one assigned. Matches on the specific
  * subdocument id, so this can never accidentally free a DIFFERENT reviewer's
- * assignment.
+ * assignment. `field` is "reviewDrafts" or "reviewImages".
  */
-async function releaseReviewDraft(campaignId, draftId) {
-  if (!draftId) return;
+async function releasePoolItem(campaignId, field, itemId) {
+  if (!itemId) return;
   await Campaign.updateOne(
-    { _id: campaignId, "reviewDrafts._id": draftId },
-    { $set: { "reviewDrafts.$.assignedTo": null, "reviewDrafts.$.assignedAt": null } }
+    { _id: campaignId, [`${field}._id`]: itemId },
+    { $set: { [`${field}.$.assignedTo`]: null, [`${field}.$.assignedAt`]: null } }
   );
 }
 
 /**
+ * Atomically hand `reviewerId` one still-unassigned entry from
+ * Campaign[field] (reviewDrafts or reviewImages), if any exist. Returns the
+ * subdocument or null (no pool configured, or every entry is already taken —
+ * never treated as an error, both pools are optional). A short retry loop
+ * handles the race where two reviewers grab the same free-looking entry at
+ * once: the positional `$` update only succeeds if that exact entry is
+ * STILL unassigned at write time, so a lost race just falls through to the
+ * next candidate instead of double-assigning.
+ */
+async function assignPoolItem(campaignId, field, reviewerId) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const campaign = await Campaign.findById(campaignId).select(field);
+    const candidate = campaign?.[field]?.find((d) => !d.assignedTo);
+    if (!candidate) return null;
+
+    const now = new Date();
+    const updated = await Campaign.findOneAndUpdate(
+      { _id: campaignId, [`${field}._id`]: candidate._id, [`${field}.assignedTo`]: null },
+      { $set: { [`${field}.$.assignedTo`]: reviewerId, [`${field}.$.assignedAt`]: now } }
+    );
+    if (updated) return candidate;
+    // Someone else took it between our read and write — try the next one.
+  }
+  return null;
+}
+
+/**
  * Best-effort cleanup: delete this campaign's claims whose TTL has already
- * passed and give their slots (and any assigned review draft) back. Mongo's
- * TTL sweep does this on its own within ~60s too, but calling this before a
- * capacity check means a slot freed by an abandoned claim is available
- * immediately rather than after waiting on the background sweep.
+ * passed and give their slots (and any assigned review draft/image) back.
+ * Mongo's TTL sweep does this on its own within ~60s too, but calling this
+ * before a capacity check means a slot freed by an abandoned claim is
+ * available immediately rather than after waiting on the background sweep.
  */
 export async function releaseExpiredClaims(campaignId) {
   const expired = await Claim.find({ campaign: campaignId, expiresAt: { $lte: new Date() } }).select(
-    "_id reviewDraft.draftId"
+    "_id reviewDraft.draftId reviewImage.imageId"
   );
   if (expired.length === 0) return;
   await Claim.deleteMany({ _id: { $in: expired.map((c) => c._id) } });
@@ -38,46 +65,22 @@ export async function releaseExpiredClaims(campaignId) {
     { _id: campaignId, claimed: { $gte: expired.length } },
     { $inc: { claimed: -expired.length } }
   );
-  await Promise.all(expired.map((c) => releaseReviewDraft(campaignId, c.reviewDraft?.draftId)));
-}
-
-/**
- * Atomically hand `reviewerId` one still-unassigned review-draft entry from
- * the campaign's pool, if any exist. Returns { draftId, text } or null (no
- * pool configured, or every entry is already taken — never treated as an
- * error, since the draft pool is optional). A short retry loop handles the
- * race where two reviewers grab the same free-looking entry at once: the
- * positional `$` update only succeeds if that exact entry is STILL
- * unassigned at write time, so a lost race just falls through to the next
- * candidate instead of double-assigning.
- */
-async function assignReviewDraft(campaignId, reviewerId) {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const campaign = await Campaign.findById(campaignId).select("reviewDrafts");
-    const candidate = campaign?.reviewDrafts?.find((d) => !d.assignedTo);
-    if (!candidate) return null;
-
-    const now = new Date();
-    const updated = await Campaign.findOneAndUpdate(
-      { _id: campaignId, "reviewDrafts._id": candidate._id, "reviewDrafts.assignedTo": null },
-      { $set: { "reviewDrafts.$.assignedTo": reviewerId, "reviewDrafts.$.assignedAt": now } }
-    );
-    if (updated) return { draftId: candidate._id, text: candidate.text };
-    // Someone else took it between our read and write — try the next one.
-  }
-  return null;
+  await Promise.all([
+    ...expired.map((c) => releasePoolItem(campaignId, "reviewDrafts", c.reviewDraft?.draftId)),
+    ...expired.map((c) => releasePoolItem(campaignId, "reviewImages", c.reviewImage?.imageId)),
+  ]);
 }
 
 /**
  * Reserve a slot for `reviewerId` on `campaignId` and return the campaign's
  * review link — the only way the review URL is ever handed to a reviewer.
  * Reopening the link while a claim is still live just renews its timer
- * instead of double-booking (and keeps the SAME review draft it already
- * assigned, if any — see reviewDraft below).
+ * instead of double-booking (and keeps the SAME review draft/image it
+ * already assigned, if any).
  *
- * Returns { ok: true, targetUrl, expiresAt, reviewText } or { ok: false, error }.
- * `reviewText` is "" when the campaign has no review-draft pool configured,
- * or every entry is already taken by other reviewers.
+ * Returns { ok: true, targetUrl, expiresAt, reviewText, imageUrl } or
+ * { ok: false, error }. `reviewText`/`imageUrl` are "" when the campaign has
+ * no pool configured for that, or every entry is already taken.
  *
  * Capacity is enforced with the same atomic-conditional-update pattern as
  * `approveSubmission` (lib/verification.js): `$expr` on collected+claimed
@@ -96,12 +99,18 @@ export async function claimSlot(campaignId, reviewerId) {
   const expiresAt = new Date(now.getTime() + CLAIM_TTL_MINUTES * 60 * 1000);
 
   // Renew an existing live claim rather than reserving a second slot — its
-  // review draft (if any) stays exactly as first assigned.
+  // review draft/image (if any) stays exactly as first assigned.
   const existing = await Claim.findOne({ campaign: campaignId, reviewer: reviewerId });
   if (existing) {
     existing.expiresAt = expiresAt;
     await existing.save();
-    return { ok: true, targetUrl: campaign.targetUrl, expiresAt, reviewText: existing.reviewDraft?.text || "" };
+    return {
+      ok: true,
+      targetUrl: campaign.targetUrl,
+      expiresAt,
+      reviewText: existing.reviewDraft?.text || "",
+      imageUrl: existing.reviewImage?.url || "",
+    };
   }
 
   const reserved = await Campaign.findOneAndUpdate(
@@ -113,51 +122,61 @@ export async function claimSlot(campaignId, reviewerId) {
     return { ok: false, error: "This campaign just filled up — check back if a spot opens up." };
   }
 
-  const draft = await assignReviewDraft(campaignId, reviewerId);
+  const draft = await assignPoolItem(campaignId, "reviewDrafts", reviewerId);
+  const image = await assignPoolItem(campaignId, "reviewImages", reviewerId);
 
   try {
     await Claim.create({
       campaign: campaignId,
       reviewer: reviewerId,
       expiresAt,
-      reviewDraft: draft ? { draftId: draft.draftId, text: draft.text } : undefined,
+      reviewDraft: draft ? { draftId: draft._id, text: draft.text } : undefined,
+      reviewImage: image ? { imageId: image._id, url: image.url } : undefined,
     });
   } catch (e) {
     // Lost a race to a duplicate claim attempt from the same reviewer — give
-    // the slot (and any draft) we just reserved back.
+    // the slot (and any draft/image) we just reserved back.
     await Campaign.updateOne({ _id: campaignId }, { $inc: { claimed: -1 } });
-    if (draft) await releaseReviewDraft(campaignId, draft.draftId);
+    if (draft) await releasePoolItem(campaignId, "reviewDrafts", draft._id);
+    if (image) await releasePoolItem(campaignId, "reviewImages", image._id);
     if (e?.code === 11000) {
       const claim = await Claim.findOne({ campaign: campaignId, reviewer: reviewerId });
       if (claim) {
-        return { ok: true, targetUrl: campaign.targetUrl, expiresAt: claim.expiresAt, reviewText: claim.reviewDraft?.text || "" };
+        return {
+          ok: true,
+          targetUrl: campaign.targetUrl,
+          expiresAt: claim.expiresAt,
+          reviewText: claim.reviewDraft?.text || "",
+          imageUrl: claim.reviewImage?.url || "",
+        };
       }
     }
     throw e;
   }
 
-  return { ok: true, targetUrl: campaign.targetUrl, expiresAt, reviewText: draft?.text || "" };
+  return { ok: true, targetUrl: campaign.targetUrl, expiresAt, reviewText: draft?.text || "", imageUrl: image?.url || "" };
 }
 
 /**
  * Release the slot claimed by `reviewerId` for `campaignId` — call once the
  * reservation is no longer needed. Two distinct cases, and only one of them
- * also frees a `claimed` slot (and the assigned review draft, if any):
+ * also frees a `claimed` slot (and the assigned review draft/image, if any):
  *  - `keepReserved: true` (default): the claim converted into a `pending`
  *    Submission — the Claim doc (and its TTL timer) is no longer needed
  *    since the submission itself has no timeout, but the slot stays
  *    reserved (`claimed` untouched) until that submission is approved or
  *    rejected — see approveSubmission/rejectSubmission in lib/verification.js.
- *    The review draft they were assigned stays permanently spent — it was
- *    used for the review they actually posted, not up for reassignment.
+ *    The review draft/image they were assigned stays permanently spent — it
+ *    was used for the review they actually posted, not up for reassignment.
  *  - `keepReserved: false`: the claim is being abandoned without a
  *    submission (not currently wired up anywhere, kept for completeness) —
- *    the draft (if any) goes back to the pool along with the slot.
+ *    the draft/image (if any) goes back to the pool along with the slot.
  */
 export async function releaseClaim(campaignId, reviewerId, { keepReserved = true } = {}) {
   const deleted = await Claim.findOneAndDelete({ campaign: campaignId, reviewer: reviewerId });
   if (deleted && !keepReserved) {
     await Campaign.updateOne({ _id: campaignId, claimed: { $gte: 1 } }, { $inc: { claimed: -1 } });
-    await releaseReviewDraft(campaignId, deleted.reviewDraft?.draftId);
+    await releasePoolItem(campaignId, "reviewDrafts", deleted.reviewDraft?.draftId);
+    await releasePoolItem(campaignId, "reviewImages", deleted.reviewImage?.imageId);
   }
 }

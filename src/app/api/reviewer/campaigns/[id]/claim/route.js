@@ -29,5 +29,11 @@ export async function POST(request, { params }) {
   const result = await claimSlot(campaignId, user.id);
   if (!result.ok) return Response.json({ error: result.error }, { status: 400 });
 
-  return Response.json({ ok: true, targetUrl: result.targetUrl, expiresAt: result.expiresAt, reviewText: result.reviewText });
+  return Response.json({
+    ok: true,
+    targetUrl: result.targetUrl,
+    expiresAt: result.expiresAt,
+    reviewText: result.reviewText,
+    imageUrl: result.imageUrl,
+  });
 }

@@ -38,7 +38,7 @@ export default async function ReviewerCampaignsPage() {
   // the real, server-persisted expiry on page load/navigation-back, instead
   // of only ever starting from a fresh click — see CampaignParticipation.jsx.
   const myClaims = await Claim.find({ reviewer: user.id, campaign: { $in: openCampaigns.map((c) => c._id) } })
-    .select("campaign expiresAt reviewDraft.text")
+    .select("campaign expiresAt reviewDraft.text reviewImage.url")
     .lean();
   const myClaimByCampaign = new Map(myClaims.map((cl) => [String(cl.campaign), cl]));
 
@@ -95,6 +95,7 @@ export default async function ReviewerCampaignsPage() {
         // above and CampaignParticipation.jsx's Card component.
         activeClaimExpiresAt: myClaimByCampaign.get(String(c._id))?.expiresAt?.toISOString() ?? null,
         activeReviewText: myClaimByCampaign.get(String(c._id))?.reviewDraft?.text || "",
+        activeImageUrl: myClaimByCampaign.get(String(c._id))?.reviewImage?.url || "",
       };
     });
 

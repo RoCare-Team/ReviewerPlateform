@@ -30,6 +30,14 @@ const ClaimSchema = new mongoose.Schema(
       draftId: { type: mongoose.Schema.Types.ObjectId, default: null },
       text: { type: String, default: "" },
     },
+
+    // Same idea as reviewDraft above, but the Campaign.reviewImages entry
+    // (if any were available) — an image for the reviewer to download and
+    // attach to the review they post.
+    reviewImage: {
+      imageId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      url: { type: String, default: "" },
+    },
   },
   { timestamps: true }
 );

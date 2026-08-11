@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   IndianRupee,
   Link2,
   MapPin,
@@ -14,6 +15,7 @@ import {
   Target,
 } from "lucide-react";
 import EditCampaignModal from "../models/EditCampaignModal";
+import { SetupBadges, CampaignDetails } from "./CampaignSetupDetails";
 import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = { active: "pill-verified", paused: "pill-pending", draft: "pill-accent", completed: "pill-accent" };
@@ -48,10 +50,13 @@ export default function CampaignCard({ campaign, locations = [], walletBalance =
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
+  const [expanded, setExpanded] = useState(false);
+
   const c = campaign;
   const pct = c.targetReviews ? Math.min(100, Math.round((c.collected / c.targetReviews) * 100)) : 0;
   const canToggle = c.status === "active" || c.status === "paused";
   const action = c.status === "active" ? "pause" : "activate";
+  const hasSetup = c.reviewDrafts.length > 0 || c.reviewImages.length > 0;
 
   async function toggle() {
     setPending(true);
@@ -100,6 +105,17 @@ export default function CampaignCard({ campaign, locations = [], walletBalance =
                 </span>
               )}
             </p>
+            <SetupBadges campaign={c} />
+            {hasSetup && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-accent transition-colors duration-150 hover:underline"
+              >
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                {expanded ? "Hide details" : "View details"}
+              </button>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -145,6 +161,12 @@ export default function CampaignCard({ campaign, locations = [], walletBalance =
         <Stat Icon={CheckCircle2} label="Rate" value={inr(c.ratePerReview)} />
         <Stat Icon={Target} label="Target" value={c.targetReviews} />
       </div>
+
+      {expanded && (
+        <div className="animate-fade-up mt-5 border-t border-default pt-4" style={{ animationDuration: "150ms" }}>
+          <CampaignDetails campaign={c} />
+        </div>
+      )}
 
       {canToggle && (
         <div className="mt-5 border-t border-default pt-4">

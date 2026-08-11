@@ -66,6 +66,21 @@ export default async function BusinessCampaignsPage() {
             budget: c.budget,
             ratePerReview: c.ratePerReview,
             createdAt: c.createdAt ? c.createdAt.toISOString() : null,
+            // Surfaces what's actually configured on the campaign — the
+            // review-draft/image pools set up in NewCampaignModal don't show
+            // anywhere else, so the table would otherwise look identical
+            // whether or not the owner bothered adding them. Full lists (not
+            // just counts) so the expandable details panel can show the
+            // actual keyword/review/image content — see CampaignsTable.jsx.
+            reviewDrafts: (c.reviewDrafts ?? []).map((d) => ({
+              text: d.text,
+              keyword: d.keyword || "",
+              assigned: Boolean(d.assignedTo),
+            })),
+            reviewImages: (c.reviewImages ?? []).map((im) => ({
+              url: im.url,
+              assigned: Boolean(im.assignedTo),
+            })),
           }))}
           locations={locations}
           walletBalance={me?.walletBalance ?? 0}

@@ -23,6 +23,19 @@ import { getSettings } from "../../../../lib/settings";
  *    atomic wallet debit (sum of the per-location budgets) so it can't
  *    partially succeed against the wallet.
  */
+// Each drafted review is either a plain string (no keyword captured — owner
+// typed it manually) or { text, keyword } pairing it with the local-search
+// phrase it was written around (see lib/aiKeywords.js) — captured purely for
+// display on the campaigns table, never read by assignment/claim logic.
+const reviewDraftSchema = z.union([
+  z.string().trim().min(1).max(1000),
+  z.object({ text: z.string().trim().min(1).max(1000), keyword: z.string().trim().max(100).optional().default("") }),
+]);
+
+function normalizeDrafts(drafts) {
+  return (drafts ?? []).map((d) => (typeof d === "string" ? { text: d, keyword: "" } : d));
+}
+
 const locationItemSchema = z.object({
   locationId: z.string().min(1),
   budget: z.number().int().positive().max(10_000_000),
@@ -34,7 +47,11 @@ const locationItemSchema = z.object({
   city: z.string().trim().max(120).optional(),
   // This location's slice of the AI-drafted (or owner-written) review pool —
   // see models/Campaign.js reviewDrafts.
-  reviewDrafts: z.array(z.string().trim().min(1).max(1000)).max(200).optional(),
+  reviewDrafts: z.array(reviewDraftSchema).max(200).optional(),
+  // This location's slice of the review-image pool — see models/Campaign.js
+  // reviewImages. URLs only (already uploaded via
+  // /api/business/campaigns/upload-image before submit).
+  reviewImages: z.array(z.string().trim().url()).max(200).optional(),
 });
 
 const createSchema = z
@@ -51,7 +68,10 @@ const createSchema = z
     locations: z.array(locationItemSchema).min(1).max(25).optional(),
     // Optional pool of AI-drafted (or owner-written) review texts, single-
     // campaign mode only — see models/Campaign.js reviewDrafts.
-    reviewDrafts: z.array(z.string().trim().min(1).max(1000)).max(200).optional(),
+    reviewDrafts: z.array(reviewDraftSchema).max(200).optional(),
+    // Optional pool of images for reviewers to download/attach, single-
+    // campaign mode only — see models/Campaign.js reviewImages.
+    reviewImages: z.array(z.string().trim().url()).max(200).optional(),
   })
   .strict()
   .refine((d) => Boolean(d.locations) || typeof d.budget === "number", {
@@ -84,7 +104,7 @@ export async function POST(request) {
       { status: 400 }
     );
   }
-  const { name, platform, budget, city, notes, targetUrl, locationId, locations, reviewDrafts } = parsed.data;
+  const { name, platform, budget, city, notes, targetUrl, locationId, locations, reviewDrafts, reviewImages } = parsed.data;
 
   // Live, admin-controlled rate — the single source of truth.
   const { reviewRate } = await getSettings();
@@ -139,7 +159,8 @@ export async function POST(request) {
     city: trimmedCity,
     location: locationId || null,
     status: "active",
-    reviewDrafts: (reviewDrafts ?? []).map((text) => ({ text, assignedTo: null, assignedAt: null })),
+    reviewDrafts: normalizeDrafts(reviewDrafts).map((d) => ({ ...d, assignedTo: null, assignedAt: null })),
+    reviewImages: (reviewImages ?? []).map((url) => ({ url, assignedTo: null, assignedAt: null })),
   });
 
   return Response.json({ ok: true, campaign, balance: debited.walletBalance });
@@ -224,7 +245,8 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
           city: l.city?.trim() || derivedCity,
           location: loc._id,
           status: "active",
-          reviewDrafts: (l.reviewDrafts ?? []).map((text) => ({ text, assignedTo: null, assignedAt: null })),
+          reviewDrafts: normalizeDrafts(l.reviewDrafts).map((d) => ({ ...d, assignedTo: null, assignedAt: null })),
+          reviewImages: (l.reviewImages ?? []).map((url) => ({ url, assignedTo: null, assignedAt: null })),
         };
       }),
       { ordered: true }
