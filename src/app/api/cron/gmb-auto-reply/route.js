@@ -1,9 +1,9 @@
-import dbConnect from "../../../../../lib/db";
-import GmbConnection from "../../../../../models/GmbConnection";
-import GmbLocation from "../../../../../models/GmbLocation";
-import GmbReview from "../../../../../models/GmbReview";
-import { getValidAccessToken, postReviewReply, syncConnectionReviews } from "../../../../../lib/gmb";
-import { generateReviewReply } from "../../../../../lib/aiReply";
+import dbConnect from "../../../../lib/db";
+import GmbConnection from "../../../../models/GmbConnection";
+import GmbLocation from "../../../../models/GmbLocation";
+import GmbReview from "../../../../models/GmbReview";
+import { getValidAccessToken, postReviewReply, syncConnectionReviews } from "../../../../lib/gmb";
+import { generateReviewReply } from "../../../../lib/aiReply";
 
 /**
  * AI auto-reply for new Google reviews. For every connection with
