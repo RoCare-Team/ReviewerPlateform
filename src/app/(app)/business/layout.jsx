@@ -33,7 +33,7 @@ export default async function BusinessLayout({ children }) {
       user={{ name: user.name, phone: user.phone }}
       profileHref="/business/settings"
       walletBalance={me?.walletBalance ?? 0}
-      walletHref="/business/settings"
+      walletHref="/business/settings?addFunds=1"
     >
       {children}
     </AppShell>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Megaphone, Pause, Play } from "lucide-react";
 import CampaignCard from "./CampaignCard";
+import EditCampaignModal from "../models/EditCampaignModal";
 import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = { active: "pill-verified", paused: "pill-pending", draft: "pill-accent", completed: "pill-accent" };
@@ -21,7 +22,7 @@ function inr(n) {
  * as-is for the mobile view, so both layouts share one close/reopen
  * implementation.
  */
-export default function CampaignsTable({ campaigns }) {
+export default function CampaignsTable({ campaigns, locations = [], walletBalance = 0 }) {
   const router = useRouter();
   const [confirmingId, setConfirmingId] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -135,50 +136,53 @@ export default function CampaignsTable({ campaigns }) {
                   </td>
 
                   <td className="px-5 py-4">
-                    {!canToggle ? (
-                      <span className="text-xs text-muted">—</span>
-                    ) : confirming ? (
-                      <div className="animate-fade-up flex flex-col gap-1.5" style={{ animationDuration: "200ms" }}>
+                    <div className="flex items-start gap-1.5">
+                      {c.status !== "completed" && (
+                        <EditCampaignModal campaign={c} locations={locations} walletBalance={walletBalance} />
+                      )}
+                      {!canToggle ? null : confirming ? (
+                        <div className="animate-fade-up flex flex-col gap-1.5" style={{ animationDuration: "200ms" }}>
+                          <button
+                            type="button"
+                            onClick={() => toggle(c)}
+                            disabled={busy}
+                            className="rounded-btn bg-accent px-3 py-1.5 text-xs font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0"
+                          >
+                            {busy ? "Working…" : "Confirm"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmingId(null)}
+                            disabled={busy}
+                            className="rounded-btn border border-default bg-surface px-3 py-1.5 text-xs font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
                         <button
                           type="button"
-                          onClick={() => toggle(c)}
-                          disabled={busy}
-                          className="rounded-btn bg-accent px-3 py-1.5 text-xs font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0"
+                          onClick={() => setConfirmingId(c.id)}
+                          className={
+                            c.status === "active"
+                              ? "inline-flex items-center gap-1.5 rounded-btn border border-danger-subtle bg-danger-subtle px-3 py-1.5 text-xs font-semibold text-danger transition-all duration-200 hover:-translate-y-0.5 hover:bg-danger/10"
+                              : "inline-flex items-center gap-1.5 rounded-btn border border-strong bg-surface px-3 py-1.5 text-xs font-semibold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-sunken"
+                          }
                         >
-                          {busy ? "Working…" : "Confirm"}
+                          {c.status === "active" ? (
+                            <>
+                              <Pause className="h-3.5 w-3.5" aria-hidden="true" />
+                              Close
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                              Reopen
+                            </>
+                          )}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmingId(null)}
-                          disabled={busy}
-                          className="rounded-btn border border-default bg-surface px-3 py-1.5 text-xs font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmingId(c.id)}
-                        className={
-                          c.status === "active"
-                            ? "inline-flex items-center gap-1.5 rounded-btn border border-danger-subtle bg-danger-subtle px-3 py-1.5 text-xs font-semibold text-danger transition-all duration-200 hover:-translate-y-0.5 hover:bg-danger/10"
-                            : "inline-flex items-center gap-1.5 rounded-btn border border-strong bg-surface px-3 py-1.5 text-xs font-semibold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-surface-sunken"
-                        }
-                      >
-                        {c.status === "active" ? (
-                          <>
-                            <Pause className="h-3.5 w-3.5" aria-hidden="true" />
-                            Close
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-3.5 w-3.5" aria-hidden="true" />
-                            Reopen
-                          </>
-                        )}
-                      </button>
-                    )}
+                      )}
+                    </div>
                     {rowError[c.id] && <p className="mt-1.5 max-w-40 text-xs text-danger">{rowError[c.id]}</p>}
                   </td>
                 </tr>
@@ -198,7 +202,7 @@ export default function CampaignsTable({ campaigns }) {
           because nothing upstream is actually constraining the width. */}
       <div className="mt-8 grid grid-cols-1 gap-5 lg:hidden">
         {campaigns.map((c) => (
-          <CampaignCard key={c.id} campaign={c} />
+          <CampaignCard key={c.id} campaign={c} locations={locations} walletBalance={walletBalance} />
         ))}
       </div>
     </>

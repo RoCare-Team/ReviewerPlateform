@@ -58,12 +58,16 @@ export default async function BusinessCampaignsPage() {
             status: c.status,
             notes: c.notes,
             targetUrl: c.targetUrl,
+            city: c.city,
+            location: c.location ? String(c.location) : "",
             collected: c.collected ?? 0,
             targetReviews: c.targetReviews,
             budget: c.budget,
             ratePerReview: c.ratePerReview,
             createdAt: c.createdAt ? c.createdAt.toISOString() : null,
           }))}
+          locations={locations}
+          walletBalance={me?.walletBalance ?? 0}
         />
       )}
     </div>

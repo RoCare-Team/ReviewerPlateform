@@ -13,6 +13,7 @@ import {
   Play,
   Target,
 } from "lucide-react";
+import EditCampaignModal from "../models/EditCampaignModal";
 import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = { active: "pill-verified", paused: "pill-pending", draft: "pill-accent", completed: "pill-accent" };
@@ -41,7 +42,7 @@ function Stat({ Icon, label, value }) {
  * campaign to "paused" server-side — it stops showing on the reviewer
  * dashboard and can no longer accept new submissions immediately.
  */
-export default function CampaignCard({ campaign }) {
+export default function CampaignCard({ campaign, locations = [], walletBalance = 0 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
@@ -101,9 +102,14 @@ export default function CampaignCard({ campaign }) {
             </p>
           </div>
         </div>
-        <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[c.status]}`}>
-          {c.status}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[c.status]}`}>
+            {c.status}
+          </span>
+          {c.status !== "completed" && (
+            <EditCampaignModal campaign={c} locations={locations} walletBalance={walletBalance} />
+          )}
+        </div>
       </div>
 
       {c.notes && <p className="mt-3 text-sm leading-relaxed text-secondary">{c.notes}</p>}

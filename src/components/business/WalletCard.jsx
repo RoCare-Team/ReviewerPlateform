@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDownLeft, ArrowUpRight, IndianRupee, Loader2, Plus, Receipt, Wallet, X } from "lucide-react";
 import { toast } from "../../lib/toast";
@@ -21,7 +21,7 @@ function loadRazorpayScript() {
   });
 }
 
-const QUICK_AMOUNTS = [500, 1000, 2500, 5000];
+const QUICK_AMOUNTS = [100, 200, 300, 400, 500];
 
 /**
  * Wallet balance + self-serve "Add funds" via Razorpay Checkout. Flow:
@@ -34,10 +34,35 @@ const QUICK_AMOUNTS = [500, 1000, 2500, 5000];
  */
 export default function WalletCard({ balance, transactions, minTopup = 50 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState("");
+  // Open by default with a pre-filled amount, so landing on this card is
+  // already "ready to pay" instead of needing an extra click to get there.
+  const [open, setOpen] = useState(true);
+  const [amount, setAmount] = useState(String(Math.max(QUICK_AMOUNTS[0], minTopup)));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+
+  // Pre-fill a sensible default the first time the form opens, so the owner
+  // can just hit Pay — but it's a normal input, so they can still edit it.
+  function toggleOpen() {
+    setOpen((v) => {
+      const next = !v;
+      if (next && !amount) setAmount(String(Math.max(QUICK_AMOUNTS[0], minTopup)));
+      return next;
+    });
+  }
+
+  // The topbar wallet chip links here with ?addFunds=1 (see business/layout.jsx)
+  // so clicking it opens straight into a pre-filled, ready-to-pay form instead
+  // of landing on the page and needing a second click. Checked via
+  // window.location rather than useSearchParams so this client component
+  // doesn't force a Suspense boundary on the settings page around it.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("addFunds") === "1") {
+      setAmount(String(Math.max(QUICK_AMOUNTS[0], minTopup)));
+      setOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function addFunds(e) {
     e.preventDefault();
@@ -128,7 +153,7 @@ export default function WalletCard({ balance, transactions, minTopup = 50 }) {
         </div>
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={toggleOpen}
           className="inline-flex items-center gap-2 rounded-btn bg-accent px-4 py-2 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md"
         >
           {open ? <X className="h-4 w-4" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}

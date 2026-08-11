@@ -216,7 +216,7 @@ export default function SiteFooter() {
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-default/40 bg-surface transition-all hover:bg-accent/10 hover:text-accent hover:border-accent/25"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-default bg-surface shadow-sm transition-all hover:bg-accent/10 hover:text-accent hover:border-accent/25"
                     aria-label={label}
                   >
                     <Icon className="h-4 w-4" aria-hidden="true" />

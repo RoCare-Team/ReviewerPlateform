@@ -127,11 +127,11 @@ export default function SiteHeader() {
             />
           </Link>
 
-          {/* Desktop Navigation Links — true center column, independent of how
-              wide the logo or the auth actions are on either side. Gap
-              trimmed slightly (was gap-5) to free up room for the phone
-              number below at `xl`, instead of hiding it until `2xl`. */}
-          <nav aria-label="Main" className="hidden items-center gap-4 text-[15px] font-medium lg:flex">
+          {/* Desktop Navigation Links — true center column, nudged slightly
+              left (mr-6) so it doesn't crowd the auth actions once the phone
+              number + Dashboard + Logout are all showing. Gap trimmed
+              slightly (was gap-5) to keep it compact. */}
+          <nav aria-label="Main" className="hidden items-center gap-4 mr-6 text-[15px] font-medium lg:flex">
             {NAV.map((n) => (
               <NavLink key={n.href} href={n.href} label={n.label} />
             ))}
@@ -146,7 +146,7 @@ export default function SiteHeader() {
               // not hiding it at a higher breakpoint.
               <a
                 href={`tel:${PHONE_E164}`}
-                className="hidden items-center gap-1.5 whitespace-nowrap text-secondary transition-colors duration-200 hover:text-accent xl:inline-flex"
+                className="hidden items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-default px-5 py-2.5 text-secondary transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:text-accent xl:inline-flex"
               >
                 <Phone className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {PHONE_DISPLAY}
@@ -164,10 +164,11 @@ export default function SiteHeader() {
                   type="button"
                   onClick={handleSignOut}
                   disabled={signingOut}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-default px-4 py-2.5 font-semibold text-[15px] text-secondary transition-all duration-200 hover:-translate-y-0.5 hover:border-danger/40 hover:bg-danger-subtle hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-60"
+                  aria-label={signingOut ? "Signing out…" : "Logout"}
+                  title={signingOut ? "Signing out…" : "Logout"}
+                  className="inline-flex items-center justify-center rounded-xl border border-default p-2.5 text-secondary transition-all duration-200 hover:-translate-y-0.5 hover:border-danger/40 hover:bg-danger-subtle hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[0.98] disabled:opacity-60"
                 >
                   <LogOut className="h-4 w-4" aria-hidden="true" />
-                  {signingOut ? "Signing out…" : "Logout"}
                 </button>
               </>
             ) : (
@@ -246,7 +247,7 @@ export default function SiteHeader() {
             {PHONE_E164 && (
               <a
                 href={`tel:${PHONE_E164}`}
-                className="inline-flex items-center justify-center gap-1.5 rounded-btn px-4 py-2 text-center text-sm font-semibold text-secondary transition-colors duration-200 hover:text-accent"
+                className="inline-flex items-center justify-center gap-1.5 rounded-[5px] border border-default px-5 py-2.5 text-center text-sm font-semibold text-secondary transition-colors duration-200 hover:border-accent/50 hover:text-accent"
               >
                 <Phone className="h-4 w-4" aria-hidden="true" />
                 {PHONE_DISPLAY}

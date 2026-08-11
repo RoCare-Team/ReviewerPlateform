@@ -42,16 +42,32 @@ export default function AutoReplyToggle({ enabled: initialEnabled }) {
       type="button"
       onClick={toggle}
       disabled={busy}
-      aria-pressed={enabled}
+      role="switch"
+      aria-checked={enabled}
       title="Automatically post an AI-drafted reply to new reviews that don't have one yet."
-      className={`inline-flex items-center gap-2 rounded-btn border px-4 py-2.5 text-sm font-semibold shadow-sm transition disabled:opacity-60 ${
+      className={`inline-flex items-center gap-2.5 rounded-full border px-3 py-2 pr-2.5 text-sm font-semibold shadow-sm transition-all duration-200 disabled:opacity-60 ${
         enabled
           ? "border-accent bg-accent-subtle text-accent"
           : "border-default bg-surface-raised text-secondary hover:bg-surface-sunken"
       }`}
     >
-      <Sparkles className="h-4 w-4" aria-hidden="true" />
-      {enabled ? "AI auto-reply: On" : "AI auto-reply: Off"}
+      <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
+      AI auto-reply
+      {/* The actual switch — a track + sliding thumb, not just a color/label
+          change, so "on" reads as a toggle at a glance, not a differently-
+          colored button. */}
+      <span
+        aria-hidden="true"
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${
+          enabled ? "bg-accent" : "bg-default/40"
+        }`}
+      >
+        <span
+          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+            enabled ? "translate-x-4.5" : "translate-x-1"
+          }`}
+        />
+      </span>
     </button>
   );
 }
