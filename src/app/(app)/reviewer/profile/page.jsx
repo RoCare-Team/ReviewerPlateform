@@ -31,13 +31,9 @@ export default async function ReviewerProfilePage() {
           <ProfileForm initial={initial} />
         </div>
 
-        {/* Reviewer-only — the location gate (layout.jsx) guarantees this is
-            set before the reviewer can reach any page, so it's always here. */}
-        <LocationCard
-          city={doc?.location?.city}
-          address={doc?.location?.address}
-          updatedAt={doc?.location?.updatedAt}
-        />
+        {/* Reviewer-only — city is mandatory at signup (PhoneOtpForm.jsx),
+            so it's always here for any account created after that change. */}
+        <LocationCard city={doc?.location?.city} updatedAt={doc?.location?.updatedAt} />
       </div>
     </div>
   );

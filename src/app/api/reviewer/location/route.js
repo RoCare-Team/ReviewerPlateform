@@ -3,25 +3,25 @@ import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 import { ROLES } from "../../../../lib/auth/roles";
-import { reverseGeocode } from "../../../../lib/googleMaps";
 
 /**
- * Saves a reviewer's current location, captured client-side via
- * navigator.geolocation. Reviewer-only — a business_owner's location is
- * never captured or stored.
+ * Updates a reviewer's declared city — reviewer-only, a business_owner's
+ * location is never captured or stored. Set mandatorily at signup (see
+ * PhoneOtpForm.jsx + api/auth/signup/reviewer/complete); this is only for
+ * changing it later (moved cities), from the State & City picker on
+ * /reviewer/profile (components/reviewer/LocationCard.jsx).
  *
- * This is mandatory, not best-effort: (app)/reviewer/layout.jsx blocks every
- * /reviewer/* route behind src/components/reviewer/LocationGate.jsx until a
- * location is on file, since campaigns are matched to reviewers by city.
+ * Deliberately NOT browser geolocation — no navigator.geolocation, no
+ * lat/lng, no reverse-geocoding API call. The reviewer picks their city
+ * from the same India state→city dataset the campaign-creation form uses
+ * (lib/data/indiaStatesCities.js), so it can never drift from what
+ * Campaign.city actually gets compared against.
  *
- * Body: { lat, lng }. The address is filled in server-side via reverse
- * geocoding (lib/googleMaps.js) so the Google Maps API key never reaches
- * the client.
+ * Body: { city }.
  */
 const schema = z
   .object({
-    lat: z.number().min(-90).max(90),
-    lng: z.number().min(-180).max(180),
+    city: z.string().trim().min(1, "City is required").max(120),
   })
   .strict();
 
@@ -37,16 +37,15 @@ export async function POST(request) {
 
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return Response.json({ error: "Invalid coordinates" }, { status: 400 });
-
-  const { lat, lng } = parsed.data;
-  const { address, city } = await reverseGeocode(lat, lng);
+  if (!parsed.success) {
+    return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid city" }, { status: 400 });
+  }
 
   await dbConnect();
   await User.updateOne(
     { _id: user.id },
-    { $set: { location: { lat, lng, address, city, updatedAt: new Date() } } }
+    { $set: { location: { city: parsed.data.city, updatedAt: new Date() } } }
   );
 
-  return Response.json({ ok: true, address, city });
+  return Response.json({ ok: true, city: parsed.data.city });
 }

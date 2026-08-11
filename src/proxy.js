@@ -10,10 +10,11 @@ import { ROLES } from "./lib/auth/roles";
  * not be your session or authorization solution — it does an optimistic check on
  * the JWT and nothing more. It never touches the database.
  *
- * Note: this file is `middleware.js`, not Next 16's newer `proxy.js`, on purpose.
- * `proxy` forces the nodejs runtime; `middleware` keeps the edge runtime, which
- * is what getToken() below is built for. Renaming this file without also moving
- * the token read would regress that.
+ * `proxy.js` (renamed from `middleware.js` — the old convention is deprecated
+ * as of Next 16, see https://nextjs.org/docs/messages/middleware-to-proxy).
+ * Proxy now defaults to the Node.js runtime, which is stable since 15.5 and
+ * is exactly what getToken() needs — no edge-runtime tradeoff to preserve
+ * here anymore.
  */
 
 const ROLE_PREFIX = [
@@ -31,7 +32,7 @@ const HOME = {
 // Public auth surfaces. An already-authenticated user gets bounced to their home.
 const AUTH_PAGES = ["/login", "/signup", "/verify-otp", "/forgot-password", "/reset-password"];
 
-export async function middleware(request) {
+export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
   const token = await getToken({

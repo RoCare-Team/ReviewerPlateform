@@ -140,8 +140,15 @@ export async function verifyPhoneOtp({ phone, otp, intent, role }, request) {
  * Step 3 (new accounts only): redeem the `phone_verified` token and actually
  * create the account. `role` comes from the calling route
  * (POST /api/auth/signup/{business,reviewer}/complete), never the body.
+ *
+ * `city` (reviewer signup only — see api/auth/signup/reviewer/complete) is
+ * saved straight onto User.location.city at account creation. This REPLACES
+ * the old flow of capturing the reviewer's live GPS location after their
+ * first login (LocationGate) — a reviewer now declares their city once,
+ * up front, instead of granting browser geolocation. Campaign matching
+ * (reviewer/campaigns/page.jsx) reads this same field either way.
  */
-export async function completePhoneSignup({ phone, name, role, verifiedToken }) {
+export async function completePhoneSignup({ phone, name, role, verifiedToken, city }) {
   if (!canSelfSignup(role)) return { ok: false, message: "Signup isn't available for this account type." };
 
   const redeemed = await consumeToken(verifiedToken, "phone_verified");
@@ -179,6 +186,8 @@ export async function completePhoneSignup({ phone, name, role, verifiedToken }) 
     phoneVerified: new Date(),
     status: "active",
     passwordHash: null,
+    // Reviewer-only — business accounts don't carry a location field.
+    ...(role === "reviewer" && city ? { location: { city, updatedAt: new Date() } } : {}),
   });
 
   const otpToken = await issueToken(phone, "phone_login");

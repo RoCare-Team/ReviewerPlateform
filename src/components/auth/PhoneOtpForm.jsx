@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { User as UserIcon, ShieldCheck, ArrowLeft, RotateCcw } from "lucide-react";
 import { Label, Input, FormError, SubmitButton } from "./Field";
+import StateCitySelect from "../ui/StateCitySelect";
 import { toast } from "../../lib/toast";
 
 const RESEND_SECONDS = 30;
@@ -39,6 +40,12 @@ export default function PhoneOtpForm({ mode = "login", role }) {
   const [phone, setPhone] = useState("");
   const [otpDigits, setOtpDigits] = useState(["", "", "", ""]);
   const [name, setName] = useState("");
+  // Reviewer signup only — a business account has no city field. Campaigns
+  // are matched to reviewers by city (Campaign.city, reviewer/campaigns/page.jsx),
+  // so this replaces the old post-login mandatory GPS capture (LocationGate)
+  // with a one-time declaration right here, before the account even exists.
+  const [state, setState] = useState("");
+  const [city, setCity] = useState("");
   const [verifiedToken, setVerifiedToken] = useState(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -177,12 +184,21 @@ export default function PhoneOtpForm({ mode = "login", role }) {
       setError("Enter your name.");
       return;
     }
+    if (role === "reviewer" && !city.trim()) {
+      setError("Select your city.");
+      return;
+    }
 
     setPending(true);
     const res = await fetch(completeEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, name: name.trim(), verifiedToken }),
+      body: JSON.stringify({
+        phone,
+        name: name.trim(),
+        verifiedToken,
+        ...(role === "reviewer" ? { city: city.trim() } : {}),
+      }),
     });
     const data = await res.json().catch(() => ({}));
 
@@ -209,11 +225,14 @@ export default function PhoneOtpForm({ mode = "login", role }) {
       <form onSubmit={completeSignup} noValidate>
         <FormError>{error}</FormError>
 
-        <div className="mb-4 text-center">
-          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-verified-subtle text-verified">
-            <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <p className="mt-3 text-sm text-secondary">Number verified. One last thing —</p>
+        {/* Compact step indicator — replaces the old big icon+headline block,
+            which ate a lot of vertical space just to say "you're basically
+            done". Three steps: phone → OTP → this one; all filled since the
+            first two are already behind us here. */}
+        <div className="mb-4 flex items-center justify-center gap-1.5" aria-hidden="true">
+          <span className="h-1.5 w-4 rounded-full bg-accent" />
+          <span className="h-1.5 w-4 rounded-full bg-accent" />
+          <span className="h-1.5 w-4 rounded-full bg-accent" />
         </div>
 
         <div>
@@ -228,6 +247,22 @@ export default function PhoneOtpForm({ mode = "login", role }) {
             autoFocus
           />
         </div>
+
+        {role === "reviewer" && (
+          <div className="mt-4">
+            <Label htmlFor="signup-state-state">Your city</Label>
+            <StateCitySelect
+              idPrefix="signup-state"
+              state={state}
+              city={city}
+              onStateChange={(s) => { setState(s); setCity(""); }}
+              onCityChange={setCity}
+            />
+            <p className="mt-1.5 text-xs text-muted">
+              You&apos;ll only see campaigns from this city — no location access needed.
+            </p>
+          </div>
+        )}
 
         <div className="mt-6">
           <SubmitButton pending={pending}>Create account</SubmitButton>

@@ -38,13 +38,14 @@ const UserSchema = new mongoose.Schema(
     // Optional self-service profile field (editable by the user).
     bio: { type: String, trim: true, default: "" },
 
-    // Reviewer-only: captured from the browser's geolocation on dashboard
-    // load and reverse-geocoded server-side — see api/reviewer/location and
-    // lib/googleMaps.js. Never set for business_owner/admin.
+    // Reviewer-only: the city they declared, mandatory at signup (see
+    // PhoneOtpForm.jsx + api/auth/signup/reviewer/complete), editable later
+    // from the profile page (components/reviewer/LocationCard.jsx) via
+    // api/reviewer/location. A manual pick from lib/data/indiaStatesCities.js
+    // — never browser geolocation. Never set for business_owner/admin.
+    // Campaigns are matched to reviewers by this field (Campaign.city, see
+    // reviewer/campaigns/page.jsx).
     location: {
-      lat: { type: Number, default: null },
-      lng: { type: Number, default: null },
-      address: { type: String, trim: true, default: "" },
       city: { type: String, trim: true, default: "", index: true },
       updatedAt: { type: Date, default: null },
     },

@@ -142,8 +142,12 @@ export default function SearchableSelect({
   return (
     <div ref={rootRef} className="group relative">
       {Icon && (
+        // z-10: the trigger button below is a sibling with its own hover/focus
+        // transitions, which can get promoted to a composited layer and paint
+        // above a stacking-context-less absolute sibling in some browsers —
+        // pin the icon's stack level explicitly so it never gets covered.
         <Icon
-          className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted transition-colors duration-200 group-focus-within:text-accent"
+          className="pointer-events-none absolute left-3 top-1/2 z-10 h-4.5 w-4.5 -translate-y-1/2 text-muted transition-colors duration-200 group-focus-within:text-accent"
           aria-hidden="true"
         />
       )}
