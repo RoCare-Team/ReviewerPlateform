@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/gmb-recheck",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/gmb-auto-reply",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

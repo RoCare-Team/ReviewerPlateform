@@ -9,6 +9,7 @@ import GmbConnection from "../../../../models/GmbConnection";
 import { syncConnectionReviews } from "../../../../lib/gmb";
 import SyncReviewsButton from "../../../../components/business/SyncReviewsButton";
 import ReplyToReview from "../../../../components/business/ReplyToReview";
+import AutoReplyToggle from "../../../../components/business/AutoReplyToggle";
 
 // Auto-sync throttle — visiting the page re-fetches from Google at most this
 // often per connection, so normal navigation doesn't hammer the GMB API.
@@ -61,7 +62,7 @@ export default async function BusinessReviewsPage() {
 
   const [reviews, connections] = await Promise.all([
     GmbReview.find({ user: user.id }).sort({ createTime: -1 }).limit(200).lean(),
-    GmbConnection.find({ user: user.id, status: "active" }).select("_id").lean(),
+    GmbConnection.find({ user: user.id, status: "active" }).select("_id autoReplyEnabled").lean(),
   ]);
 
   // Map location id → title for a readable label per review.
@@ -70,6 +71,9 @@ export default async function BusinessReviewsPage() {
 
   const hasConnection = connections.length > 0;
   const connectionIds = connections.map((c) => String(c._id));
+  // "On" only if every active connection has it on, so the toggle never
+  // silently misrepresents a mixed state as fully enabled.
+  const autoReplyEnabled = hasConnection && connections.every((c) => c.autoReplyEnabled);
 
   return (
     <div>
@@ -78,7 +82,12 @@ export default async function BusinessReviewsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-primary">Reviews</h1>
           <p className="mt-2 text-secondary">Reviews fetched from your connected Google Business Profile.</p>
         </div>
-        {hasConnection && <SyncReviewsButton connectionIds={connectionIds} />}
+        {hasConnection && (
+          <div className="flex flex-wrap items-center gap-3">
+            <AutoReplyToggle enabled={autoReplyEnabled} />
+            <SyncReviewsButton connectionIds={connectionIds} />
+          </div>
+        )}
       </div>
 
       {!hasConnection ? (
@@ -128,7 +137,14 @@ export default async function BusinessReviewsPage() {
                 <div className="mt-3.5 ml-3 flex gap-2.5 border-l-2 border-accent/30 rounded-l-sm bg-surface-sunken py-3 pl-3.5 pr-4">
                   <CornerDownRight className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-primary">Your reply</p>
+                    <p className="text-xs font-bold text-primary">
+                      Your reply
+                      {v.autoReplied && (
+                        <span className="ml-2 rounded-full bg-accent-subtle px-2 py-0.5 text-[10px] font-semibold text-accent">
+                          AI auto-reply
+                        </span>
+                      )}
+                    </p>
                     <p className="mt-1 text-sm leading-relaxed text-secondary">{v.reply}</p>
                   </div>
                 </div>
