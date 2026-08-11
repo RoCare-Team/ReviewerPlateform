@@ -83,7 +83,13 @@ function Card({ campaign }) {
     router.refresh();
   });
 
-  async function claimAndOpen() {
+  // `openLink`: false for the very first "reserve a slot" click — the
+  // reviewer should SEE the copy-review/download-image panel first, not get
+  // bounced straight to the review page before they even know those exist.
+  // true for the explicit "Open the review link" step inside that panel,
+  // once they're actually ready to go post it (this also renews the claim's
+  // timer, same as before).
+  async function claimAndOpen(openLink = false) {
     setClaiming(true);
     setError("");
     const res = await fetch(`/api/reviewer/campaigns/${campaign.id}/claim`, { method: "POST" });
@@ -102,16 +108,15 @@ function Card({ campaign }) {
     setOpen(true);
 
     // Order matters, and it's deliberate: copy the review text, download the
-    // attach-image, THEN open the review link — everything the reviewer
-    // needs is already in hand (clipboard + downloads folder) by the time
-    // the review page shows up, instead of them bouncing back to this tab
-    // mid-review to fetch it. window.open() also shifts focus to the new
-    // tab, and browsers refuse clipboard/programmatic-download actions once
-    // this document isn't the focused one anymore — so both have to happen
-    // BEFORE it, not after.
+    // attach-image, THEN (if requested) open the review link — everything
+    // the reviewer needs is already in hand (clipboard + downloads folder)
+    // before the review page shows up. window.open() also shifts focus to
+    // the new tab, and browsers refuse clipboard/programmatic-download
+    // actions once this document isn't the focused one anymore — so both
+    // have to happen BEFORE it, not after.
     if (data.reviewText) await copyReviewText(data.reviewText);
     if (data.imageUrl) await downloadImage(data.imageUrl);
-    window.open(data.targetUrl, "_blank", "noopener,noreferrer");
+    if (openLink) window.open(data.targetUrl, "_blank", "noopener,noreferrer");
   }
 
   async function copyReviewText(text = reviewText) {
@@ -301,15 +306,15 @@ function Card({ campaign }) {
         <div className="mt-5">
           <button
             type="button"
-            onClick={claimAndOpen}
+            onClick={() => claimAndOpen(false)}
             disabled={claiming}
             className="flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
           >
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            {claiming ? "Reserving your slot…" : campaign.previouslyRejected ? "Resubmit" : "Open review link"}
+            {claiming ? "Reserving your slot…" : campaign.previouslyRejected ? "Resubmit" : "Start review"}
           </button>
           <p className="mt-1.5 text-center text-xs text-muted">
-            Reserves your spot and opens the review page — the reward stays with your slot for a limited time.
+            Reserves your spot and gets your review text/photo ready — the review page opens once you&apos;re set.
           </p>
         </div>
       ) : (
@@ -369,9 +374,9 @@ function Card({ campaign }) {
           <ol className="mt-3 space-y-2 text-sm text-secondary">
             <li className="flex items-start gap-2">
               <span className="font-bold text-accent">1.</span>
-              <button type="button" onClick={claimAndOpen} disabled={claiming}
+              <button type="button" onClick={() => claimAndOpen(true)} disabled={claiming}
                 className="inline-flex items-center gap-1 font-semibold text-accent transition-colors duration-150 hover:underline disabled:opacity-60">
-                Reopen the review link <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                Open the review link <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </li>
             <li className="flex items-start gap-2">
