@@ -8,6 +8,19 @@ import { Toaster } from "react-hot-toast";
 // host into canonical URLs instead of www.rapportlook.com.
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.rapportlook.com";
 
+// Renders `<meta name="color-scheme" content="light">` in <head>. Without
+// this, a browser on a dark-OS-theme has nothing telling it what color this
+// site's UNSTYLED/transitioning HTML should be — it falls back to its own
+// dark default (near-black) for the split second before globals.css loads
+// and paints the real (light) --surface background. That's the "page goes
+// black" flash reported on /post-login (a bare server-redirect page with a
+// full navigation in front of it) — same root cause on any hard navigation,
+// not something specific to that one route.
+export const viewport = {
+  colorScheme: "light",
+  themeColor: "#F8FAFC",
+};
+
 export const metadata = {
   metadataBase: new URL(SITE_URL),
 
