@@ -52,6 +52,24 @@ const CampaignSchema = new mongoose.Schema(
       default: "active",
       index: true,
     },
+
+    // Optional pool of AI-drafted review texts, one reviewer per entry.
+    // Generated (and editable) at creation time — see lib/aiReviewDrafts.js
+    // and NewCampaignModal.jsx. When a reviewer claims a slot, claimSlot()
+    // (lib/claims.js) atomically hands them one unassigned entry to copy
+    // into their review; it's freed back to the pool if their claim expires
+    // unused (see releaseExpiredClaims/releaseClaim). `assignedTo: null`
+    // means still available.
+    reviewDrafts: {
+      type: [
+        {
+          text: { type: String, required: true, trim: true },
+          assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+          assignedAt: { type: Date, default: null },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

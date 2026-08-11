@@ -4,6 +4,7 @@ import dbConnect from "../../../../lib/db";
 import Campaign from "../../../../models/Campaign";
 import Submission from "../../../../models/Submission";
 import User from "../../../../models/User";
+import Claim from "../../../../models/Claim";
 import { getSettings } from "../../../../lib/settings";
 import { releaseExpiredClaims } from "../../../../lib/claims";
 import CampaignParticipation from "../../../../components/reviewer/CampaignParticipation";
@@ -32,6 +33,15 @@ export default async function ReviewerCampaignsPage() {
     .lean();
   const claimedById = new Map(refreshed.map((c) => [String(c._id), c.claimed ?? 0]));
 
+  // This reviewer's own still-live claims (survived the releaseExpiredClaims
+  // sweep above). Passed down so the countdown on the client can resume from
+  // the real, server-persisted expiry on page load/navigation-back, instead
+  // of only ever starting from a fresh click — see CampaignParticipation.jsx.
+  const myClaims = await Claim.find({ reviewer: user.id, campaign: { $in: openCampaigns.map((c) => c._id) } })
+    .select("campaign expiresAt reviewDraft.text")
+    .lean();
+  const myClaimByCampaign = new Map(myClaims.map((cl) => [String(cl.campaign), cl]));
+
   // campaignId → this reviewer's status on it. Only an approved or still-
   // pending submission makes a campaign unavailable — a rejected one doesn't,
   // so it keeps showing up here for a resubmission with a new screenshot.
@@ -51,8 +61,11 @@ export default async function ReviewerCampaignsPage() {
       // (claimed: an open link or a still-pending submission). Gating on
       // `collected` alone is exactly the bug this fixes — it let every
       // reviewer see the campaign as open even after enough others had
-      // already claimed (or filled) every slot.
-      if ((c.collected ?? 0) + claimed >= c.targetReviews) return false;
+      // already claimed (or filled) every slot. A reviewer with their OWN
+      // live claim always still sees it, even if that claim is what makes
+      // the campaign read as "full" — it's their reserved slot, not a new one.
+      const hasMyClaim = myClaimByCampaign.has(String(c._id));
+      if (!hasMyClaim && (c.collected ?? 0) + claimed >= c.targetReviews) return false;
       const status = statusByCampaign.get(String(c._id));
       if (status && status !== "rejected") return false;
 
@@ -77,6 +90,11 @@ export default async function ReviewerCampaignsPage() {
         // api/admin/campaigns/[id]/reward). Falls back to the global rate
         // when no override is set, same resolution approveSubmission() uses.
         reward: c.reviewerReward ?? settings.reviewerReward,
+        // ISO string (or null) — resumes the countdown on mount instead of
+        // only ever starting fresh from a client click. See page.jsx comment
+        // above and CampaignParticipation.jsx's Card component.
+        activeClaimExpiresAt: myClaimByCampaign.get(String(c._id))?.expiresAt?.toISOString() ?? null,
+        activeReviewText: myClaimByCampaign.get(String(c._id))?.reviewDraft?.text || "",
       };
     });
 

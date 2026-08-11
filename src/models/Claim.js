@@ -21,6 +21,15 @@ const ClaimSchema = new mongoose.Schema(
     campaign: { type: mongoose.Schema.Types.ObjectId, ref: "Campaign", required: true, index: true },
     reviewer: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     expiresAt: { type: Date, required: true },
+
+    // The Campaign.reviewDrafts entry (if any were available) handed to this
+    // reviewer — denormalized `text` so the client never needs a second
+    // lookup, `draftId` so releasing this claim can free the same entry back
+    // to Campaign.reviewDrafts. Null when the campaign has no draft pool.
+    reviewDraft: {
+      draftId: { type: mongoose.Schema.Types.ObjectId, default: null },
+      text: { type: String, default: "" },
+    },
   },
   { timestamps: true }
 );

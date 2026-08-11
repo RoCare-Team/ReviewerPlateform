@@ -82,6 +82,7 @@ export async function GET(request) {
                 storeCode: loc.storeCode ?? "",
                 address: formatAddress(loc.storefrontAddress),
                 reviewUrl: loc.metadata?.newReviewUri ?? "",
+                category: loc.categories?.primaryCategory?.displayName ?? "",
               },
             },
             { upsert: true, setDefaultsOnInsert: true }

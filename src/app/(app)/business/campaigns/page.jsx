@@ -19,7 +19,7 @@ export default async function BusinessCampaignsPage() {
   const [me, campaigns, locs, settings] = await Promise.all([
     User.findById(user.id).select("walletBalance").lean(),
     Campaign.find({ user: user.id }).sort({ createdAt: -1 }).lean(),
-    GmbLocation.find({ user: user.id }).select("title locationName reviewUrl address").lean(),
+    GmbLocation.find({ user: user.id }).select("title locationName reviewUrl address category").lean(),
     getSettings(),
   ]);
 
@@ -31,6 +31,7 @@ export default async function BusinessCampaignsPage() {
     // without needing a dedicated city field on GmbLocation.
     city: (l.address || "").split(",").slice(1, 2)[0]?.trim() || l.address || "",
     reviewUrl: l.reviewUrl || "",
+    category: l.category || "",
   }));
 
   return (

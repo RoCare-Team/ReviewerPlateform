@@ -45,9 +45,19 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", state: "", city: "" });
-  const [rows, setRows] = useState(locations.length > 0 ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "" }] : []);
+  const [rows, setRows] = useState(locations.length > 0 ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "", reviewDrafts: [] }] : []);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+
+  // AI-drafted reviews for reviewers to copy — single-campaign mode. Nothing
+  // is generated/saved until the owner explicitly asks for it and reviews
+  // the list; see aiReviewDrafts.js for why this exists and its risk. Multi
+  // mode keeps its own drafts PER ROW (row.reviewDrafts) instead — each
+  // location gets its own review-count's worth of keywords generated
+  // separately, never pooled and split across locations.
+  const [reviewDrafts, setReviewDrafts] = useState([]);
+  const [draftsPending, setDraftsPending] = useState(false);
+  const [rowDraftsPending, setRowDraftsPending] = useState({});
 
   const multiMode = values.platform === "google" && locations.length > 0;
 
@@ -120,7 +130,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   }
 
   function addRow() {
-    setRows((r) => [...r, { locationId: "", reviews: "", targetUrl: "", state: "", city: "" }]);
+    setRows((r) => [...r, { locationId: "", reviews: "", targetUrl: "", state: "", city: "", reviewDrafts: [] }]);
   }
 
   function removeRow(index) {
@@ -173,6 +183,86 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     setError("");
   }
 
+  // Single-campaign mode: this location's own category (e.g. "Dental
+  // clinic") steers the AI toward business-relevant local-search phrasing
+  // ("RO service near me") instead of generic praise.
+  const suggestCategory = locations.find((l) => l.id === values.locationId)?.category || "";
+
+  async function suggestReviews() {
+    if (reviewsNum < 1) {
+      toast.error("Enter how many reviews you need first.");
+      return;
+    }
+    setDraftsPending(true);
+    const res = await fetch("/api/business/campaigns/suggest-reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: values.name.trim(),
+        platform: values.platform,
+        notes: values.notes.trim(),
+        category: suggestCategory,
+        count: Math.min(reviewsNum, 50),
+      }),
+    });
+    setDraftsPending(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't generate reviews.");
+      return;
+    }
+    setReviewDrafts(data.reviews);
+  }
+
+  function updateDraft(i, text) {
+    setReviewDrafts((list) => list.map((t, idx) => (idx === i ? text : t)));
+  }
+
+  function removeDraft(i) {
+    setReviewDrafts((list) => list.filter((_, idx) => idx !== i));
+  }
+
+  // Multi mode: each location generates its OWN review-count's worth of
+  // drafts, sized and categorized to that location alone — never pooled
+  // across locations and sliced, so a 5-review location always gets exactly
+  // its own 5 keywords, not a share of some combined total.
+  async function suggestReviewsForRow(index) {
+    const row = rows[index];
+    const n = Number(row.reviews) || 0;
+    if (n < 1) {
+      toast.error("Enter how many reviews this location needs first.");
+      return;
+    }
+    setRowDraftsPending((p) => ({ ...p, [index]: true }));
+    const loc = locations.find((l) => l.id === row.locationId);
+    const res = await fetch("/api/business/campaigns/suggest-reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: loc?.title || values.name.trim(),
+        platform: "google",
+        notes: values.notes.trim(),
+        category: loc?.category || "",
+        count: Math.min(n, 50),
+      }),
+    });
+    setRowDraftsPending((p) => ({ ...p, [index]: false }));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't generate reviews.");
+      return;
+    }
+    setRow(index, "reviewDrafts", data.reviews);
+  }
+
+  function updateRowDraft(rowIndex, draftIndex, text) {
+    setRow(rowIndex, "reviewDrafts", rows[rowIndex].reviewDrafts.map((t, idx) => (idx === draftIndex ? text : t)));
+  }
+
+  function removeRowDraft(rowIndex, draftIndex) {
+    setRow(rowIndex, "reviewDrafts", rows[rowIndex].reviewDrafts.filter((_, idx) => idx !== draftIndex));
+  }
+
   // Escape closes the modal; background scroll is locked while it's open —
   // same behaviour as the app's other modals (ContactModal, ScreenshotViewer).
   useEffect(() => {
@@ -217,12 +307,20 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         name: values.name.trim(),
         platform: "google",
         notes: values.notes.trim(),
-        locations: filled.map((r) => ({
-          locationId: r.locationId,
-          budget: Math.floor(Number(r.reviews)) * rate,
-          targetUrl: r.targetUrl?.trim() || undefined,
-          city: r.city?.trim() || undefined,
-        })),
+        // Each location keeps its OWN generated drafts — never pooled across
+        // locations, so a 5-review location sends exactly its own 5 (or
+        // however many it generated), independent of every other row.
+        locations: filled.map((r) => {
+          const n = Math.floor(Number(r.reviews)) || 0;
+          const drafts = (r.reviewDrafts ?? []).map((t) => t.trim()).filter(Boolean);
+          return {
+            locationId: r.locationId,
+            budget: n * rate,
+            targetUrl: r.targetUrl?.trim() || undefined,
+            city: r.city?.trim() || undefined,
+            reviewDrafts: drafts.length > 0 ? drafts : undefined,
+          };
+        }),
       };
     } else {
       if (!values.targetUrl.trim()) return setError("Add the review URL where customers should leave a review.");
@@ -240,6 +338,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         targetUrl: values.targetUrl.trim(),
         city: values.city.trim(),
         locationId: values.locationId || undefined,
+        reviewDrafts: reviewDrafts.map((t) => t.trim()).filter(Boolean),
       };
     }
 
@@ -267,7 +366,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
 
     toast.success(multiMode && body.locations.length > 1 ? `${body.locations.length} campaigns created.` : "Campaign created.");
     setValues({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", state: "", city: "" });
-    setRows(locations.length > 0 ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "" }] : []);
+    setRows(locations.length > 0 ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "", reviewDrafts: [] }] : []);
+    setReviewDrafts([]);
     setOpen(false);
     router.refresh();
   }
@@ -473,6 +573,52 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                 )}
                               </p>
                             </div>
+
+                            {/* This location's own AI-drafted reviews — sized
+                                to exactly this row's review count, never
+                                pooled with other locations. */}
+                            {row.locationId && rowReviews >= 1 && (
+                              <div className="rounded-card border border-default bg-surface-raised p-2.5">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-xs font-semibold text-primary">
+                                    Reviews for reviewers to copy <span className="font-normal text-muted">(optional)</span>
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => suggestReviewsForRow(i)}
+                                    disabled={rowDraftsPending[i]}
+                                    className="inline-flex shrink-0 items-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-2.5 py-1 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                                  >
+                                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                                    {rowDraftsPending[i] ? "Generating…" : row.reviewDrafts?.length > 0 ? "Regenerate" : `Suggest ${rowReviews} with AI`}
+                                  </button>
+                                </div>
+
+                                {row.reviewDrafts?.length > 0 && (
+                                  <ul className="mt-2.5 space-y-2">
+                                    {row.reviewDrafts.map((text, di) => (
+                                      <li key={di} className="flex items-start gap-2">
+                                        <textarea
+                                          rows={2}
+                                          value={text}
+                                          onChange={(e) => updateRowDraft(i, di, e.target.value)}
+                                          maxLength={1000}
+                                          className="w-full flex-1 resize-none rounded-2xl border border-default bg-surface-sunken px-3 py-2.5 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => removeRowDraft(i, di)}
+                                          aria-label="Remove"
+                                          className="shrink-0 rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                        </button>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -603,6 +749,53 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                       <p className="mt-1 text-xs text-secondary">
                         {reviews} review{reviews === 1 ? "" : "s"} × {inr(rate)} per review
                       </p>
+                    </div>
+
+                    {/* Optional AI-drafted reviews — one per reviewer, ready
+                        to copy-paste. Never generated/saved unless the owner
+                        explicitly asks and reviews the list. */}
+                    <div className="rounded-card border border-default bg-surface p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-primary">Reviews for reviewers to copy (optional)</p>
+                          <p className="mt-0.5 text-xs text-muted">
+                            AI drafts {reviewsNum || "N"} ready-to-post reviews — each reviewer gets one to copy-paste.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={suggestReviews}
+                          disabled={draftsPending || reviewsNum < 1}
+                          className="inline-flex shrink-0 items-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                          {draftsPending ? "Generating…" : reviewDrafts.length > 0 ? "Regenerate" : "Suggest with AI"}
+                        </button>
+                      </div>
+
+                      {reviewDrafts.length > 0 && (
+                        <ul className="mt-3 space-y-2">
+                          {reviewDrafts.map((text, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <textarea
+                                rows={2}
+                                value={text}
+                                onChange={(e) => updateDraft(i, e.target.value)}
+                                maxLength={1000}
+                                className="w-full flex-1 resize-none rounded-2xl border border-default bg-surface-sunken px-3 py-2.5 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeDraft(i)}
+                                aria-label="Remove"
+                                className="shrink-0 rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </>
                 )}

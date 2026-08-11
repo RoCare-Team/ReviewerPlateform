@@ -206,11 +206,14 @@ export async function listAccounts(accessToken) {
 export async function listLocations(accessToken, accountName) {
   // `metadata` carries `newReviewUri` — Google's own "write a review" link for
   // the location, so a campaign can be pre-filled with the real review URL
-  // instead of asking the business owner to go find and paste it.
-  const readMask = "name,title,storeCode,storefrontAddress,metadata";
+  // instead of asking the business owner to go find and paste it. `categories`
+  // carries the business's own Google category (e.g. "Dental clinic") — used
+  // to steer the AI review-draft prompt toward business-relevant phrasing,
+  // see lib/aiReviewDrafts.js.
+  const readMask = "name,title,storeCode,storefrontAddress,metadata,categories";
   const url = `${INFO_API}/${accountName}/locations?readMask=${encodeURIComponent(readMask)}&pageSize=100`;
   const data = await gapi(url, accessToken);
-  return data.locations ?? []; // [{ name: "locations/456", title, storefrontAddress }]
+  return data.locations ?? []; // [{ name: "locations/456", title, storefrontAddress, categories }]
 }
 
 /**

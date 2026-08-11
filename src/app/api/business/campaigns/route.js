@@ -32,6 +32,9 @@ const locationItemSchema = z.object({
   // Defaults to the city parsed from the location's own address when
   // omitted — same override pattern as targetUrl.
   city: z.string().trim().max(120).optional(),
+  // This location's slice of the AI-drafted (or owner-written) review pool —
+  // see models/Campaign.js reviewDrafts.
+  reviewDrafts: z.array(z.string().trim().min(1).max(1000)).max(200).optional(),
 });
 
 const createSchema = z
@@ -46,6 +49,9 @@ const createSchema = z
     targetUrl: z.string().trim().max(500).optional().default(""),
     locationId: z.string().optional(),
     locations: z.array(locationItemSchema).min(1).max(25).optional(),
+    // Optional pool of AI-drafted (or owner-written) review texts, single-
+    // campaign mode only — see models/Campaign.js reviewDrafts.
+    reviewDrafts: z.array(z.string().trim().min(1).max(1000)).max(200).optional(),
   })
   .strict()
   .refine((d) => Boolean(d.locations) || typeof d.budget === "number", {
@@ -78,7 +84,7 @@ export async function POST(request) {
       { status: 400 }
     );
   }
-  const { name, platform, budget, city, notes, targetUrl, locationId, locations } = parsed.data;
+  const { name, platform, budget, city, notes, targetUrl, locationId, locations, reviewDrafts } = parsed.data;
 
   // Live, admin-controlled rate — the single source of truth.
   const { reviewRate } = await getSettings();
@@ -133,6 +139,7 @@ export async function POST(request) {
     city: trimmedCity,
     location: locationId || null,
     status: "active",
+    reviewDrafts: (reviewDrafts ?? []).map((text) => ({ text, assignedTo: null, assignedAt: null })),
   });
 
   return Response.json({ ok: true, campaign, balance: debited.walletBalance });
@@ -217,6 +224,7 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
           city: l.city?.trim() || derivedCity,
           location: loc._id,
           status: "active",
+          reviewDrafts: (l.reviewDrafts ?? []).map((text) => ({ text, assignedTo: null, assignedAt: null })),
         };
       }),
       { ordered: true }

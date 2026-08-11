@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, ExternalLink, MapPin, Megaphone, RotateCcw, Upload, Star, X, XCircle } from "lucide-react";
+import { CheckCircle2, Clipboard, ClipboardCheck, Clock, ExternalLink, MapPin, Megaphone, RotateCcw, Upload, Star, X, XCircle } from "lucide-react";
 import { toast } from "../../lib/toast";
 
 /**
@@ -53,9 +53,16 @@ function useCountdown(expiresAt, onExpire) {
 function Card({ campaign }) {
   const reward = campaign.reward;
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  // Resume an already-live claim on mount instead of always starting from
+  // "not booked" — page.jsx passes down this reviewer's real, server-side
+  // expiresAt for any campaign they already have a reserved slot on, so
+  // navigating away and back (or just re-rendering) doesn't lose the
+  // countdown and force a re-click that used to reset the 30-minute timer.
+  const [open, setOpen] = useState(() => Boolean(campaign.activeClaimExpiresAt));
   const [claiming, setClaiming] = useState(false);
-  const [expiresAt, setExpiresAt] = useState(null);
+  const [expiresAt, setExpiresAt] = useState(() => campaign.activeClaimExpiresAt ?? null);
+  const [reviewText, setReviewText] = useState(() => campaign.activeReviewText || "");
+  const [copied, setCopied] = useState(false);
   const [file, setFile] = useState(null);
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
@@ -67,6 +74,7 @@ function Card({ campaign }) {
     toast.error("Your reserved slot expired. Open the review link again to reserve a new one.");
     setOpen(false);
     setExpiresAt(null);
+    setReviewText("");
     router.refresh();
   });
 
@@ -83,9 +91,29 @@ function Card({ campaign }) {
       return;
     }
 
-    window.open(data.targetUrl, "_blank", "noopener,noreferrer");
     setExpiresAt(data.expiresAt);
+    setReviewText(data.reviewText || "");
     setOpen(true);
+
+    // Copy BEFORE opening the review link, not after — window.open() shifts
+    // focus to the new tab, and browsers refuse navigator.clipboard.writeText
+    // once this document isn't the focused one anymore, so copying afterward
+    // silently failed. Copying first (while this tab still has focus) then
+    // opening the link is also the order the reviewer actually wants: text
+    // ready to paste the moment the review page shows up.
+    if (data.reviewText) await copyReviewText(data.reviewText);
+    window.open(data.targetUrl, "_blank", "noopener,noreferrer");
+  }
+
+  async function copyReviewText(text = reviewText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      toast.success("Review copied — paste it on the review page.");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Couldn't copy — select and copy the text manually.");
+    }
   }
 
   async function submit(e) {
@@ -253,7 +281,7 @@ function Card({ campaign }) {
             <span className="text-sm font-semibold text-primary">Submit your review</span>
             <button
               type="button"
-              onClick={() => { setOpen(false); setExpiresAt(null); }}
+              onClick={() => { setOpen(false); setExpiresAt(null); setReviewText(""); }}
               aria-label="Close"
               className="rounded-full p-1 text-muted transition-all duration-200 hover:scale-110 hover:bg-surface-sunken hover:text-primary"
             >
@@ -268,6 +296,21 @@ function Card({ campaign }) {
             </p>
           )}
 
+          {reviewText && (
+            <div className="mt-3 rounded-card border border-accent-border bg-accent-subtle p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-accent">Use this in your review</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-primary">{reviewText}</p>
+              <button
+                type="button"
+                onClick={copyReviewText}
+                className="mt-2.5 inline-flex items-center gap-1.5 rounded-btn border border-accent bg-surface px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand"
+              >
+                {copied ? <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" /> : <Clipboard className="h-3.5 w-3.5" aria-hidden="true" />}
+                {copied ? "Copied" : "Copy review"}
+              </button>
+            </div>
+          )}
+
           <ol className="mt-3 space-y-2 text-sm text-secondary">
             <li className="flex items-start gap-2">
               <span className="font-bold text-accent">1.</span>
@@ -276,7 +319,10 @@ function Card({ campaign }) {
                 Reopen the review link <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </li>
-            <li className="flex items-start gap-2"><span className="font-bold text-accent">2.</span> Leave your honest review.</li>
+            <li className="flex items-start gap-2">
+              <span className="font-bold text-accent">2.</span>
+              {reviewText ? "Paste the copied review above (or write your own)." : "Leave your honest review."}
+            </li>
             <li className="flex items-start gap-2"><span className="font-bold text-accent">3.</span> Upload a screenshot as proof.</li>
           </ol>
 
