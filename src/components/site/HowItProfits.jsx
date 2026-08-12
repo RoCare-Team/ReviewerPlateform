@@ -1,131 +1,141 @@
-import { Award, Briefcase, ChevronRight, Star } from "lucide-react";
+import {
+  Award,
+  Briefcase,
+  ExternalLink,
+  Gift,
+  LayoutDashboard,
+  Megaphone,
+  PenLine,
+  Search,
+  ShieldCheck,
+  Star,
+  Upload,
+  Users,
+  Wallet,
+} from "lucide-react";
 import Container from "./Container";
 import Reveal from "./Reveal";
 
 /**
- * "How it works" — one section, two side-by-side tracks (business left,
- * reviewer right) since both sides of the same transaction are easiest to
- * compare when they're visible at once rather than requiring a scroll past
- * one to reach the other. Each track is a compact vertical timeline so both
- * columns stay readable at any viewport width; they stack on mobile.
+ * "How it works" — a graphical horizontal flow per track (business, then
+ * reviewer) instead of a text list: icon nodes in circles, connected by
+ * arrows, so the journey reads as a pipeline at a glance before anyone
+ * reads a word. Each track scrolls sideways on narrow screens rather than
+ * wrapping, so the pipeline shape never breaks.
  */
 const TRACKS = [
   {
     key: "business",
     label: "For businesses",
-    Icon: Briefcase,
+    TrackIcon: Briefcase,
+    tone: "accent",
     blurb: "Launch a campaign, fund it, and let genuine customers do the reviewing — every one of them checked before it counts.",
     steps: [
-      { n: 1, title: "Create a campaign", body: "Set the platform (Google, Play Store, Trustpilot…), the reward per review, and how many you need." },
-      { n: 2, title: "Fund your wallet", body: "Top up once via Razorpay — rewards are paid out from this balance as reviews get approved." },
-      { n: 3, title: "Reviewers pick it up", body: "Your campaign goes live to reviewers who've actually used products like yours." },
-      { n: 4, title: "AI + admin verification", body: "Every submission is checked by AI for authenticity, then confirmed by a human before it's approved." },
-      { n: 5, title: "Reviews land on your listing", body: "Approved reviews are real, live reviews on your actual Google/Play Store/Trustpilot profile." },
+      { n: 1, Icon: Megaphone, title: "Create a campaign", body: "Pick the platform, the reward per review, and how many you need." },
+      { n: 2, Icon: Wallet, title: "Fund your wallet", body: "Top up once via Razorpay — rewards pay out as reviews get approved." },
+      { n: 3, Icon: Users, title: "Reviewers pick it up", body: "Goes live to reviewers who've actually used products like yours." },
+      { n: 4, Icon: ShieldCheck, title: "AI + admin verification", body: "Every submission is checked by AI, then confirmed by a human." },
+      { n: 5, Icon: Star, title: "Reviews go live", body: "Approved reviews land on your real Google/Play Store/Trustpilot profile." },
+      { n: 6, Icon: LayoutDashboard, title: "Track it all", body: "Spend, performance and every review, in one dashboard.", isFinal: true },
     ],
-    final: { n: 6, title: "Track it all from your dashboard", body: "See campaign performance, spend, and every review in one place — reply to them directly, or turn on AI auto-reply." },
   },
   {
     key: "reviewer",
     label: "For reviewers",
-    Icon: Star,
+    TrackIcon: Star,
+    tone: "verified",
     blurb: "Browse campaigns for products you've genuinely used, leave an honest review, and get rewarded once it's verified.",
     steps: [
-      { n: 1, title: "Pick a campaign", body: "Browse active campaigns and choose one that fits a product or service you've genuinely used." },
-      { n: 2, title: "Open the review link", body: "One click takes you to the real listing on Google, Play Store, Trustpilot or wherever the campaign runs." },
-      { n: 3, title: "Write an honest review", body: "Submit your own review externally — your words, your rating. Nothing is scripted or pre-written." },
-      { n: 4, title: "Upload proof", body: "A screenshot of the posted review is uploaded as evidence of participation." },
-      { n: 5, title: "AI verification", body: "The screenshot is validated by AI for authenticity — catching edits, reuse and mismatches." },
+      { n: 1, Icon: Search, title: "Pick a campaign", body: "Browse active campaigns for something you've genuinely used." },
+      { n: 2, Icon: ExternalLink, title: "Open the review link", body: "One click to the real listing on Google, Play Store or Trustpilot." },
+      { n: 3, Icon: PenLine, title: "Write an honest review", body: "Your own words, your rating — nothing scripted or pre-written." },
+      { n: 4, Icon: Upload, title: "Upload proof", body: "A screenshot of the posted review as evidence of participation." },
+      { n: 5, Icon: ShieldCheck, title: "AI verification", body: "The screenshot is validated for authenticity — no edits, no reuse." },
+      { n: 6, Icon: Gift, title: "Points credited", body: "Once confirmed, reward points land in your account.", isFinal: true },
     ],
-    final: { n: 6, title: "Points credited", body: "Once an admin confirms it, reward points are credited for the verified participation." },
   },
 ];
 
-/**
- * Experiment: instead of two parallel columns, interleave the two tracks
- * into one center timeline — business step 1, reviewer step 1, business
- * step 2, reviewer step 2… Zigzagging left/right per card so each side
- * still reads as "whose step is this" at a glance via color + tag, but the
- * two journeys are told as one interwoven story down the middle.
- */
-function interleave(a, b) {
-  const out = [];
-  const len = Math.max(a.length, b.length);
-  for (let i = 0; i < len; i += 1) {
-    if (a[i]) out.push({ ...a[i], track: "business" });
-    if (b[i]) out.push({ ...b[i], track: "reviewer" });
-  }
-  return out;
+/** Straight connector between two nodes, with an arrowhead riding its
+ *  midpoint — draws itself in on scroll via the Reveal wrapper on each node. */
+function Connector({ tone }) {
+  const stroke = tone === "accent" ? "bg-accent/25" : "bg-verified/25";
+  const arrow = tone === "accent" ? "border-accent/40 text-accent" : "border-verified/40 text-verified";
+  return (
+    <div className="relative flex h-16 w-10 shrink-0 items-center sm:w-14" aria-hidden="true">
+      <span className={`h-0.5 w-full ${stroke}`} />
+      <span
+        className={`absolute left-1/2 top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 rotate-45 items-center justify-center rounded-sm border-r-2 border-t-2 bg-surface-sunken ${arrow}`}
+      />
+    </div>
+  );
 }
 
-function InterleavedTimeline() {
-  const business = [...TRACKS[0].steps, TRACKS[0].final];
-  const reviewer = [...TRACKS[1].steps, TRACKS[1].final];
-  const items = interleave(business, reviewer);
+function FlowNode({ step, tone }) {
+  const { Icon, n, title, body, isFinal } = step;
+  const solid = tone === "accent" ? "bg-accent text-on-brand shadow-lg shadow-accent/30" : "bg-verified text-on-brand shadow-lg shadow-verified/30";
+  const outline =
+    tone === "accent"
+      ? "border-accent/30 bg-surface-raised text-accent group-hover:border-accent group-hover:bg-accent-subtle"
+      : "border-verified/30 bg-surface-raised text-verified group-hover:border-verified group-hover:bg-verified-subtle";
+  const badge = tone === "accent" ? "bg-accent text-on-brand" : "bg-verified text-on-brand";
 
   return (
-    <ol>
-      {items.map((item, i) => {
-        const isBusiness = item.track === "business";
-        const isFinal = item.n === 6;
-        const TrackIcon = isBusiness ? Briefcase : Star;
+    <div className="group flex w-32 shrink-0 flex-col items-center text-center sm:w-36">
+      <div className="relative">
+        <div
+          className={`flex h-16 w-16 items-center justify-center rounded-2xl border-2 transition-all duration-300 group-hover:-translate-y-1 sm:h-18 sm:w-18 ${
+            isFinal ? solid : `${outline} border`
+          }`}
+        >
+          <Icon className="h-7 w-7 sm:h-8 sm:w-8" aria-hidden="true" />
+        </div>
+        <span
+          className={`nums absolute -right-1.5 -top-1.5 flex h-5.5 w-5.5 items-center justify-center rounded-full text-[11px] font-bold ring-2 ring-surface-sunken ${
+            isFinal ? "bg-primary text-on-brand" : badge
+          }`}
+        >
+          {isFinal ? <Award className="h-3 w-3" aria-hidden="true" /> : n}
+        </span>
+      </div>
+      <p className="mt-3 text-xs font-bold leading-snug text-primary sm:text-sm">{title}</p>
+      <p className="mt-1 text-[11px] leading-snug text-muted sm:text-xs">{body}</p>
+    </div>
+  );
+}
 
-        return (
-          <Reveal as="li" key={`${item.track}-${item.n}`} delay={i * 45}>
-            {/* No card box — a numbered row with a left accent bar that grows
-                in on hover, and the whole row nudges right. Reads like an
-                editorial step list rather than a grid of tiles. */}
-            <div
-              className={`group relative flex items-start gap-5 border-b border-default py-5 transition-all duration-300 hover:pl-3 ${
-                i === items.length - 1 ? "border-b-0" : ""
-              }`}
-            >
-              <span
-                aria-hidden="true"
-                className={`absolute -left-4 top-0 h-full w-0.5 origin-top scale-y-0 transition-transform duration-300 ease-out group-hover:scale-y-100 ${
-                  isBusiness ? "bg-accent" : "bg-verified"
-                }`}
-              />
+function FlowRow({ track }) {
+  const { TrackIcon, tone, label, blurb, steps } = track;
+  const chipTone = tone === "accent" ? "bg-accent-subtle text-accent" : "bg-verified-subtle text-verified";
 
-              {/* Big outline numeral — the visual anchor instead of a boxed
-                  badge; fills solid on hover for the "step is active" cue. */}
-              <span
-                className={`nums shrink-0 select-none text-3xl font-black leading-none tracking-tight transition-colors duration-300 sm:text-4xl ${
-                  isFinal
-                    ? isBusiness
-                      ? "text-accent"
-                      : "text-verified"
-                    : isBusiness
-                      ? "text-accent/25 group-hover:text-accent"
-                      : "text-verified/25 group-hover:text-verified"
-                }`}
-              >
-                {isFinal ? <Award className="h-7 w-7 sm:h-8 sm:w-8" aria-hidden="true" /> : String(item.n).padStart(2, "0")}
-              </span>
+  return (
+    <div>
+      <Reveal className="flex items-start gap-3">
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${chipTone}`}>
+          <TrackIcon className="h-4.5 w-4.5" aria-hidden="true" />
+        </span>
+        <div>
+          <p className={`text-xs font-bold uppercase tracking-wide ${tone === "accent" ? "text-accent" : "text-verified"}`}>
+            {label}
+          </p>
+          <p className="mt-0.5 max-w-xl text-sm leading-relaxed text-secondary">{blurb}</p>
+        </div>
+      </Reveal>
 
-              <div className="min-w-0 flex-1">
-                <span
-                  className={`inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide ${
-                    isBusiness ? "text-accent" : "text-verified"
-                  }`}
-                >
-                  <TrackIcon className="h-3 w-3" aria-hidden="true" />
-                  {isBusiness ? "Business" : "Reviewer"}
-                </span>
-                <h4 className="mt-1 text-base font-bold tracking-tight text-primary sm:text-lg">{item.title}</h4>
-                <p className="mt-1 max-w-xl text-sm leading-relaxed text-secondary">{item.body}</p>
-              </div>
-
-              <ChevronRight
-                aria-hidden="true"
-                className={`mt-1 hidden h-5 w-5 shrink-0 -translate-x-1 text-muted opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100 sm:block ${
-                  isBusiness ? "group-hover:text-accent" : "group-hover:text-verified"
-                }`}
-              />
-            </div>
-          </Reveal>
-        );
-      })}
-    </ol>
+      {/* The pipeline itself — icon nodes joined by arrow connectors, scrolls
+          sideways on narrow screens instead of wrapping so the flow shape
+          (the whole point of drawing it this way) never breaks. */}
+      <div className="scrollbar-none mt-6 overflow-x-auto pb-2 pt-3">
+        <div className="flex w-max items-start px-1 pr-4 sm:pr-6">
+          {steps.map((step, i) => (
+            <Reveal key={step.n} delay={i * 90} className="flex items-start">
+              <FlowNode step={step} tone={tone} />
+              {i < steps.length - 1 && <Connector tone={tone} />}
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -153,22 +163,10 @@ export default function HowItProfits() {
           </p>
         </Reveal>
 
-        {/* Legend — replaces the two separate per-track intros now that both
-            journeys share one timeline; a quick key for which color/tag is
-            which side. */}
-        <Reveal className="mt-6 flex flex-wrap gap-4">
-          <span className="inline-flex items-center gap-2 text-sm font-semibold text-secondary">
-            <span className="h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
-            Business owner steps
-          </span>
-          <span className="inline-flex items-center gap-2 text-sm font-semibold text-secondary">
-            <span className="h-2.5 w-2.5 rounded-full bg-verified" aria-hidden="true" />
-            Reviewer steps
-          </span>
-        </Reveal>
-
-        <div className="mt-6 rounded-3xl border border-default bg-surface-sunken/60 p-4 shadow-sm sm:p-8">
-          <InterleavedTimeline />
+        <div className="mt-10 space-y-10 rounded-3xl border border-default bg-surface p-6 shadow-sm sm:p-8">
+          <FlowRow track={TRACKS[0]} />
+          <div className="border-t border-default" />
+          <FlowRow track={TRACKS[1]} />
         </div>
       </Container>
     </section>

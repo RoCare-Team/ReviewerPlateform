@@ -244,7 +244,7 @@ export default function AppShell({
 
         <nav
           aria-label="Sidebar"
-          className={`flex flex-1 flex-col gap-1.5 pt-4 ${isCollapsed ? "px-2" : "px-3"}`}
+          className={`flex flex-1 flex-col gap-1.5 pb-4 pt-4 ${isCollapsed ? "px-2" : "px-3"}`}
         >
           {nav.map((item) => (
             <NavLink
@@ -257,7 +257,7 @@ export default function AppShell({
           ))}
         </nav>
 
-        <div className={`border-t border-default p-3 ${isCollapsed ? "px-2" : ""}`}>
+        <div className={`border-t border-default p-3 pt-4 ${isCollapsed ? "px-2" : ""}`}>
           <div
             className={`flex items-center gap-2.5 rounded-xl px-2 py-2 ${
               isCollapsed ? "justify-center" : ""
@@ -286,10 +286,12 @@ export default function AppShell({
 
   return (
     <div className="min-h-dvh lg:flex lg:h-dvh lg:overflow-hidden">
-      {/* Desktop rail — fixed full height; its own content scrolls if needed.
-          Width animates between full (w-60) and icons-only (w-[4.5rem]). */}
+      {/* Desktop rail — pinned via `sticky` + `self-start` so it never moves
+          with page scroll regardless of how tall the main content gets; its
+          own content scrolls independently if the nav list ever outgrows the
+          viewport. Width animates between full (w-60) and icons-only (w-18). */}
       <aside
-        className={`hidden shrink-0 overflow-y-auto border-r border-default bg-surface-raised transition-all duration-200 lg:flex lg:h-dvh lg:flex-col ${
+        className={`hidden shrink-0 overflow-y-auto overflow-x-hidden border-r border-default bg-surface-raised transition-all duration-200 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:max-h-dvh lg:flex-col lg:self-start ${
           collapsed ? "lg:w-18" : "lg:w-60"
         }`}
       >
@@ -306,13 +308,13 @@ export default function AppShell({
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-20 bg-surface-inverse/40"
           />
-          <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-default bg-surface-raised">
+          <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col overflow-y-auto border-r border-default bg-surface-raised">
             {renderSidebar(true)}
           </aside>
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col lg:h-dvh lg:overflow-y-auto">
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden lg:h-dvh lg:overflow-y-auto">
         {/* Top bar — shown on every size. Mobile also uses it to open the drawer. */}
         <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-default bg-surface-raised/95 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
           <button
