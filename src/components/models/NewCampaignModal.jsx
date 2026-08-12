@@ -28,6 +28,24 @@ import { toast } from "../../lib/toast";
 const selectClass =
   "w-full appearance-none rounded-btn border border-default bg-surface py-2.5 pl-10 pr-3 text-primary outline-none transition-all duration-200 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent/50";
 
+// "N reviews every Y day(s)" is how the owner thinks about pacing, but it's
+// enforced as a single fixed gap between reviews (see lib/pacing.js) — this
+// converts the two numbers into that gap and a human sentence, so the owner
+// sees exactly what they're actually setting up before they save it.
+function formatPacingGap(count, days) {
+  const n = Number(count);
+  const d = Number(days);
+  if (!(n > 0) || !(d > 0)) return "";
+  const gapHours = (d * 24) / n;
+  const round = (v) => (Number.isInteger(v) ? v : v.toFixed(1));
+  if (gapHours >= 24) {
+    const gapDays = round(gapHours / 24);
+    return `≈ 1 review every ${gapDays} day${gapDays === 1 ? "" : "s"}`;
+  }
+  const h = round(gapHours);
+  return `≈ 1 review every ${h} hour${h === 1 ? "" : "s"}`;
+}
+
 /**
  * Create-campaign modal. The owner enters how many reviews they want, not a
  * ₹ amount — the price is derived live at the admin-controlled ₹/review rate
@@ -1049,6 +1067,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                     />
                                     <span>day{Number(row.pacingDays) === 1 ? "" : "s"}.</span>
                                   </div>
+                                  {row.pacingOn && (
+                                    <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(row.pacingCount, row.pacingDays)}</p>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -1390,6 +1411,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                       />
                       <span>day{Number(pacingDays) === 1 ? "" : "s"}.</span>
                     </div>
+                    {pacingOn && (
+                      <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(pacingCount, pacingDays)}</p>
+                    )}
                   </div>
                 )}
 

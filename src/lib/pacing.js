@@ -3,59 +3,55 @@ import Submission from "../models/Submission";
 
 /**
  * Optional per-campaign "drip" pacing (Campaign.pacingLimit / pacingWindowHours)
- * — caps how many reviews can land within a trailing time window, so a
- * campaign that wants 10 reviews doesn't get all 10 posted to Google within
- * the same hour. That kind of burst is exactly what Google's fake-engagement
- * detection flags, sometimes taking down the whole listing's reviews, not
- * just the suspicious ones.
+ * — spaces reviews out evenly instead of letting them all land in a burst,
+ * which is exactly the pattern Google's fake-engagement detection flags
+ * (sometimes taking down the whole listing's reviews, not just the
+ * suspicious ones).
  *
- * A rolling window, not a calendar-day reset: the check always looks at "the
- * last N hours from right now", so there's no fixed reset moment reviewers
- * could all pile onto at once.
+ * The owner enters it as "N reviews every Y day(s)" (e.g. "5 reviews every 1
+ * day") because that's how they think about it — but that's converted into a
+ * single **fixed gap**: gapHours = pacingWindowHours / pacingLimit (24h / 5 =
+ * 4.8h here). Enforcement is then just "has a review landed within the last
+ * gapHours?" — not "have N reviews landed somewhere in the last Y days",
+ * which would still let all 5 through in the first hour and then go silent
+ * for the rest of the day. A fixed gap is what actually spreads them out.
  *
  * What counts as "landed" — a LIVE claim (reviewer has an open link and
  * hasn't expired/abandoned it) or a non-rejected Submission (pending or
  * approved). A claim that expired without a submission never counted at
  * all (it's simply gone — see releaseExpiredClaims), so an abandoned attempt
- * never eats into the reviewer's pacing budget; only real attempts do.
+ * never eats into the pacing gap; only real attempts do.
  */
+
+/** The fixed gap (in hours) enforced between reviews, or null if unpaced. */
+export function pacingGapHours(campaign) {
+  if (!campaign.pacingLimit || !campaign.pacingWindowHours) return null;
+  return campaign.pacingWindowHours / campaign.pacingLimit;
+}
 
 /**
- * Returns { blocked: false } if the campaign has no pacing configured or is
- * under its limit right now, or { blocked: true, nextAvailableAt } if the
- * window is full — `nextAvailableAt` is when the oldest event inside the
- * current window will age out and free up a slot.
+ * Returns { blocked: false } if the campaign has no pacing configured or the
+ * gap has already elapsed since the last review, or
+ * { blocked: true, nextAvailableAt } if a review landed too recently —
+ * `nextAvailableAt` is when the gap since that review will have elapsed.
  */
 export async function checkPacing(campaign) {
-  if (!campaign.pacingLimit || !campaign.pacingWindowHours) {
-    return { blocked: false };
-  }
+  const gapHours = pacingGapHours(campaign);
+  if (!gapHours) return { blocked: false };
 
-  const windowStart = new Date(Date.now() - campaign.pacingWindowHours * 60 * 60 * 1000);
-
-  const [claims, submissions] = await Promise.all([
-    Claim.find({ campaign: campaign._id, createdAt: { $gte: windowStart } }).select("createdAt").lean(),
-    Submission.find({
-      campaign: campaign._id,
-      status: { $ne: "rejected" },
-      createdAt: { $gte: windowStart },
-    })
+  const [lastClaim, lastSubmission] = await Promise.all([
+    Claim.findOne({ campaign: campaign._id }).sort({ createdAt: -1 }).select("createdAt").lean(),
+    Submission.findOne({ campaign: campaign._id, status: { $ne: "rejected" } })
+      .sort({ createdAt: -1 })
       .select("createdAt")
       .lean(),
   ]);
 
-  const timestamps = [...claims, ...submissions].map((d) => d.createdAt).sort((a, b) => a - b);
+  const lastAt = [lastClaim?.createdAt, lastSubmission?.createdAt].filter(Boolean).sort((a, b) => b - a)[0];
+  if (!lastAt) return { blocked: false };
 
-  if (timestamps.length < campaign.pacingLimit) {
-    return { blocked: false };
-  }
-
-  // Full — figure out when the OLDEST event still inside the limit ages out
-  // of the window. E.g. limit=1: the single most recent event's own
-  // timestamp + windowHours. limit=3 with 5 events in-window: the 3rd-oldest
-  // (index length-limit) is what has to expire before a new one fits.
-  const oldestStillCounted = timestamps[timestamps.length - campaign.pacingLimit];
-  const nextAvailableAt = new Date(oldestStillCounted.getTime() + campaign.pacingWindowHours * 60 * 60 * 1000);
+  const nextAvailableAt = new Date(lastAt.getTime() + gapHours * 60 * 60 * 1000);
+  if (nextAvailableAt <= new Date()) return { blocked: false };
   return { blocked: true, nextAvailableAt };
 }
 

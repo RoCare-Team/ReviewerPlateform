@@ -56,11 +56,12 @@ const CampaignSchema = new mongoose.Schema(
     // Optional "drip" pacing so reviews land on Google spread out over time
     // instead of all at once (a burst of reviews in a short window is exactly
     // the pattern Google's fake-engagement detection flags). null = no
-    // limit, the default. When set: at most `pacingLimit` reviews (counting
-    // both live claims and non-rejected submissions — see lib/pacing.js) may
-    // land within any trailing `pacingWindowHours` window; the campaign
-    // simply stops appearing to reviewers once that's hit, until the oldest
-    // one in the window ages out.
+    // limit, the default. The owner enters these as "N reviews every Y
+    // day(s)" (pacingLimit=N, pacingWindowHours=Y*24), but they're enforced
+    // as a single fixed gap = pacingWindowHours / pacingLimit hours between
+    // reviews (counting both live claims and non-rejected submissions) — see
+    // lib/pacing.js. The campaign stops appearing to reviewers whenever a
+    // review landed more recently than that gap, until it elapses.
     pacingLimit: { type: Number, default: null, min: 1 },
     pacingWindowHours: { type: Number, default: null, min: 1 },
 
