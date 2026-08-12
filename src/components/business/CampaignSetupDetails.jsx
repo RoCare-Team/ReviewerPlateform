@@ -59,24 +59,31 @@ export function CampaignDetails({ campaign: c }) {
   if (c.reviewDrafts.length === 0 && c.reviewImages.length === 0) {
     return <p className="text-xs text-muted">No AI-drafted reviews or images were set up on this campaign.</p>;
   }
+  const hasBoth = c.reviewDrafts.length > 0 && c.reviewImages.length > 0;
+
   return (
-    <div className="grid gap-5 sm:grid-cols-2">
+    <div className={`grid gap-5 ${hasBoth ? "sm:grid-cols-2" : ""}`}>
       {c.reviewDrafts.length > 0 && (
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-muted">
             Reviews &amp; keywords ({c.reviewDrafts.length})
           </p>
-          <ul className="mt-2 space-y-2">
+          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
             {c.reviewDrafts.map((d, i) => (
-              <li key={i} className="rounded-btn border border-default bg-surface p-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  {d.keyword && (
+              // rounded-xl, not rounded-btn — rounded-btn is the 9999px pill
+              // radius meant for actual buttons; on a multi-line text block
+              // it stretched into an oval/stadium shape instead of a card.
+              <li key={i} className="rounded-xl border border-default bg-surface p-3">
+                <div className="flex items-center justify-between gap-2">
+                  {d.keyword ? (
                     <span className="inline-flex shrink-0 rounded-full bg-accent-subtle px-1.5 py-0.5 text-[10px] font-semibold text-accent">
                       {d.keyword}
                     </span>
+                  ) : (
+                    <span />
                   )}
                   <span
-                    className={`ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                    className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
                       d.assigned ? "bg-verified-subtle text-verified" : "bg-surface-sunken text-muted"
                     }`}
                   >
@@ -100,7 +107,7 @@ export function CampaignDetails({ campaign: c }) {
                 href={im.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group relative aspect-square overflow-hidden rounded-btn border border-default"
+                className="group relative aspect-square overflow-hidden rounded-lg border border-default"
                 title={im.assigned ? "Given to a reviewer" : "Available"}
               >
                 <img src={im.url} alt="" className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
