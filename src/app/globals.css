@@ -358,6 +358,16 @@
     font-feature-settings: "tnum", "lnum";
   }
 
+  /* Hides the native scrollbar on an overflow-x row that has its own
+     arrow-button controls (e.g. campaign chip carousel). */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Glass. Hero + sticky header ONLY. Not over tables, not over charts. */
   .glass {
     background-color: var(--glass-bg);
