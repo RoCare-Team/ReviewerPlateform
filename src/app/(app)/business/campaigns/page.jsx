@@ -81,6 +81,8 @@ export default async function BusinessCampaignsPage() {
               url: im.url,
               assigned: Boolean(im.assignedTo),
             })),
+            pacingLimit: c.pacingLimit ?? null,
+            pacingWindowHours: c.pacingWindowHours ?? null,
           }))}
           locations={locations}
           walletBalance={me?.walletBalance ?? 0}

@@ -52,7 +52,17 @@ const locationItemSchema = z.object({
   // reviewImages. URLs only (already uploaded via
   // /api/business/campaigns/upload-image before submit).
   reviewImages: z.array(z.string().trim().url()).max(200).optional(),
-});
+  // This location's OWN drip pacing — see models/Campaign.js
+  // pacingLimit/pacingWindowHours. Each location in a batch decides its own
+  // gap independently (a busy flagship store might allow 2/day while a new
+  // outlet paces 1 every 3 days).
+  pacingLimit: z.number().int().min(1).max(1000).optional(),
+  pacingWindowHours: z.number().int().min(1).max(24 * 90).optional(),
+})
+  .refine((l) => Boolean(l.pacingLimit) === Boolean(l.pacingWindowHours), {
+    message: "Pacing needs both a review count and a time window.",
+    path: ["pacingLimit"],
+  });
 
 const createSchema = z
   .object({
@@ -72,6 +82,12 @@ const createSchema = z
     // Optional pool of images for reviewers to download/attach, single-
     // campaign mode only — see models/Campaign.js reviewImages.
     reviewImages: z.array(z.string().trim().url()).max(200).optional(),
+    // Optional "drip" pacing, single-campaign mode only — see
+    // models/Campaign.js pacingLimit/pacingWindowHours. Multi-location batch
+    // mode sets this per-location instead (locationItemSchema below), since
+    // different locations often want a different pace.
+    pacingLimit: z.number().int().min(1).max(1000).optional(),
+    pacingWindowHours: z.number().int().min(1).max(24 * 90).optional(),
   })
   .strict()
   .refine((d) => Boolean(d.locations) || typeof d.budget === "number", {
@@ -81,6 +97,10 @@ const createSchema = z
   .refine((d) => Boolean(d.locations) || d.city.length > 0, {
     message: "City is required.",
     path: ["city"],
+  })
+  .refine((d) => Boolean(d.pacingLimit) === Boolean(d.pacingWindowHours), {
+    message: "Pacing needs both a review count and a time window.",
+    path: ["pacingLimit"],
   });
 
 export async function GET() {
@@ -104,7 +124,20 @@ export async function POST(request) {
       { status: 400 }
     );
   }
-  const { name, platform, budget, city, notes, targetUrl, locationId, locations, reviewDrafts, reviewImages } = parsed.data;
+  const {
+    name,
+    platform,
+    budget,
+    city,
+    notes,
+    targetUrl,
+    locationId,
+    locations,
+    reviewDrafts,
+    reviewImages,
+    pacingLimit,
+    pacingWindowHours,
+  } = parsed.data;
 
   // Live, admin-controlled rate — the single source of truth.
   const { reviewRate } = await getSettings();
@@ -161,6 +194,8 @@ export async function POST(request) {
     status: "active",
     reviewDrafts: normalizeDrafts(reviewDrafts).map((d) => ({ ...d, assignedTo: null, assignedAt: null })),
     reviewImages: (reviewImages ?? []).map((url) => ({ url, assignedTo: null, assignedAt: null })),
+    pacingLimit: pacingLimit ?? null,
+    pacingWindowHours: pacingWindowHours ?? null,
   });
 
   return Response.json({ ok: true, campaign, balance: debited.walletBalance });
@@ -247,6 +282,8 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
           status: "active",
           reviewDrafts: normalizeDrafts(l.reviewDrafts).map((d) => ({ ...d, assignedTo: null, assignedAt: null })),
           reviewImages: (l.reviewImages ?? []).map((url) => ({ url, assignedTo: null, assignedAt: null })),
+          pacingLimit: l.pacingLimit ?? null,
+          pacingWindowHours: l.pacingWindowHours ?? null,
         };
       }),
       { ordered: true }

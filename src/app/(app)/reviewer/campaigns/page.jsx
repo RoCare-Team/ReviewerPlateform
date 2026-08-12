@@ -7,6 +7,7 @@ import User from "../../../../models/User";
 import Claim from "../../../../models/Claim";
 import { getSettings } from "../../../../lib/settings";
 import { releaseExpiredClaims } from "../../../../lib/claims";
+import { checkPacing } from "../../../../lib/pacing";
 import CampaignParticipation from "../../../../components/reviewer/CampaignParticipation";
 
 export const metadata = { title: "Available campaigns · RapportLook" };
@@ -42,6 +43,16 @@ export default async function ReviewerCampaignsPage() {
     .lean();
   const myClaimByCampaign = new Map(myClaims.map((cl) => [String(cl.campaign), cl]));
 
+  // Drip pacing (Campaign.pacingLimit/pacingWindowHours) — a paced campaign
+  // that's already at its "reviews per window" cap simply doesn't show up
+  // here until the oldest one in the window ages out. See lib/pacing.js.
+  // Only checked for campaigns that actually configured pacing.
+  const pacedCampaigns = openCampaigns.filter((c) => c.pacingLimit && c.pacingWindowHours);
+  const pacingResults = await Promise.all(pacedCampaigns.map((c) => checkPacing(c)));
+  const pacingBlockedIds = new Set(
+    pacedCampaigns.filter((c, i) => pacingResults[i].blocked).map((c) => String(c._id))
+  );
+
   // campaignId → this reviewer's status on it. Only an approved or still-
   // pending submission makes a campaign unavailable — a rejected one doesn't,
   // so it keeps showing up here for a resubmission with a new screenshot.
@@ -66,6 +77,7 @@ export default async function ReviewerCampaignsPage() {
       // the campaign read as "full" — it's their reserved slot, not a new one.
       const hasMyClaim = myClaimByCampaign.has(String(c._id));
       if (!hasMyClaim && (c.collected ?? 0) + claimed >= c.targetReviews) return false;
+      if (!hasMyClaim && pacingBlockedIds.has(String(c._id))) return false;
       const status = statusByCampaign.get(String(c._id));
       if (status && status !== "rejected") return false;
 

@@ -1,5 +1,6 @@
 import Campaign from "../models/Campaign";
 import Claim, { CLAIM_TTL_MINUTES } from "../models/Claim";
+import { checkPacing } from "./pacing";
 
 /**
  * Slot-reservation logic shared by the claim API route and the reviewer
@@ -110,6 +111,17 @@ export async function claimSlot(campaignId, reviewerId) {
       expiresAt,
       reviewText: existing.reviewDraft?.text || "",
       imageUrl: existing.reviewImage?.url || "",
+    };
+  }
+
+  // Drip pacing (Campaign.pacingLimit/pacingWindowHours) — never blocks
+  // renewing an existing claim above, only a genuinely NEW one. See
+  // lib/pacing.js for what counts and why this exists.
+  const pacing = await checkPacing(campaign);
+  if (pacing.blocked) {
+    return {
+      ok: false,
+      error: `This campaign is pacing its reviews — check back after ${pacing.nextAvailableAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.`,
     };
   }
 

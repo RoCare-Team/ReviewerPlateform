@@ -1,18 +1,21 @@
 "use client";
 
-import { ImageIcon, MessageSquareText } from "lucide-react";
+import { Clock, ImageIcon, MessageSquareText } from "lucide-react";
 
 /**
  * Small pills showing what the owner set up on this campaign at creation —
- * AI-drafted reviews and/or attach-images — with how many are still waiting
- * to be handed to a reviewer vs already claimed. Nothing shows if neither
- * pool was configured. Shared by CampaignsTable (desktop) and CampaignCard
- * (mobile) — see CampaignDetails below for the full expanded content.
+ * AI-drafted reviews, attach-images, and/or drip pacing — with how many are
+ * still waiting to be handed to a reviewer vs already claimed. Nothing shows
+ * if none of these were configured. Shared by CampaignsTable (desktop) and
+ * CampaignCard (mobile) — see CampaignDetails below for the full expanded
+ * content.
  */
 export function SetupBadges({ campaign: c }) {
-  if (!c.reviewDrafts.length && !c.reviewImages.length) return null;
+  const hasPacing = Boolean(c.pacingLimit && c.pacingWindowHours);
+  if (!c.reviewDrafts.length && !c.reviewImages.length && !hasPacing) return null;
   const draftsAssigned = c.reviewDrafts.filter((d) => d.assigned).length;
   const imagesAssigned = c.reviewImages.filter((im) => im.assigned).length;
+  const pacingDays = hasPacing ? c.pacingWindowHours / 24 : 0;
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1.5">
       {c.reviewDrafts.length > 0 && (
@@ -31,6 +34,15 @@ export function SetupBadges({ campaign: c }) {
         >
           <ImageIcon className="h-2.5 w-2.5" aria-hidden="true" />
           {imagesAssigned}/{c.reviewImages.length} images
+        </span>
+      )}
+      {hasPacing && (
+        <span
+          title="Reviews are paced out so they don't land on Google all at once"
+          className="inline-flex items-center gap-1 rounded-full bg-accent-subtle px-1.5 py-0.5 text-[10px] font-semibold text-accent"
+        >
+          <Clock className="h-2.5 w-2.5" aria-hidden="true" />
+          {c.pacingLimit}/{pacingDays === 1 ? "day" : `${pacingDays}d`}
         </span>
       )}
     </div>

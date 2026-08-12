@@ -53,6 +53,17 @@ const CampaignSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Optional "drip" pacing so reviews land on Google spread out over time
+    // instead of all at once (a burst of reviews in a short window is exactly
+    // the pattern Google's fake-engagement detection flags). null = no
+    // limit, the default. When set: at most `pacingLimit` reviews (counting
+    // both live claims and non-rejected submissions — see lib/pacing.js) may
+    // land within any trailing `pacingWindowHours` window; the campaign
+    // simply stops appearing to reviewers once that's hit, until the oldest
+    // one in the window ages out.
+    pacingLimit: { type: Number, default: null, min: 1 },
+    pacingWindowHours: { type: Number, default: null, min: 1 },
+
     // Optional pool of AI-drafted review texts, one reviewer per entry.
     // Generated (and editable) at creation time — see lib/aiReviewDrafts.js
     // and NewCampaignModal.jsx. When a reviewer claims a slot, claimSlot()

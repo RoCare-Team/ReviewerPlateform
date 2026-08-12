@@ -49,7 +49,21 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   const [values, setValues] = useState({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", state: "", city: "" });
   const [rows, setRows] = useState(
     locations.length > 0
-      ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "", keywords: [], reviewDrafts: [], images: [] }]
+      ? [
+          {
+            locationId: "",
+            reviews: "",
+            targetUrl: "",
+            state: "",
+            city: "",
+            keywords: [],
+            reviewDrafts: [],
+            images: [],
+            pacingOn: false,
+            pacingCount: "1",
+            pacingDays: "1",
+          },
+        ]
       : []
   );
   const [pending, setPending] = useState(false);
@@ -78,6 +92,16 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   // multi mode keeps its own pool PER ROW (row.images).
   const [images, setImages] = useState([]); // [{ url, uploading }]
   const [rowImagesUploading, setRowImagesUploading] = useState({});
+
+  // Optional "drip" pacing (single-campaign mode) — caps how many reviews
+  // can land within a trailing time window, so Google doesn't see a burst of
+  // reviews all at once (that pattern trips fake-engagement detection and
+  // can get reviews pulled). Off by default. Multi mode keeps this PER ROW
+  // instead (row.pacingOn/pacingCount/pacingDays) — each location decides
+  // its own pace independently. See lib/pacing.js.
+  const [pacingOn, setPacingOn] = useState(false);
+  const [pacingCount, setPacingCount] = useState("1");
+  const [pacingDays, setPacingDays] = useState("1");
 
   const multiMode = values.platform === "google" && locations.length > 0;
 
@@ -150,7 +174,22 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   }
 
   function addRow() {
-    setRows((r) => [...r, { locationId: "", reviews: "", targetUrl: "", state: "", city: "", keywords: [], reviewDrafts: [], images: [] }]);
+    setRows((r) => [
+      ...r,
+      {
+        locationId: "",
+        reviews: "",
+        targetUrl: "",
+        state: "",
+        city: "",
+        keywords: [],
+        reviewDrafts: [],
+        images: [],
+        pacingOn: false,
+        pacingCount: "1",
+        pacingDays: "1",
+      },
+    ]);
   }
 
   function removeRow(index) {
@@ -474,6 +513,12 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     if (images.some((im) => im.uploading) || rows.some((r) => r.images?.some((im) => im.uploading))) {
       return setError("Wait for the image uploads to finish.");
     }
+    if (pacingOn && (!(Number(pacingCount) >= 1) || !(Number(pacingDays) >= 1))) {
+      return setError("Enter valid pacing numbers.");
+    }
+    const pacingFields = pacingOn
+      ? { pacingLimit: Math.floor(Number(pacingCount)), pacingWindowHours: Math.floor(Number(pacingDays)) * 24 }
+      : {};
 
     let body;
     if (multiMode) {
@@ -490,6 +535,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         if ((Number(r.reviews) || 0) < 1) {
           return setError(`Ask for at least 1 review for ${loc?.title || "each location"}.`);
         }
+        if (r.pacingOn && (!(Number(r.pacingCount) >= 1) || !(Number(r.pacingDays) >= 1))) {
+          return setError(`Enter valid pacing numbers for ${loc?.title || "each location"}.`);
+        }
       }
       if (rowsOverBudget) {
         toast.error("You don't have enough funds in your wallet. Add funds to request more reviews.");
@@ -499,15 +547,19 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         name: values.name.trim(),
         platform: "google",
         notes: values.notes.trim(),
-        // Each location keeps its OWN generated drafts — never pooled across
-        // locations, so a 5-review location sends exactly its own 5 (or
-        // however many it generated), independent of every other row.
+        // Each location keeps its OWN generated drafts, images, and pacing —
+        // never pooled/shared across locations, so a 5-review location sends
+        // exactly its own 5 (or however many it generated), independent of
+        // every other row.
         locations: filled.map((r) => {
           const n = Math.floor(Number(r.reviews)) || 0;
           const drafts = (r.reviewDrafts ?? [])
             .filter((d) => d.text.trim())
             .map((d) => ({ text: d.text.trim(), keyword: d.keyword || undefined }));
           const imgs = (r.images ?? []).filter((im) => !im.uploading && im.url).map((im) => im.url);
+          const rowPacing = r.pacingOn
+            ? { pacingLimit: Math.floor(Number(r.pacingCount)), pacingWindowHours: Math.floor(Number(r.pacingDays)) * 24 }
+            : {};
           return {
             locationId: r.locationId,
             budget: n * rate,
@@ -515,6 +567,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
             city: r.city?.trim() || undefined,
             reviewDrafts: drafts.length > 0 ? drafts : undefined,
             reviewImages: imgs.length > 0 ? imgs : undefined,
+            ...rowPacing,
           };
         }),
       };
@@ -536,6 +589,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         locationId: values.locationId || undefined,
         reviewDrafts: reviewDrafts.filter((d) => d.text.trim()).map((d) => ({ text: d.text.trim(), keyword: d.keyword || undefined })),
         reviewImages: images.filter((im) => !im.uploading && im.url).map((im) => im.url),
+        ...pacingFields,
       };
     }
 
@@ -565,12 +619,29 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     setValues({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", state: "", city: "" });
     setRows(
       locations.length > 0
-        ? [{ locationId: "", reviews: "", targetUrl: "", state: "", city: "", keywords: [], reviewDrafts: [], images: [] }]
+        ? [
+            {
+              locationId: "",
+              reviews: "",
+              targetUrl: "",
+              state: "",
+              city: "",
+              keywords: [],
+              reviewDrafts: [],
+              images: [],
+              pacingOn: false,
+              pacingCount: "1",
+              pacingDays: "1",
+            },
+          ]
         : []
     );
     setKeywords([]);
     setReviewDrafts([]);
     setImages([]);
+    setPacingOn(false);
+    setPacingCount("1");
+    setPacingDays("1");
     setOpen(false);
     router.refresh();
   }
@@ -939,6 +1010,46 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                     </div>
                                   )}
                                 </div>
+
+                                {/* This location's own drip pacing — decided
+                                    independently per location, not shared
+                                    across the batch. */}
+                                <div className="mt-3 border-t border-default pt-2.5">
+                                  <label className="flex cursor-pointer items-center justify-between gap-2">
+                                    <span className="text-sm font-semibold text-primary">
+                                      Pace out reviews <span className="font-normal text-muted">(optional)</span>
+                                    </span>
+                                    <input
+                                      type="checkbox"
+                                      checked={row.pacingOn}
+                                      onChange={(e) => setRow(i, "pacingOn", e.target.checked)}
+                                      className="h-4.5 w-4.5 shrink-0 rounded border-default accent-accent"
+                                    />
+                                  </label>
+                                  <div className={`mt-2 flex flex-wrap items-center gap-2 text-sm transition-opacity duration-150 ${row.pacingOn ? "text-secondary" : "pointer-events-none opacity-40"}`}>
+                                    <span>Allow</span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={1000}
+                                      value={row.pacingCount}
+                                      disabled={!row.pacingOn}
+                                      onChange={(e) => setRow(i, "pacingCount", e.target.value)}
+                                      className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
+                                    />
+                                    <span>review{Number(row.pacingCount) === 1 ? "" : "s"} every</span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={90}
+                                      value={row.pacingDays}
+                                      disabled={!row.pacingOn}
+                                      onChange={(e) => setRow(i, "pacingDays", e.target.value)}
+                                      className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
+                                    />
+                                    <span>day{Number(row.pacingDays) === 1 ? "" : "s"}.</span>
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1235,6 +1346,51 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                       )}
                     </div>
                   </>
+                )}
+
+                {/* Drip pacing — single-campaign mode only. Multi mode has
+                    its own per-location pacing inside each row above. */}
+                {!multiMode && (
+                  <div className="rounded-card border border-default bg-surface p-3">
+                    <label className="flex cursor-pointer items-center justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-primary">Pace out reviews</span>
+                        <span className="mt-0.5 block text-xs text-muted">
+                          Spread reviews over time instead of all at once — safer for Google&apos;s spam detection.
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={pacingOn}
+                        onChange={(e) => setPacingOn(e.target.checked)}
+                        className="h-4.5 w-4.5 shrink-0 rounded border-default accent-accent"
+                      />
+                    </label>
+
+                    <div className={`mt-3 flex flex-wrap items-center gap-2 border-t border-default pt-3 text-sm transition-opacity duration-150 ${pacingOn ? "text-secondary" : "pointer-events-none opacity-40"}`}>
+                      <span>Allow</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={1000}
+                        value={pacingCount}
+                        disabled={!pacingOn}
+                        onChange={(e) => setPacingCount(e.target.value)}
+                        className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
+                      />
+                      <span>review{Number(pacingCount) === 1 ? "" : "s"} every</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={90}
+                        value={pacingDays}
+                        disabled={!pacingOn}
+                        onChange={(e) => setPacingDays(e.target.value)}
+                        className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
+                      />
+                      <span>day{Number(pacingDays) === 1 ? "" : "s"}.</span>
+                    </div>
+                  </div>
                 )}
 
                 <div>
