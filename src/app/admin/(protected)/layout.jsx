@@ -25,6 +25,7 @@ const NAV = [
   { href: "/admin/pricing", label: "Pricing", icon: "payments" },
   { href: "/admin/blog", label: "Blog", icon: "blog" },
   { href: "/admin/contacts", label: "Contact requests", icon: "feedback" },
+  { href: "/admin/testimonials", label: "Testimonials", icon: "reviews" },
 ];
 
 export default async function ProtectedAdminLayout({ children }) {

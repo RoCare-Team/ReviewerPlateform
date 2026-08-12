@@ -9,6 +9,13 @@ const nextConfig = {
         protocol: "https",
         hostname: "res.cloudinary.com",
       },
+      {
+        // Placeholder headshots for the static homepage testimonials only
+        // (src/components/site/Testimonials.jsx). Swap for real, consented
+        // photos before launch — see the note in that file.
+        protocol: "https",
+        hostname: "randomuser.me",
+      },
     ],
   },
 };
