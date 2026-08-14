@@ -217,14 +217,40 @@ function Card({ campaign }) {
         )}
 
         {result.reason && (
-          <div className={`mt-4 w-full rounded-card border px-4 py-3 text-left text-sm leading-relaxed ${tone.box}`}>
-            {result.reason}
+          <div className="mt-4 w-full text-left">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+              {rejected ? "Why it wasn't verified" : "Note"}
+            </p>
+            <div className={`mt-1 w-full rounded-card border px-4 py-3 text-sm leading-relaxed ${tone.box}`}>
+              {result.reason}
+            </div>
           </div>
         )}
 
         <button
           type="button"
-          onClick={() => router.refresh()}
+          onClick={() => {
+            // "Try again" (rejected only) — the server already released this
+            // reviewer's claim and allows a fresh submission (see
+            // /api/reviewer/submissions), but `result` is local state that
+            // router.refresh() alone never clears, so the rejection panel
+            // used to stay on screen forever no matter how many times this
+            // was clicked. Reset back to the campaign's initial, unclaimed
+            // view so the reviewer can reserve a new slot and retry.
+            if (rejected) {
+              setResult(null);
+              setError("");
+              setFile(null);
+              setNote("");
+              setOpen(false);
+              setExpiresAt(null);
+              setReviewText("");
+              setImageUrl("");
+              setCopied(false);
+              setDownloaded(false);
+            }
+            router.refresh();
+          }}
           className={`mt-5 inline-flex items-center gap-2 rounded-btn px-5 py-2.5 text-sm font-semibold shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
             rejected ? "bg-danger text-white hover:opacity-90" : "bg-accent text-on-brand hover:bg-accent-hover"
           }`}
@@ -238,6 +264,11 @@ function Card({ campaign }) {
             "Done"
           )}
         </button>
+        {rejected && (
+          <p className="mt-2 text-xs text-muted">
+            Post your review on the site, then screenshot the review itself (not a QR code or landing page) — you can resubmit right away.
+          </p>
+        )}
       </div>
     );
   }
@@ -410,7 +441,35 @@ function Card({ campaign }) {
   );
 }
 
+// If the reviewer arrived via a "Resubmit with a new screenshot" link from
+// their submissions history (#campaign-<id>), the target card can be
+// anywhere in the grid — scroll straight to it and flash it briefly so it's
+// obvious which one just got highlighted, instead of making them hunt for it
+// across a whole page of campaigns.
+function useHashHighlight() {
+  const [highlightId, setHighlightId] = useState(null);
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash) return;
+    const el = document.getElementById(hash.slice(1));
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Deferred, not called directly in the effect body — setting state
+    // synchronously here would trigger a cascading render during the same
+    // commit (react-hooks/set-state-in-effect).
+    const onId = setTimeout(() => setHighlightId(hash.slice(1)), 0);
+    const offId = setTimeout(() => setHighlightId(null), 2500);
+    return () => {
+      clearTimeout(onId);
+      clearTimeout(offId);
+    };
+  }, []);
+  return highlightId;
+}
+
 export default function CampaignParticipation({ campaigns }) {
+  const highlightId = useHashHighlight();
+
   if (campaigns.length === 0) {
     return (
       <div className="rounded-card border border-dashed border-default bg-surface-raised p-10 text-center">
@@ -425,7 +484,14 @@ export default function CampaignParticipation({ campaigns }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {campaigns.map((c, i) => (
-        <div key={c.id} className="animate-fade-up h-full" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
+        <div
+          key={c.id}
+          id={`campaign-${c.id}`}
+          className={`animate-fade-up h-full scroll-mt-24 rounded-card transition-shadow duration-500 ${
+            highlightId === `campaign-${c.id}` ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""
+          }`}
+          style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}
+        >
           <Card campaign={c} />
         </div>
       ))}

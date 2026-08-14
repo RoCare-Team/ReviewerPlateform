@@ -69,7 +69,7 @@ function AppealBox({ submissionId, appealStatus, appealMessage, appealResponse }
 
   if (appealStatus === "pending") {
     return (
-      <div className="mt-2.5 flex items-start gap-1.5 rounded-btn border border-pending/40 bg-pending-subtle px-3 py-2 text-xs text-primary">
+      <div className="flex w-full items-start gap-1.5 rounded-btn border border-pending/40 bg-pending-subtle px-3 py-2 text-xs text-primary">
         <Gavel className="mt-0.5 h-3.5 w-3.5 shrink-0 text-pending" aria-hidden="true" />
         <div>
           <p className="font-semibold">Appeal submitted — awaiting review.</p>
@@ -81,7 +81,7 @@ function AppealBox({ submissionId, appealStatus, appealMessage, appealResponse }
 
   if (appealStatus === "resolved") {
     return (
-      <div className="mt-2.5 space-y-1.5">
+      <div className="w-full space-y-1.5">
         <div className="flex items-start gap-1.5 rounded-btn border border-default bg-surface px-3 py-2 text-xs text-secondary">
           <Gavel className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
           <div>
@@ -93,9 +93,9 @@ function AppealBox({ submissionId, appealStatus, appealMessage, appealResponse }
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+            className="inline-flex items-center gap-1.5 rounded-btn border border-default bg-surface px-3 py-1.5 text-xs font-semibold text-secondary shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent hover:shadow-md"
           >
-            <MessageCircleWarning className="h-3 w-3" aria-hidden="true" />
+            <MessageCircleWarning className="h-3.5 w-3.5" aria-hidden="true" />
             Appeal again
           </button>
         )}
@@ -112,16 +112,16 @@ function AppealBox({ submissionId, appealStatus, appealMessage, appealResponse }
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+        className="inline-flex items-center gap-1.5 rounded-btn border border-default bg-surface px-3 py-1.5 text-xs font-semibold text-secondary shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent hover:shadow-md"
       >
-        <MessageCircleWarning className="h-3 w-3" aria-hidden="true" />
+        <MessageCircleWarning className="h-3.5 w-3.5" aria-hidden="true" />
         Appeal this decision
       </button>
     );
   }
 
   return (
-    <div className="mt-2.5">
+    <div className="w-full">
       <AppealForm message={message} setMessage={setMessage} error={error} pending={pending} onCancel={() => { setOpen(false); setMessage(""); setError(""); }} onSubmit={submit} />
     </div>
   );
@@ -129,7 +129,7 @@ function AppealBox({ submissionId, appealStatus, appealMessage, appealResponse }
 
 function AppealForm({ message, setMessage, error, pending, onCancel, onSubmit }) {
   return (
-    <div className="animate-fade-up rounded-btn border border-default bg-surface p-3" style={{ animationDuration: "200ms" }}>
+    <div className="animate-fade-up rounded-card border border-default bg-surface p-3" style={{ animationDuration: "200ms" }}>
       <label className="mb-1 block text-xs font-semibold text-primary">Why should this be reconsidered?</label>
       <textarea
         value={message}
@@ -138,7 +138,7 @@ function AppealForm({ message, setMessage, error, pending, onCancel, onSubmit })
         maxLength={500}
         autoFocus
         placeholder="e.g. The screenshot does show my posted review — please take another look."
-        className={`w-full rounded-btn border bg-surface-raised px-3 py-2 text-xs text-primary outline-none transition-all duration-200 focus:ring-2 focus:ring-accent/50 ${
+        className={`w-full rounded-lg border bg-surface-raised px-3 py-2 text-xs text-primary outline-none transition-all duration-200 focus:ring-2 focus:ring-accent/50 ${
           error ? "border-danger" : "border-default focus:border-accent"
         }`}
       />
@@ -253,21 +253,27 @@ export default function SubmissionHistory({ submissions }) {
                           <p className="mt-1.5 text-xs text-danger">Reason: {s.rejectionReason}</p>
                         )}
                         {s.status === "rejected" && (
-                          <Link
-                            href="/reviewer/campaigns"
-                            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
-                          >
-                            <RotateCcw className="h-3 w-3" aria-hidden="true" />
-                            Resubmit with a new screenshot
-                          </Link>
-                        )}
-                        {s.status === "rejected" && (
-                          <AppealBox
-                            submissionId={s.id}
-                            appealStatus={s.appealStatus}
-                            appealMessage={s.appealMessage}
-                            appealResponse={s.appealResponse}
-                          />
+                          <div className="mt-2.5 flex flex-wrap items-start gap-2">
+                            {/* Jumps straight to THIS campaign's card on the
+                                available-campaigns page (id="campaign-<id>",
+                                see CampaignParticipation.jsx) and briefly
+                                highlights it, instead of dropping the
+                                reviewer on a generic list they'd have to
+                                search again. */}
+                            <Link
+                              href={s.campaignId ? `/reviewer/campaigns#campaign-${s.campaignId}` : "/reviewer/campaigns"}
+                              className="inline-flex items-center gap-1.5 rounded-btn bg-danger px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                              Resubmit with a new screenshot
+                            </Link>
+                            <AppealBox
+                              submissionId={s.id}
+                              appealStatus={s.appealStatus}
+                              appealMessage={s.appealMessage}
+                              appealResponse={s.appealResponse}
+                            />
+                          </div>
                         )}
                       </div>
                     </div>

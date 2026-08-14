@@ -29,6 +29,7 @@ export default async function ReviewerFeedbackPage() {
     const c = cMap.get(String(s.campaign));
     return {
       id: String(s._id),
+      campaignId: String(s.campaign),
       campaignName: c?.name ?? "Campaign",
       platform: PLATFORM_LABEL[c?.platform] ?? c?.platform ?? "",
       screenshotUrl: s.screenshotUrl,
