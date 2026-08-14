@@ -232,14 +232,6 @@ export default async function BusinessOverviewPage() {
         </div>
       </div>
 
-      <h1 className="mt-8 text-2xl font-bold tracking-tight text-primary">
-        Welcome back{user.name ? `, ${user.name}` : ""}
-      </h1>
-      <p className="mt-2 text-secondary">
-        Your review collection at a glance
-        {campaignViews.length > 0 ? " — pick a campaign to scope the numbers to it" : ""}.
-      </p>
-
       {/* 2. Stats — account-wide by default, per-campaign on click. */}
       <div className="mt-8">
         <CampaignStats overall={overall} campaigns={campaignViews} />

@@ -75,7 +75,6 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
             state: "",
             city: "",
             keywords: [],
-            reviewDrafts: [],
             images: [],
             pacingOn: false,
             pacingCount: "1",
@@ -87,20 +86,25 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
-  // Two-step review-draft flow for reviewers to copy — single-campaign mode.
-  // Step 1: suggest `reviewsNum` local-search KEYWORDS, owner picks/edits
-  // which to keep. Step 2: generate one full review PER CHOSEN keyword, so
-  // every review is guaranteed tied to a keyword the owner approved. Nothing
-  // is generated/saved until the owner explicitly asks; see aiKeywords.js /
+  // Review-draft flow for reviewers to copy — single-campaign mode. Suggest
+  // `reviewsNum` local-search KEYWORDS, then write one full review PER
+  // keyword, kept as one list (`keywords[i].review`) instead of two separate
+  // lists — a keyword and the review built around it are one unit, so
+  // editing a keyword and regenerating ITS review alone (not the whole
+  // batch) is a single button next to that one item. Nothing is
+  // generated/saved until the owner explicitly asks; see aiKeywords.js /
   // aiReviewDrafts.js for why this exists and its risk. Multi mode keeps its
-  // own keywords/drafts PER ROW instead — each location's own review-count's
+  // own keywords/reviews PER ROW instead — each location's own review-count's
   // worth, generated separately, never pooled across locations.
-  const [keywords, setKeywords] = useState([]); // [{ text, selected }]
+  const [keywords, setKeywords] = useState([]); // [{ text, selected, review, regenerating }]
   const [keywordsPending, setKeywordsPending] = useState(false);
-  const [reviewDrafts, setReviewDrafts] = useState([]);
-  const [draftsPending, setDraftsPending] = useState(false);
-  const [rowDraftsPending, setRowDraftsPending] = useState({});
+  const [draftsPending, setDraftsPending] = useState(false); // bulk (re)generate-all
+  const [rowDraftsPending, setRowDraftsPending] = useState({}); // bulk, per row
   const [rowKeywordsPending, setRowKeywordsPending] = useState({});
+  // Per-item "regenerate just this one" in-flight flags, keyed by keyword
+  // index (single mode) or `${rowIndex}:${keywordIndex}` (multi mode).
+  const [regeneratingOne, setRegeneratingOne] = useState({});
+  const [rowRegeneratingOne, setRowRegeneratingOne] = useState({});
 
   // Optional pool of images for reviewers to download and attach to the
   // review they post — one per review, same "up to reviewsNum" cap as
@@ -201,7 +205,6 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         state: "",
         city: "",
         keywords: [],
-        reviewDrafts: [],
         images: [],
         pacingOn: false,
         pacingCount: "1",
@@ -214,10 +217,18 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     setRows((r) => r.filter((_, i) => i !== index));
   }
 
+  // `value` may be the new value directly, or an updater `(prevValue) =>
+  // newValue` — pass an updater when the new value must be derived from
+  // this row's CURRENT state after an `await` (e.g. merging AI results back
+  // onto whatever keywords exist by the time the response arrives). Reading
+  // the outer `rows` closure directly after an await is stale — it's frozen
+  // at whatever `rows` was when the async function started, not updated by
+  // any setRow() calls made earlier in that same async function.
   function setRow(index, key, value) {
     setRows((r) => {
       const next = [...r];
-      const row = { ...next[index], [key]: value };
+      const resolvedValue = typeof value === "function" ? value(next[index][key]) : value;
+      const row = { ...next[index], [key]: resolvedValue };
 
       // Picking a location auto-fills its review URL, but only if the field
       // is still untouched (empty, or still holding the PREVIOUS location's
@@ -266,9 +277,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   const suggestCategory = locations.find((l) => l.id === values.locationId)?.category || "";
 
   // One click, two AI calls: suggest exactly `reviewsNum` keywords, then
-  // immediately write one review per keyword — no separate "now generate
-  // reviews" click needed. Keywords stay editable afterward; unchecking one
-  // and using "Regenerate reviews" below re-runs just the review step.
+  // immediately write one review per keyword onto that same list — no
+  // separate "now generate reviews" click needed. Keywords stay editable
+  // afterward; each has its own "regenerate" button once it has a review.
   async function suggestKeywords() {
     if (reviewsNum < 1) {
       toast.error("Enter how many reviews you need first.");
@@ -286,7 +297,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
       toast.error(data.error ?? "Couldn't generate keywords.");
       return;
     }
-    const kw = data.keywords.map((text) => ({ text, selected: true }));
+    const kw = data.keywords.map((text) => ({ text, selected: true })); // no `.review` yet — set once generation actually returns
     setKeywords(kw);
     await generateReviewsFromKeywords(kw);
   }
@@ -303,14 +314,19 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     setKeywords((list) => list.filter((_, idx) => idx !== i));
   }
 
-  // Write one full review PER SELECTED keyword, in order, so reviewDrafts[i]
-  // is guaranteed to be built around keywords[i]. `fromList` lets
+  function updateKeywordReview(i, text) {
+    setKeywords((list) => list.map((k, idx) => (idx === i ? { ...k, review: text } : k)));
+  }
+
+  // Bulk (re)generate — writes one full review PER SELECTED keyword, in
+  // order, merged back onto that same keyword's `.review`. `fromList` lets
   // suggestKeywords() chain straight into this with the just-fetched list
-  // (state set via setKeywords() above isn't readable yet in the same tick);
-  // the "Regenerate reviews" button below calls this with no argument, which
-  // reads whatever the owner has since checked/unchecked/edited.
+  // (state set via setKeywords() above isn't readable yet in the same tick).
+  // Used for the first pass and for "Regenerate all"; editing a single
+  // keyword's text does NOT auto-run this — use its own regenerate button.
   async function generateReviewsFromKeywords(fromList) {
-    const chosen = (fromList ?? keywords).filter((k) => k.selected && k.text.trim()).map((k) => k.text.trim());
+    const source = fromList ?? keywords;
+    const chosen = source.filter((k) => k.selected && k.text.trim());
     if (chosen.length === 0) {
       toast.error("Select at least one keyword first.");
       return;
@@ -324,7 +340,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         platform: values.platform,
         notes: values.notes.trim(),
         category: suggestCategory,
-        keywords: chosen,
+        keywords: chosen.map((k) => k.text.trim()),
       }),
     });
     setDraftsPending(false);
@@ -333,18 +349,48 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
       toast.error(data.error ?? "Couldn't generate reviews.");
       return;
     }
-    // Reviews come back in the same order as `chosen` — pair each with the
-    // keyword it was written around, so the campaigns table (and the final
-    // save) can show which review goes with which keyword.
-    setReviewDrafts(data.reviews.map((text, i) => ({ text, keyword: chosen[i] || "" })));
+    if (!Array.isArray(data.reviews) || data.reviews.length === 0) {
+      toast.error("The AI didn't return any reviews — try again.");
+      return;
+    }
+    if (data.reviews.length < chosen.length) {
+      toast.error(`Only ${data.reviews.length} of ${chosen.length} reviews came back — regenerate the rest individually.`);
+    }
+    // Reviews come back in the same order as `chosen` — write each back onto
+    // its own keyword by matching text, not index, so a keyword the owner
+    // renamed or reordered in between still gets paired correctly.
+    const reviewByText = new Map(chosen.map((k, i) => [k.text.trim(), data.reviews[i] ?? ""]));
+    setKeywords((list) => list.map((k) => (reviewByText.has(k.text.trim()) ? { ...k, review: reviewByText.get(k.text.trim()) } : k)));
   }
 
-  function updateDraft(i, text) {
-    setReviewDrafts((list) => list.map((d, idx) => (idx === i ? { ...d, text } : d)));
-  }
-
-  function removeDraft(i) {
-    setReviewDrafts((list) => list.filter((_, idx) => idx !== i));
+  // Regenerate the review for exactly ONE keyword — what the owner reaches
+  // for after editing that keyword's text, instead of re-running every
+  // review in the list.
+  async function regenerateOneReview(i) {
+    const k = keywords[i];
+    if (!k?.text.trim()) {
+      toast.error("Add keyword text first.");
+      return;
+    }
+    setRegeneratingOne((p) => ({ ...p, [i]: true }));
+    const res = await fetch("/api/business/campaigns/suggest-reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: values.name.trim(),
+        platform: values.platform,
+        notes: values.notes.trim(),
+        category: suggestCategory,
+        keywords: [k.text.trim()],
+      }),
+    });
+    setRegeneratingOne((p) => ({ ...p, [i]: false }));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't regenerate that review.");
+      return;
+    }
+    updateKeywordReview(i, data.reviews[0] ?? "");
   }
 
   // Multi mode: each location runs its OWN keyword → review pipeline, sized
@@ -371,7 +417,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
       toast.error(data.error ?? "Couldn't generate keywords.");
       return;
     }
-    const kw = data.keywords.map((text) => ({ text, selected: true }));
+    const kw = data.keywords.map((text) => ({ text, selected: true })); // no `.review` yet — set once generation actually returns
     setRow(index, "keywords", kw);
     await generateReviewsFromRowKeywords(index, kw);
   }
@@ -388,9 +434,19 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     setRow(rowIndex, "keywords", rows[rowIndex].keywords.filter((_, idx) => idx !== i));
   }
 
+  function updateRowKeywordReview(rowIndex, i, text) {
+    // Functional updater for the same reason as generateReviewsFromRowKeywords
+    // above — this is also called after an `await` (from
+    // regenerateOneRowReview), where the `rows` closure can be stale.
+    setRow(rowIndex, "keywords", (prevKeywords) => prevKeywords.map((k, idx) => (idx === i ? { ...k, review: text } : k)));
+  }
+
+  // Bulk (re)generate for this row — same "merge back by matching keyword
+  // text" logic as the single-mode version above.
   async function generateReviewsFromRowKeywords(index, fromList) {
     const row = rows[index];
-    const chosen = (fromList ?? row.keywords).filter((k) => k.selected && k.text.trim()).map((k) => k.text.trim());
+    const source = fromList ?? row.keywords;
+    const chosen = source.filter((k) => k.selected && k.text.trim());
     if (chosen.length === 0) {
       toast.error("Select at least one keyword first.");
       return;
@@ -405,7 +461,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         platform: "google",
         notes: values.notes.trim(),
         category: loc?.category || "",
-        keywords: chosen,
+        keywords: chosen.map((k) => k.text.trim()),
       }),
     });
     setRowDraftsPending((p) => ({ ...p, [index]: false }));
@@ -414,7 +470,54 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
       toast.error(data.error ?? "Couldn't generate reviews.");
       return;
     }
-    setRow(index, "reviewDrafts", data.reviews.map((text, i) => ({ text, keyword: chosen[i] || "" })));
+    if (!Array.isArray(data.reviews) || data.reviews.length === 0) {
+      toast.error("The AI didn't return any reviews — try again.");
+      return;
+    }
+    if (data.reviews.length < chosen.length) {
+      toast.error(`Only ${data.reviews.length} of ${chosen.length} reviews came back — regenerate the rest individually.`);
+    }
+    const reviewByText = new Map(chosen.map((k, i) => [k.text.trim(), data.reviews[i] ?? ""]));
+    // Functional updater — reads the row's CURRENT keywords at flush time,
+    // not the `rows` closure (stale after the `await` above: it's frozen at
+    // whatever `rows` was when this function started, from BEFORE the
+    // setRow(index, "keywords", kw) call that suggestKeywordsForRow() made
+    // just before calling this — reading that stale closure here used to
+    // wipe the just-fetched keywords back to empty).
+    setRow(index, "keywords", (prevKeywords) =>
+      prevKeywords.map((k) => (reviewByText.has(k.text.trim()) ? { ...k, review: reviewByText.get(k.text.trim()) } : k))
+    );
+  }
+
+  // Regenerate the review for exactly ONE keyword in one row.
+  async function regenerateOneRowReview(rowIndex, i) {
+    const row = rows[rowIndex];
+    const k = row.keywords[i];
+    if (!k?.text.trim()) {
+      toast.error("Add keyword text first.");
+      return;
+    }
+    const key = `${rowIndex}:${i}`;
+    setRowRegeneratingOne((p) => ({ ...p, [key]: true }));
+    const loc = locations.find((l) => l.id === row.locationId);
+    const res = await fetch("/api/business/campaigns/suggest-reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: loc?.title || values.name.trim(),
+        platform: "google",
+        notes: values.notes.trim(),
+        category: loc?.category || "",
+        keywords: [k.text.trim()],
+      }),
+    });
+    setRowRegeneratingOne((p) => ({ ...p, [key]: false }));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't regenerate that review.");
+      return;
+    }
+    updateRowKeywordReview(rowIndex, i, data.reviews[0] ?? "");
   }
 
   async function uploadOneImage(file) {
@@ -501,14 +604,6 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     setRow(rowIndex, "images", rows[rowIndex].images.filter((_, idx) => idx !== i));
   }
 
-  function updateRowDraft(rowIndex, draftIndex, text) {
-    setRow(rowIndex, "reviewDrafts", rows[rowIndex].reviewDrafts.map((d, idx) => (idx === draftIndex ? { ...d, text } : d)));
-  }
-
-  function removeRowDraft(rowIndex, draftIndex) {
-    setRow(rowIndex, "reviewDrafts", rows[rowIndex].reviewDrafts.filter((_, idx) => idx !== draftIndex));
-  }
-
   // Escape closes the modal; background scroll is locked while it's open —
   // same behaviour as the app's other modals (ContactModal, ScreenshotViewer).
   useEffect(() => {
@@ -571,9 +666,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         // every other row.
         locations: filled.map((r) => {
           const n = Math.floor(Number(r.reviews)) || 0;
-          const drafts = (r.reviewDrafts ?? [])
-            .filter((d) => d.text.trim())
-            .map((d) => ({ text: d.text.trim(), keyword: d.keyword || undefined }));
+          const drafts = (r.keywords ?? [])
+            .filter((k) => k.selected && k.review?.trim())
+            .map((k) => ({ text: k.review.trim(), keyword: k.text?.trim() || undefined }));
           const imgs = (r.images ?? []).filter((im) => !im.uploading && im.url).map((im) => im.url);
           const rowPacing = r.pacingOn
             ? { pacingLimit: Math.floor(Number(r.pacingCount)), pacingWindowHours: Math.floor(Number(r.pacingDays)) * 24 }
@@ -605,7 +700,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         targetUrl: values.targetUrl.trim(),
         city: values.city.trim(),
         locationId: values.locationId || undefined,
-        reviewDrafts: reviewDrafts.filter((d) => d.text.trim()).map((d) => ({ text: d.text.trim(), keyword: d.keyword || undefined })),
+        reviewDrafts: keywords
+          .filter((k) => k.selected && k.review?.trim())
+          .map((k) => ({ text: k.review.trim(), keyword: k.text?.trim() || undefined })),
         reviewImages: images.filter((im) => !im.uploading && im.url).map((im) => im.url),
         ...pacingFields,
       };
@@ -645,7 +742,6 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
               state: "",
               city: "",
               keywords: [],
-              reviewDrafts: [],
               images: [],
               pacingOn: false,
               pacingCount: "1",
@@ -655,7 +751,6 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         : []
     );
     setKeywords([]);
-    setReviewDrafts([]);
     setImages([]);
     setPacingOn(false);
     setPacingCount("1");
@@ -713,7 +808,20 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
             </div>
 
             {/* Body — the only part that scrolls */}
-            <form id="new-campaign-form" onSubmit={onSubmit} className="min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-8">
+            <form
+              id="new-campaign-form"
+              onSubmit={onSubmit}
+              // Hitting Enter in ANY single-line input here (most easily
+              // triggered while editing a keyword) natively submits the
+              // form — if the rest of the fields already validate, that
+              // silently creates the campaign for real and resets/closes
+              // the modal, wiping whatever was just generated. Only the
+              // explicit "Start campaign" button should submit.
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && e.target instanceof HTMLInputElement) e.preventDefault();
+              }}
+              className="min-h-0 flex-1 overflow-y-auto px-6 py-5 sm:px-8"
+            >
               <FormError>{error}</FormError>
 
               <div className="space-y-4">
@@ -891,87 +999,111 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                           : `Suggest ${rowReviews} with AI`}
                                   </button>
                                 </div>
+                                <p className="mt-0.5 text-[11px] leading-snug text-muted">
+                                  Click once — AI writes {rowReviews} ready-to-copy review{rowReviews === 1 ? "" : "s"} for this
+                                  location. Reviewers will pick one, copy it, and paste it when leaving their review — you don&apos;t
+                                  have to do anything else here.
+                                </p>
 
                                 {row.keywords?.length > 0 && (
                                   <>
-                                    <ul className="mt-2.5 space-y-1.5">
-                                      {row.keywords.map((k, ki) => (
-                                        <li key={ki} className="flex items-center gap-2">
-                                          <input
-                                            type="checkbox"
-                                            checked={k.selected}
-                                            onChange={() => toggleRowKeyword(i, ki)}
-                                            className="h-4 w-4 shrink-0 rounded border-default accent-accent"
-                                            aria-label={`Use "${k.text}"`}
-                                          />
-                                          <input
-                                            type="text"
-                                            value={k.text}
-                                            onChange={(e) => updateRowKeyword(i, ki, e.target.value)}
-                                            maxLength={100}
-                                            className={`w-full flex-1 rounded-btn border border-default bg-surface-sunken px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
-                                              k.selected ? "text-primary" : "text-muted line-through"
-                                            }`}
-                                          />
-                                          <button
-                                            type="button"
-                                            onClick={() => removeRowKeyword(i, ki)}
-                                            aria-label="Remove"
-                                            className="shrink-0 rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
-                                          >
-                                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                                          </button>
-                                        </li>
-                                      ))}
+                                    <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
+                                      <span className="inline-flex items-center gap-1"><span className="font-semibold text-primary">✓</span> tick = include this review</span>
+                                      <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> = rewrite just this one</span>
+                                      <span className="inline-flex items-center gap-1"><Trash2 className="h-3 w-3" aria-hidden="true" /> = discard this one</span>
+                                    </p>
+                                    {/* Keyword + its own review together, one
+                                        unit per item — editing a keyword and
+                                        hitting the refresh icon on ITS review
+                                        regenerates only that one, not the
+                                        whole list. */}
+                                    <ul className="mt-2 space-y-2">
+                                      {row.keywords.map((k, ki) => {
+                                        const busy = rowRegeneratingOne[`${i}:${ki}`];
+                                        return (
+                                          <li key={ki} className="rounded-xl border border-default bg-surface-sunken p-2">
+                                            <div className="flex items-center gap-2">
+                                              <input
+                                                type="checkbox"
+                                                checked={k.selected}
+                                                onChange={() => toggleRowKeyword(i, ki)}
+                                                className="h-4 w-4 shrink-0 rounded border-default accent-accent"
+                                                aria-label={`Include review #${ki + 1}`}
+                                                title="Untick to leave this one out of the campaign"
+                                              />
+                                              <div className="w-full flex-1">
+                                                <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted">
+                                                  Search phrase
+                                                </span>
+                                                <input
+                                                  type="text"
+                                                  value={k.text}
+                                                  onChange={(e) => updateRowKeyword(i, ki, e.target.value)}
+                                                  maxLength={100}
+                                                  title="What the reviewer searched for — the review below is written around this phrase"
+                                                  className={`mt-0.5 w-full rounded-btn border border-default bg-surface px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
+                                                    k.selected ? "text-primary" : "text-muted line-through"
+                                                  }`}
+                                                />
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => removeRowKeyword(i, ki)}
+                                                aria-label="Discard this review"
+                                                title="Discard this review"
+                                                className="shrink-0 self-end rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                              </button>
+                                            </div>
+
+                                            {k.review !== undefined && (
+                                              <div className="mt-1.5 flex items-start gap-2 border-t border-default pt-1.5">
+                                                <div className="w-full flex-1">
+                                                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted">
+                                                    Review text — reviewers copy this
+                                                  </span>
+                                                  <textarea
+                                                    rows={2}
+                                                    value={k.review}
+                                                    onChange={(e) => updateRowKeywordReview(i, ki, e.target.value)}
+                                                    maxLength={1000}
+                                                    className="mt-0.5 w-full resize-none rounded-xl border border-default bg-surface px-3 py-2 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
+                                                  />
+                                                </div>
+                                                <button
+                                                  type="button"
+                                                  onClick={() => regenerateOneRowReview(i, ki)}
+                                                  disabled={busy}
+                                                  aria-label="Regenerate this review"
+                                                  title="Rewrite just this review — leaves every other review untouched"
+                                                  className="shrink-0 self-end rounded-full border border-accent bg-accent-subtle p-1.5 text-accent transition-all duration-200 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                  <Sparkles className={`h-3.5 w-3.5 ${busy ? "animate-pulse" : ""}`} aria-hidden="true" />
+                                                </button>
+                                              </div>
+                                            )}
+                                          </li>
+                                        );
+                                      })}
                                     </ul>
 
-                                    {/* Only needed after editing which
-                                        keywords are checked — the first
-                                        click above already wrote reviews for
-                                        every keyword it suggested. */}
+                                    {/* Bulk regenerate — for when several
+                                        keywords changed at once; a single
+                                        keyword edit is better served by the
+                                        refresh icon on that one item above. */}
                                     <button
                                       type="button"
                                       onClick={() => generateReviewsFromRowKeywords(i)}
                                       disabled={rowDraftsPending[i] || row.keywords.filter((k) => k.selected).length === 0}
+                                      title="Rewrites every ticked review above at once — an unticked one is skipped and kept as-is"
                                       className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                                     >
                                       <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                                       {rowDraftsPending[i]
                                         ? "Writing reviews…"
-                                        : `Regenerate reviews (${row.keywords.filter((k) => k.selected).length})`}
+                                        : `Rewrite all ${row.keywords.filter((k) => k.selected).length} ticked reviews`}
                                     </button>
-                                  </>
-                                )}
-
-                                {row.reviewDrafts?.length > 0 && (
-                                  <>
-                                    <p className="mt-3 text-xs font-semibold text-primary">Reviews for reviewers to copy</p>
-                                    <ul className="mt-2 space-y-2">
-                                      {row.reviewDrafts.map((d, di) => (
-                                        <li key={di} className="flex items-start gap-2">
-                                          <div className="w-full flex-1">
-                                            {d.keyword && (
-                                              <p className="mb-1 truncate text-[10px] font-semibold text-muted">Keyword: {d.keyword}</p>
-                                            )}
-                                            <textarea
-                                              rows={2}
-                                              value={d.text}
-                                              onChange={(e) => updateRowDraft(i, di, e.target.value)}
-                                              maxLength={1000}
-                                              className="w-full resize-none rounded-2xl border border-default bg-surface-sunken px-3 py-2.5 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
-                                            />
-                                          </div>
-                                          <button
-                                            type="button"
-                                            onClick={() => removeRowDraft(i, di)}
-                                            aria-label="Remove"
-                                            className="shrink-0 rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
-                                          >
-                                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                                          </button>
-                                        </li>
-                                      ))}
-                                    </ul>
                                   </>
                                 )}
 
@@ -979,9 +1111,14 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                     own review count, never pooled. */}
                                 <div className="mt-3 border-t border-default pt-2.5">
                                   <div className="flex items-center justify-between gap-3">
-                                    <p className="text-xs font-semibold text-primary">
-                                      Images to attach <span className="font-normal text-muted">(optional, up to {rowReviews})</span>
-                                    </p>
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-semibold text-primary">
+                                        Images to attach <span className="font-normal text-muted">(optional, up to {rowReviews})</span>
+                                      </p>
+                                      <p className="mt-0.5 text-[11px] leading-snug text-muted">
+                                        Upload photos here — each reviewer downloads one to attach when posting their review.
+                                      </p>
+                                    </div>
                                     <label
                                       className={`inline-flex shrink-0 items-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-2.5 py-1 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand ${
                                         rowImagesUploading[i] || row.images.length >= rowReviews ? "pointer-events-none opacity-60" : "cursor-pointer"
@@ -1212,7 +1349,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-primary">Reviews for reviewers to copy (optional)</p>
                           <p className="mt-0.5 text-xs text-muted">
-                            One click: AI suggests {reviewsNum || "N"} local-search keywords (e.g. &quot;RO service near me&quot;), then writes a review for each.
+                            Click once — AI writes {reviewsNum || "N"} ready-to-copy reviews. Reviewers pick one, copy it, and
+                            paste it when leaving their review — you don&apos;t have to write anything yourself.
                           </p>
                         </div>
                         <button
@@ -1228,86 +1366,105 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
 
                       {keywords.length > 0 && (
                         <>
-                          <ul className="mt-3 space-y-1.5">
-                            {keywords.map((k, i) => (
-                              <li key={i} className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={k.selected}
-                                  onChange={() => toggleKeyword(i)}
-                                  className="h-4 w-4 shrink-0 rounded border-default accent-accent"
-                                  aria-label={`Use "${k.text}"`}
-                                />
-                                <input
-                                  type="text"
-                                  value={k.text}
-                                  onChange={(e) => updateKeyword(i, e.target.value)}
-                                  maxLength={100}
-                                  className={`w-full flex-1 rounded-btn border border-default bg-surface-sunken px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
-                                    k.selected ? "text-primary" : "text-muted line-through"
-                                  }`}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => removeKeyword(i)}
-                                  aria-label="Remove"
-                                  className="shrink-0 rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                                </button>
-                              </li>
-                            ))}
+                          <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
+                            <span className="inline-flex items-center gap-1"><span className="font-semibold text-primary">✓</span> tick = include this review</span>
+                            <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> = rewrite just this one</span>
+                            <span className="inline-flex items-center gap-1"><Trash2 className="h-3 w-3" aria-hidden="true" /> = discard this one</span>
+                          </p>
+                          {/* Keyword + its own review together, one unit per
+                              item — editing a keyword and hitting the
+                              refresh icon on ITS review regenerates only
+                              that one, not the whole list. */}
+                          <ul className="mt-2 space-y-2">
+                            {keywords.map((k, i) => {
+                              const busy = regeneratingOne[i];
+                              return (
+                                <li key={i} className="rounded-xl border border-default bg-surface-sunken p-2">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={k.selected}
+                                      onChange={() => toggleKeyword(i)}
+                                      className="h-4 w-4 shrink-0 rounded border-default accent-accent"
+                                      aria-label={`Include review #${i + 1}`}
+                                      title="Untick to leave this one out of the campaign"
+                                    />
+                                    <div className="w-full flex-1">
+                                      <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted">
+                                        Search phrase
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={k.text}
+                                        onChange={(e) => updateKeyword(i, e.target.value)}
+                                        maxLength={100}
+                                        title="What the reviewer searched for — the review below is written around this phrase"
+                                        className={`mt-0.5 w-full rounded-btn border border-default bg-surface px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
+                                          k.selected ? "text-primary" : "text-muted line-through"
+                                        }`}
+                                      />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeKeyword(i)}
+                                      aria-label="Discard this review"
+                                      title="Discard this review"
+                                      className="shrink-0 self-end rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                    </button>
+                                  </div>
+
+                                  {k.review !== undefined && (
+                                    <div className="mt-1.5 flex items-start gap-2 border-t border-default pt-1.5">
+                                      <div className="w-full flex-1">
+                                        <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted">
+                                          Review text — reviewers copy this
+                                        </span>
+                                        <textarea
+                                          rows={2}
+                                          value={k.review}
+                                          onChange={(e) => updateKeywordReview(i, e.target.value)}
+                                          maxLength={1000}
+                                          className="mt-0.5 w-full resize-none rounded-xl border border-default bg-surface px-3 py-2 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
+                                        />
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => regenerateOneReview(i)}
+                                        disabled={busy}
+                                        aria-label="Regenerate this review"
+                                        title="Rewrite just this review — leaves every other review untouched"
+                                        className="shrink-0 self-end rounded-full border border-accent bg-accent-subtle p-1.5 text-accent transition-all duration-200 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60"
+                                      >
+                                        <Sparkles className={`h-3.5 w-3.5 ${busy ? "animate-pulse" : ""}`} aria-hidden="true" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </li>
+                              );
+                            })}
                           </ul>
 
-                          {/* Only needed after editing which keywords are
-                              checked — the first click above already wrote
-                              reviews for every keyword it suggested. */}
+                          {/* Bulk regenerate — for when several keywords
+                              changed at once; a single keyword edit is
+                              better served by the refresh icon on that one
+                              item above. */}
                           <button
                             type="button"
                             onClick={() => generateReviewsFromKeywords()}
                             disabled={draftsPending || keywords.filter((k) => k.selected).length === 0}
+                            title="Rewrites every ticked review above at once — an unticked one is skipped and kept as-is"
                             className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-2 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                           >
                             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                             {draftsPending
                               ? "Writing reviews…"
-                              : `Regenerate reviews from selected keywords (${keywords.filter((k) => k.selected).length})`}
+                              : `Rewrite all ${keywords.filter((k) => k.selected).length} ticked reviews`}
                           </button>
                         </>
                       )}
                     </div>
-
-                    {/* Step 2 — one full review per chosen keyword. */}
-                    {reviewDrafts.length > 0 && (
-                      <div className="rounded-card border border-default bg-surface p-3">
-                        <p className="text-sm font-semibold text-primary">Reviews for reviewers to copy</p>
-                        <p className="mt-0.5 text-xs text-muted">Each is built around one of your chosen keywords — edit freely.</p>
-                        <ul className="mt-3 space-y-2">
-                          {reviewDrafts.map((d, i) => (
-                            <li key={i} className="flex items-start gap-2">
-                              <div className="w-full flex-1">
-                                {d.keyword && <p className="mb-1 truncate text-[10px] font-semibold text-muted">Keyword: {d.keyword}</p>}
-                                <textarea
-                                  rows={2}
-                                  value={d.text}
-                                  onChange={(e) => updateDraft(i, e.target.value)}
-                                  maxLength={1000}
-                                  className="w-full resize-none rounded-2xl border border-default bg-surface-sunken px-3 py-2.5 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
-                                />
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeDraft(i)}
-                                aria-label="Remove"
-                                className="shrink-0 rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
 
                     {/* Images for reviewers to download and attach to the
                         review they post — one per review, never generated,

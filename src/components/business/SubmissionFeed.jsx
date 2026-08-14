@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   ExternalLink,
   Inbox,
@@ -99,6 +101,36 @@ function SubmissionRow({ s }) {
  */
 export default function SubmissionFeed({ campaigns }) {
   const [selectedId, setSelectedId] = useState(null);
+  const chipsRef = useRef(null);
+  // Tracks whether there's more to scroll to on each side, so the arrow
+  // buttons can fade out / disable at the ends instead of always looking
+  // equally clickable regardless of scroll position.
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = () => {
+    const el = chipsRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    updateScrollState();
+    const el = chipsRef.current;
+    if (!el) return undefined;
+    const onResize = () => updateScrollState();
+    el.addEventListener("scroll", updateScrollState);
+    window.addEventListener("resize", onResize);
+    return () => {
+      el.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [campaigns.length]);
+
+  const scrollChips = (direction) => {
+    chipsRef.current?.scrollBy({ left: direction * 200, behavior: "smooth" });
+  };
 
   const selected = campaigns.find((c) => c.id === selectedId) ?? null;
   const scopeList = selected ? [selected] : campaigns;
@@ -112,45 +144,71 @@ export default function SubmissionFeed({ campaigns }) {
   return (
     <div>
       {campaigns.length > 0 && (
-        <div className="mt-8 rounded-card border border-default bg-surface-raised p-4 shadow-sm">
+        <div className="mt-1 rounded-card border border-default bg-surface-raised p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-secondary">Showing submissions for</h2>
-          <div
-            role="tablist"
-            aria-label="Filter submissions by campaign"
-            className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1"
-          >
+
+          {/* Chip row doubles as the filter control. Native scrollbar hidden;
+              the arrow buttons drive scrolling so it reads as a carousel. */}
+          <div className="mt-3 flex items-center gap-1">
             <button
               type="button"
-              role="tab"
-              aria-selected={selected === null}
-              onClick={() => setSelectedId(null)}
-              className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                selected === null
-                  ? "border-transparent bg-accent text-on-brand shadow-sm"
-                  : "border-default bg-surface text-secondary hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary"
-              }`}
+              onClick={() => scrollChips(-1)}
+              disabled={!canScrollLeft}
+              aria-label="Scroll campaigns left"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-default bg-surface text-secondary transition-all duration-200 hover:border-accent/40 hover:text-primary disabled:pointer-events-none disabled:opacity-30"
             >
-              All campaigns
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             </button>
-            {campaigns.map((c) => {
-              const isActive = c.id === selectedId;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setSelectedId(c.id)}
-                  className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                    isActive
-                      ? "border-transparent bg-accent text-on-brand shadow-sm"
-                      : "border-default bg-surface text-secondary hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary"
-                  }`}
-                >
-                  {c.name}
-                </button>
-              );
-            })}
+
+            <div
+              ref={chipsRef}
+              role="tablist"
+              aria-label="Filter submissions by campaign"
+              className="scrollbar-none flex flex-1 gap-2 overflow-x-auto scroll-smooth px-1 pb-1"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={selected === null}
+                onClick={() => setSelectedId(null)}
+                className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                  selected === null
+                    ? "border-transparent bg-accent text-on-brand shadow-sm"
+                    : "border-default bg-surface text-secondary hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary"
+                }`}
+              >
+                All campaigns
+              </button>
+              {campaigns.map((c) => {
+                const isActive = c.id === selectedId;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setSelectedId(c.id)}
+                    className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                      isActive
+                        ? "border-transparent bg-accent text-on-brand shadow-sm"
+                        : "border-default bg-surface text-secondary hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => scrollChips(1)}
+              disabled={!canScrollRight}
+              aria-label="Scroll campaigns right"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-default bg-surface text-secondary transition-all duration-200 hover:border-accent/40 hover:text-primary disabled:pointer-events-none disabled:opacity-30"
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
         </div>
       )}
