@@ -39,5 +39,12 @@
     "eslint-config-next": "16.2.10",
     "mongodb-memory-server": "^11.2.0",
     "tailwindcss": "^4"
-  }
+  },
+  "browserslist": [
+    "> 0.5%",
+    "last 2 versions",
+    "Firefox ESR",
+    "not dead",
+    "not IE 11"
+  ]
 }

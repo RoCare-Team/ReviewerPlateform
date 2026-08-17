@@ -230,7 +230,7 @@ export default function SiteFooter() {
         {/* Footer Base Layer: Split on desktop to prevent vast empty whitespace */}
         <div className="mt-14 border-t border-default/60 pt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-sm font-semibold text-muted">
           <span>&copy; {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</span>
-          <span className="text-xs uppercase tracking-wider text-muted/60">
+          <span className="text-xs uppercase tracking-wider text-secondary">
             Built for compliance and authenticity
           </span>
         </div>

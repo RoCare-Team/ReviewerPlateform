@@ -200,7 +200,10 @@ export default function SiteHeader() {
           expanding panel; stretching it to fit was clipping the logo. */}
       <div
         className={`fixed inset-0 z-50 lg:hidden ${mobileMenuOpen ? "" : "pointer-events-none"}`}
-        aria-hidden={!mobileMenuOpen}
+        // `inert` (not `aria-hidden`) so the panel is fully removed from the
+        // tab order and AT tree while closed — aria-hidden alone still let
+        // keyboard/AT users tab into the offscreen links/buttons below.
+        inert={!mobileMenuOpen || undefined}
       >
         {/* Backdrop */}
         <div

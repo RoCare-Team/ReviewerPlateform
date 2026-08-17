@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    // Serve AVIF when the browser supports it (smaller than WebP), falling
+    // back to WebP — addresses Lighthouse's "Improve image delivery" audit.
+    formats: ["image/avif", "image/webp"],
     // Blog cover images and inline post images are uploaded to Cloudinary
     // (see src/lib/cloudinary.js) — next/image refuses to optimize a remote
     // src unless its host is explicitly allow-listed here.

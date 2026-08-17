@@ -32,7 +32,7 @@ function Track({ hidden }) {
       {PLATFORMS.map(({ name, className }) => (
         <li 
           key={name} 
-          className={`cursor-default whitespace-nowrap text-lg text-muted/60 transition-all duration-300 hover:scale-110 hover:text-accent ${className}`}
+          className={`cursor-default whitespace-nowrap text-lg text-secondary transition-all duration-300 hover:scale-110 hover:text-accent ${className}`}
         >
           {name}
         </li>
@@ -48,7 +48,7 @@ export default function LogoMarquee() {
       className="border-y border-default/60 bg-surface-raised py-8 sm:py-10"
     >
       <Container>
-        <p className="mb-6 text-center text-[10px] font-bold uppercase tracking-[0.15em] text-muted/80 sm:text-xs">
+        <p className="mb-6 text-center text-[10px] font-bold uppercase tracking-[0.15em] text-secondary sm:text-xs">
           Collect and track reviews across every platform that matters
         </p>
       </Container>
