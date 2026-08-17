@@ -35,7 +35,7 @@ const PLATFORM_LABEL = {
  * Never throws — on any error (network, bad response, no API key) it returns
  * an "uncertain" verdict so the caller falls back to manual admin review.
  */
-export async function verifyScreenshot(imageUrl, { campaignName, platform, businessName }) {
+export async function verifyScreenshot(imageUrl, { platform, businessName }) {
   if (!aiVerificationConfigured()) {
     return { decision: "uncertain", confidence: 0, reason: "AI verification not configured." };
   }
@@ -43,7 +43,7 @@ export async function verifyScreenshot(imageUrl, { campaignName, platform, busin
   const platformLabel = PLATFORM_LABEL[platform] || platform;
   const prompt = [
     `You are verifying proof-of-review screenshots for a review-collection platform.`,
-    `The reviewer claims to have posted a review on ${platformLabel}${businessName ? ` for "${businessName}"` : ""} (campaign: "${campaignName}").`,
+    `The reviewer claims to have posted a review on ${platformLabel}${businessName ? ` for "${businessName}"` : ""}.`,
     ``,
     `Look at the attached screenshot and decide if it genuinely shows a review the reviewer posted on ${platformLabel} for this business.`,
     `Reject if: it's not a screenshot of ${platformLabel}, it doesn't show a posted review (e.g. just the write-a-review form, empty page), it's an obvious mock-up/edit, or it's for a clearly different business.`,

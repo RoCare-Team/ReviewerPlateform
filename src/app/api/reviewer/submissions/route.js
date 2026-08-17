@@ -121,7 +121,6 @@ export async function POST(request) {
 
   // Step 1 — AI looks at the screenshot itself.
   const ai = await verifyScreenshot(upload.url, {
-    campaignName: campaign.name,
     platform: campaign.platform,
   });
   const aiFields = { aiDecision: ai.decision, aiConfidence: ai.confidence, aiReason: ai.reason };
