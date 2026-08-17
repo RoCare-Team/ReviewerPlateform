@@ -110,6 +110,7 @@ export default async function AdminCampaignsPage({ searchParams }) {
             return {
               id: String(c._id),
               name: c.name,
+              city: c.city || "",
               platform: c.platform,
               status: c.status,
               notes: c.notes,

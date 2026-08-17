@@ -50,6 +50,7 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.ownerName.toLowerCase().includes(q) ||
+        (c.city ?? "").toLowerCase().includes(q) ||
         (PLATFORM_LABEL[c.platform] ?? c.platform).toLowerCase().includes(q)
     );
   }, [campaigns, query]);
@@ -59,7 +60,7 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
       <SearchInput
         value={query}
         onChange={setQuery}
-        placeholder="Search by campaign name, owner, or platform"
+        placeholder="Search by campaign name, owner, city, or platform"
         resultLabel={query ? `${filtered.length} of ${campaigns.length} campaigns` : `${campaigns.length} shown`}
       />
 
@@ -107,7 +108,8 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
                         )}
                       </div>
                       <p className="truncate text-xs text-muted">
-                        {PLATFORM_LABEL[c.platform] ?? c.platform} · {c.ownerName} · {c.date}
+                        {PLATFORM_LABEL[c.platform] ?? c.platform} · {c.ownerName}
+                        {c.city && <> · <span className="font-medium text-secondary">{c.city}</span></>} · {c.date}
                       </p>
                       {c.notes && <p className="mt-1 truncate text-xs text-secondary" title={c.notes}>{c.notes}</p>}
                     </div>
@@ -174,7 +176,8 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
                   )}
                 </div>
                 <p className="mt-1 text-xs text-muted">
-                  {PLATFORM_LABEL[c.platform] ?? c.platform} · by {c.ownerName} · {c.date}
+                  {PLATFORM_LABEL[c.platform] ?? c.platform} · by {c.ownerName}
+                  {c.city && <> · <span className="font-medium text-secondary">{c.city}</span></>} · {c.date}
                 </p>
               </div>
               {c.targetUrl && (
