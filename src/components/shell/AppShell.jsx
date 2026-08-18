@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import {
+  Activity,
   Building2,
   Coins,
   CreditCard,
@@ -59,6 +60,7 @@ const ICONS = {
   payments: CreditCard,
   trust: ShieldAlert,
   withdraw: Landmark,
+  cron: Activity,
 };
 
 function NavLink({ item, active, onNavigate, collapsed }) {
