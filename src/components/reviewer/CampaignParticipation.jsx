@@ -67,6 +67,7 @@ function Card({ campaign }) {
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [file, setFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -157,6 +158,38 @@ function Card({ campaign }) {
       setDownloading(false);
     }
   }
+
+  // Local preview for whatever screenshot is currently selected — chosen via
+  // the file picker or pasted from the clipboard, doesn't matter which.
+  // Revoke the previous blob URL whenever `file` changes/clears so we don't
+  // leak one per selection.
+  useEffect(() => {
+    if (!file) {
+      setFilePreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setFilePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  // Ctrl/Cmd+V anywhere while the submit panel is open grabs an image straight
+  // off the clipboard (e.g. a screenshot copied with Win+Shift+S) — same
+  // effect as picking it from the file dialog, just faster.
+  useEffect(() => {
+    if (!open) return;
+    function onPaste(e) {
+      const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.type.startsWith("image/"));
+      if (!item) return;
+      const pasted = item.getAsFile();
+      if (!pasted) return;
+      e.preventDefault();
+      setFile(pasted);
+      toast.success("Image pasted.");
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [open]);
 
   async function submit(e) {
     e.preventDefault();
@@ -354,7 +387,7 @@ function Card({ campaign }) {
             <span className="text-sm font-semibold text-primary">Submit your review</span>
             <button
               type="button"
-              onClick={() => { setOpen(false); setExpiresAt(null); setReviewText(""); setImageUrl(""); setDownloaded(false); }}
+              onClick={() => { setOpen(false); setExpiresAt(null); setReviewText(""); setImageUrl(""); setDownloaded(false); setFile(null); }}
               aria-label="Close"
               className="rounded-full p-1 text-muted transition-all duration-200 hover:scale-110 hover:bg-surface-sunken hover:text-primary"
             >
@@ -418,12 +451,31 @@ function Card({ campaign }) {
             <li className="flex items-start gap-2"><span className="font-bold text-accent">3.</span> Upload a screenshot as proof.</li>
           </ol>
 
-          <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-btn border border-dashed border-default bg-surface px-3 py-3 text-sm font-semibold text-secondary transition-all duration-200 hover:border-accent/40 hover:bg-surface-sunken">
-            <Upload className="h-4 w-4" aria-hidden="true" />
-            <span className="truncate">{file ? file.name : "Choose screenshot (PNG/JPG/WebP)"}</span>
-            <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          </label>
+          {file && filePreview ? (
+            <div className="mt-4 flex items-center gap-3 rounded-btn border border-default bg-surface p-2">
+              <img src={filePreview} alt="Screenshot preview" className="h-16 w-16 shrink-0 rounded-btn border border-default object-cover" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-primary">{file.name}</p>
+                <label className="mt-1 inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-accent hover:underline">
+                  <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+                  Replace
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                </label>
+              </div>
+              <button type="button" onClick={() => setFile(null)} aria-label="Remove screenshot"
+                className="rounded-full p-1 text-muted transition-all duration-200 hover:scale-110 hover:bg-surface-sunken hover:text-primary">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+          ) : (
+            <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-btn border border-dashed border-default bg-surface px-3 py-3 text-sm font-semibold text-secondary transition-all duration-200 hover:border-accent/40 hover:bg-surface-sunken">
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              <span className="truncate">Choose screenshot or paste (Ctrl+V)</span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+            </label>
+          )}
 
           <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500}
             placeholder="Optional note for the reviewer team…"
