@@ -20,6 +20,7 @@ const schema = z
     reviewerReward: z.number().int().positive().max(100000),
     minWithdrawal: z.number().int().positive().max(100000),
     minTopup: z.number().int().positive().max(100000),
+    referralReward: z.number().int().positive().max(100000),
   })
   .strict();
 

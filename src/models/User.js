@@ -61,6 +61,17 @@ const UserSchema = new mongoose.Schema(
     bankAccountNumber: { type: String, trim: true, default: "" },
     bankIfsc: { type: String, trim: true, uppercase: true, default: "" },
 
+    // Referral program (reviewer/business_owner only — see lib/referral.js).
+    // `referralCode` is this user's OWN shareable code, generated once at
+    // signup and never reused across accounts (sparse-unique: admin has
+    // none). `referredBy` points at the user whose code THEY signed up
+    // with — set once, at creation, never editable after. `referralBonusPaid`
+    // guards the ₹-per-referral wallet credit to the referrer so it can never
+    // double-pay even under a retried/racing signup.
+    referralCode: { type: String, trim: true, uppercase: true, unique: true, sparse: true, index: true },
+    referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    referralBonusPaid: { type: Boolean, default: false },
+
     // Denormalised from Role.key — no join on every request.
     // NEVER set from a client payload. Derive server-side from the route.
     role: {

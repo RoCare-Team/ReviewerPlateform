@@ -12,6 +12,7 @@ const AppSettingsSchema = new mongoose.Schema(
     reviewerReward: { type: Number, default: 50, min: 1 }, // ₹ reviewer earns per verified review
     minWithdrawal: { type: Number, default: 50, min: 1 }, // ₹ smallest amount a reviewer can request
     minTopup: { type: Number, default: 50, min: 1 }, // ₹ smallest amount a business can add to its wallet
+    referralReward: { type: Number, default: 25, min: 1 }, // ₹ credited to a referrer per successful signup
     currency: { type: String, default: "INR" },
   },
   { timestamps: true }

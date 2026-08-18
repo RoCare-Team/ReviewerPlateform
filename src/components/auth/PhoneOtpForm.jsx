@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { User as UserIcon, ShieldCheck, ArrowLeft, RotateCcw } from "lucide-react";
+import { User as UserIcon, ShieldCheck, ArrowLeft, RotateCcw, Gift } from "lucide-react";
 import { Label, Input, FormError, SubmitButton } from "./Field";
 import StateCitySelect from "../ui/StateCitySelect";
 import { toast } from "../../lib/toast";
@@ -46,6 +46,10 @@ export default function PhoneOtpForm({ mode = "login", role }) {
   // with a one-time declaration right here, before the account even exists.
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
+  // Auto-filled from a shared link (?ref=CODE — see lib/referral.js), but
+  // always left editable: someone can still type a code by hand, or a friend
+  // can tell them theirs verbally instead of sending a link.
+  const [referralCode, setReferralCode] = useState(() => (params.get("ref") ?? "").trim().toUpperCase());
   const [verifiedToken, setVerifiedToken] = useState(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -198,6 +202,7 @@ export default function PhoneOtpForm({ mode = "login", role }) {
         name: name.trim(),
         verifiedToken,
         ...(role === "reviewer" ? { city: city.trim() } : {}),
+        ...(referralCode.trim() ? { referralCode: referralCode.trim() } : {}),
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -263,6 +268,21 @@ export default function PhoneOtpForm({ mode = "login", role }) {
             </p>
           </div>
         )}
+
+        <div className="mt-4">
+          <Label htmlFor="referralCode">Referral code (optional)</Label>
+          <Input
+            id="referralCode"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+            placeholder="e.g. AB12CD"
+            icon={Gift}
+            maxLength={20}
+          />
+          <p className="mt-1.5 text-xs text-muted">
+            Got invited by someone? Enter their code — they&apos;ll get a referral bonus.
+          </p>
+        </div>
 
         <div className="mt-6">
           <SubmitButton pending={pending}>Create account</SubmitButton>

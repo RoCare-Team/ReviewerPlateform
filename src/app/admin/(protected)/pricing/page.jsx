@@ -33,6 +33,10 @@ export default async function AdminPricingPage() {
           <p className="text-sm text-secondary">Minimum wallet top-up</p>
           <p className="mt-1 text-2xl font-bold text-primary">{inr(settings.minTopup)}</p>
         </div>
+        <div className="rounded-card border border-default bg-surface-raised p-5 shadow-sm">
+          <p className="text-sm text-secondary">Referral bonus</p>
+          <p className="mt-1 text-2xl font-bold text-primary">{inr(settings.referralReward)}</p>
+        </div>
       </div>
 
       <div className="mt-8 rounded-card border border-default bg-surface-raised p-6 shadow-sm sm:p-8">

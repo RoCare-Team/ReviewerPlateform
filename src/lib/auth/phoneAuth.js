@@ -4,6 +4,7 @@ import { sendSmsOtp, verifySmsOtp } from "../smsOtp";
 import { issueToken, consumeToken } from "./tokens";
 import { rateLimit, clientIp } from "../rate-limit";
 import { canSelfSignup } from "./roles";
+import { generateUniqueReferralCode, findReferrer, payReferralBonus } from "../referral";
 
 /**
  * Phone+OTP login/signup for reviewer & business_owner — these two roles no
@@ -148,7 +149,7 @@ export async function verifyPhoneOtp({ phone, otp, intent, role }, request) {
  * up front, instead of granting browser geolocation. Campaign matching
  * (reviewer/campaigns/page.jsx) reads this same field either way.
  */
-export async function completePhoneSignup({ phone, name, role, verifiedToken, city }) {
+export async function completePhoneSignup({ phone, name, role, verifiedToken, city, referralCode }) {
   if (!canSelfSignup(role)) return { ok: false, message: "Signup isn't available for this account type." };
 
   const redeemed = await consumeToken(verifiedToken, "phone_verified");
@@ -179,16 +180,25 @@ export async function completePhoneSignup({ phone, name, role, verifiedToken, ci
     return { ok: true, otpToken };
   }
 
-  await User.create({
+  // Referral code is optional and best-effort — an invalid/unknown code
+  // never blocks signup, it's simply not applied (referredBy stays null).
+  const referrer = referralCode ? await findReferrer(referralCode) : null;
+  const ownReferralCode = await generateUniqueReferralCode();
+
+  const created = await User.create({
     name,
     phone,
     role,
     phoneVerified: new Date(),
     status: "active",
     passwordHash: null,
+    referralCode: ownReferralCode,
+    referredBy: referrer?._id ?? null,
     // Reviewer-only — business accounts don't carry a location field.
     ...(role === "reviewer" && city ? { location: { city, updatedAt: new Date() } } : {}),
   });
+
+  if (referrer) await payReferralBonus(created);
 
   const otpToken = await issueToken(phone, "phone_login");
   return { ok: true, otpToken };

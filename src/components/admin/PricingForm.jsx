@@ -16,6 +16,7 @@ export default function PricingForm({ initial }) {
   const [reviewerReward, setReviewerReward] = useState(String(initial.reviewerReward));
   const [minWithdrawal, setMinWithdrawal] = useState(String(initial.minWithdrawal));
   const [minTopup, setMinTopup] = useState(String(initial.minTopup));
+  const [referralReward, setReferralReward] = useState(String(initial.referralReward));
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -26,11 +27,13 @@ export default function PricingForm({ initial }) {
     const reward = Number(reviewerReward);
     const minOut = Number(minWithdrawal);
     const minIn = Number(minTopup);
+    const referral = Number(referralReward);
     if (
       !Number.isInteger(rate) || rate <= 0 ||
       !Number.isInteger(reward) || reward <= 0 ||
       !Number.isInteger(minOut) || minOut <= 0 ||
-      !Number.isInteger(minIn) || minIn <= 0
+      !Number.isInteger(minIn) || minIn <= 0 ||
+      !Number.isInteger(referral) || referral <= 0
     ) {
       const text = "Enter valid whole-rupee amounts.";
       setMsg({ tone: "error", text });
@@ -48,7 +51,13 @@ export default function PricingForm({ initial }) {
     const res = await fetch("/api/admin/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reviewRate: rate, reviewerReward: reward, minWithdrawal: minOut, minTopup: minIn }),
+      body: JSON.stringify({
+        reviewRate: rate,
+        reviewerReward: reward,
+        minWithdrawal: minOut,
+        minTopup: minIn,
+        referralReward: referral,
+      }),
     });
     setPending(false);
     const data = await res.json().catch(() => ({}));
@@ -97,6 +106,14 @@ export default function PricingForm({ initial }) {
           <input id="minTopup" type="number" min="1" value={minTopup} onChange={(e) => setMinTopup(e.target.value)}
             className="w-full rounded-btn border border-default bg-surface px-3 py-2.5 text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50" />
           <p className="mt-1.5 text-xs text-muted">Smallest amount a business can add to its wallet.</p>
+        </div>
+        <div>
+          <label htmlFor="referralReward" className="mb-1.5 block text-sm font-medium text-primary">
+            Referral bonus (₹)
+          </label>
+          <input id="referralReward" type="number" min="1" value={referralReward} onChange={(e) => setReferralReward(e.target.value)}
+            className="w-full rounded-btn border border-default bg-surface px-3 py-2.5 text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50" />
+          <p className="mt-1.5 text-xs text-muted">Paid to whoever&apos;s referral code a new signup used.</p>
         </div>
       </div>
 

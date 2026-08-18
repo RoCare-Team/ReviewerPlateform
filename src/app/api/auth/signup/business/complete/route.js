@@ -13,6 +13,9 @@ const schema = z
     phone: z.string().trim(),
     name: z.string().trim().min(1, "Name is required").max(100),
     verifiedToken: z.string().min(1),
+    // Optional — auto-filled from a `?ref=` link or typed in manually. See
+    // lib/referral.js; an invalid code is simply ignored, never an error.
+    referralCode: z.string().trim().max(20).optional(),
   })
   .strict();
 
