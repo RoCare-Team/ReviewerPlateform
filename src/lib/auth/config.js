@@ -177,9 +177,14 @@ export const authConfig = {
         token.exp = Math.floor(Date.now() / 1000) + sessionMaxAge(user.role);
       }
 
-      // Re-read role/status from the DB on explicit update() so a suspension or
-      // role change takes effect without waiting for the token to expire.
-      if (trigger === "update" && token.id) {
+      // Impersonation tokens are minted directly by lib/auth/impersonation.js
+      // (not through this `user` branch — there's no real sign-in event), so
+      // nothing here needs to set them; they just need to survive untouched
+      // on every other call. The `update` re-read below deliberately does NOT
+      // re-check impersonation state — an impersonated session is capped at
+      // 2h server-side (its own `exp`) rather than tied to the target
+      // account's live status changing mid-session.
+      if (trigger === "update" && token.id && !token.impersonatedBy) {
         await dbConnect();
         const fresh = await User.findById(token.id).select("role status");
         if (!fresh || fresh.status === "suspended") return null;
@@ -196,6 +201,14 @@ export const authConfig = {
         session.user.role = token.role;
         session.user.status = token.status;
         if (token.phone) session.user.phone = token.phone;
+        // Set only on a session minted by lib/auth/impersonation.js — lets the
+        // UI show "you're viewing as X, logged in by admin" and every layout
+        // stays none the wiser otherwise (requireRole() etc. see a normal
+        // session for the target role).
+        if (token.impersonatedBy) {
+          session.user.impersonatedBy = token.impersonatedBy;
+          session.user.impersonatedByEmail = token.impersonatedByEmail;
+        }
       }
       return session;
     },
