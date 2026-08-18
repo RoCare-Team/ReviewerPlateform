@@ -4,6 +4,7 @@ import GmbLocation from "../../../../models/GmbLocation";
 import GmbReview from "../../../../models/GmbReview";
 import { getValidAccessToken, postReviewReply, syncConnectionReviews } from "../../../../lib/gmb";
 import { generateReviewReply } from "../../../../lib/aiReply";
+import { recordCronRun } from "../../../../lib/cronLog";
 
 /**
  * AI auto-reply for new Google reviews. For every connection with
@@ -23,6 +24,17 @@ const REVIEWS_PER_LOCATION = 10; // freshly-unreplied reviews handled per locati
 export async function GET() {
   await dbConnect();
 
+  try {
+    const result = await runAutoReply();
+    await recordCronRun("gmb-auto-reply", { ok: true, result });
+    return Response.json({ ok: true, ...result });
+  } catch (e) {
+    await recordCronRun("gmb-auto-reply", { ok: false, error: e.message });
+    return Response.json({ ok: false, error: e.message }, { status: 500 });
+  }
+}
+
+async function runAutoReply() {
   const connections = await GmbConnection.find({ status: "active", autoReplyEnabled: true })
     .select("+accessToken +refreshToken")
     .limit(CONNECTION_LIMIT);
@@ -85,11 +97,10 @@ export async function GET() {
     }
   }
 
-  return Response.json({
-    ok: true,
+  return {
     connectionsChecked: connections.length,
     repliesPosted,
     skipped,
     errors: errors.slice(0, 20),
-  });
+  };
 }
