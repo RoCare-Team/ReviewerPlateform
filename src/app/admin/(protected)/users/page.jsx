@@ -24,7 +24,10 @@ export default async function AdminUsersPage({ searchParams }) {
   const rows = users.map((u) => ({
     id: String(u._id),
     name: u.name || "",
-    email: u.email,
+    // Reviewer/business_owner sign in by phone (roles.json) and often have no
+    // email at all — fall back to phone so the table/search never has to deal
+    // with an undefined field.
+    email: u.email || u.phone || "",
     role: u.role,
     status: u.status,
     walletDisplay: inr(u.walletBalance ?? 0),

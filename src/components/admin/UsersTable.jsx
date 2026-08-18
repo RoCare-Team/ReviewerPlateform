@@ -48,8 +48,11 @@ export default function UsersTable({ rows }) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return rows;
+    // Reviewer/business_owner sign in by phone (roles.json) and often have no
+    // email at all — `.name`/`.email` must not be assumed present, or typing
+    // a search crashes the whole page on the first phone-only row.
     return rows.filter(
-      (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+      (u) => (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q)
     );
   }, [rows, query]);
 
