@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clock, MapPin, MessageSquare, RefreshCw, Star, Trash2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, MapPin, MessageSquare, RefreshCw, Star, Trash2 } from "lucide-react";
 import { toast } from "../../lib/toast";
 
 /**
@@ -71,22 +71,39 @@ export default function GmbConnections({ connections }) {
                   </span>
                   <div>
                     <p className="text-sm font-bold text-primary">{c.googleEmail}</p>
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-verified">
-                      <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      Connected
-                    </span>
+                    {c.status === "revoked" || c.status === "error" ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-danger">
+                        <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                        Reconnect needed
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-verified">
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        Connected
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => sync(c.id)}
-                    disabled={busy === c.id}
-                    className="inline-flex items-center gap-1.5 rounded-btn bg-accent px-3 py-1.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover disabled:opacity-60"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${busy === c.id ? "animate-spin" : ""}`} aria-hidden="true" />
-                    {busy === c.id ? "Syncing…" : "Sync reviews"}
-                  </button>
+                  {c.status === "revoked" || c.status === "error" ? (
+                    <a
+                      href="/api/business/gmb/connect"
+                      className="inline-flex items-center gap-1.5 rounded-btn bg-accent px-3 py-1.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover"
+                    >
+                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                      Reconnect
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => sync(c.id)}
+                      disabled={busy === c.id}
+                      className="inline-flex items-center gap-1.5 rounded-btn bg-accent px-3 py-1.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover disabled:opacity-60"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${busy === c.id ? "animate-spin" : ""}`} aria-hidden="true" />
+                      {busy === c.id ? "Syncing…" : "Sync reviews"}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => disconnect(c.id)}

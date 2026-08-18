@@ -36,6 +36,7 @@ export default async function BusinessConnectionsPage({ searchParams }) {
   const connections = conns.map((c) => ({
     id: String(c._id),
     googleEmail: c.googleEmail,
+    status: c.status || "active",
     lastError: c.lastError || "",
     locations: locs
       .filter((l) => String(l.connection) === String(c._id))

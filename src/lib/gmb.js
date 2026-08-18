@@ -114,7 +114,18 @@ export async function refreshAccessToken(refreshToken) {
       grant_type: "refresh_token",
     }),
   });
-  if (!res.ok) throw new Error(`Token refresh failed: ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    const err = new Error(`Token refresh failed: ${res.status} ${body}`);
+    // Google returns invalid_grant when the refresh token itself is dead —
+    // manually revoked from the Google Account, the connected account's
+    // password changed, unused for 6+ months, or (most common cause here) the
+    // OAuth consent screen is still in "Testing" mode, which caps refresh
+    // tokens at 7 days regardless of how correctly this app uses them. No
+    // amount of retrying fixes this — only re-consenting does.
+    err.invalidGrant = /invalid_grant/i.test(body);
+    throw err;
+  }
   return res.json(); // { access_token, expires_in, scope }
 }
 
@@ -146,11 +157,30 @@ export async function getValidAccessToken(conn) {
   }
   if (!conn.refreshToken) throw new Error("No refresh token — reconnect required.");
 
-  const tok = await refreshAccessToken(conn.refreshToken);
-  conn.accessToken = tok.access_token;
-  conn.tokenExpiresAt = new Date(Date.now() + (tok.expires_in ?? 3600) * 1000);
-  await conn.save();
-  return conn.accessToken;
+  try {
+    const tok = await refreshAccessToken(conn.refreshToken);
+    conn.accessToken = tok.access_token;
+    conn.tokenExpiresAt = new Date(Date.now() + (tok.expires_in ?? 3600) * 1000);
+    // Recovered from a previous failed refresh (e.g. was transiently down) —
+    // clear any stale "revoked"/"error" flag so the business UI stops asking
+    // to reconnect something that just worked.
+    if (conn.status !== "active" || conn.lastError) {
+      conn.status = "active";
+      conn.lastError = "";
+    }
+    await conn.save();
+    return conn.accessToken;
+  } catch (e) {
+    // invalid_grant means the refresh token itself is dead — persist that so
+    // the business sees "reconnect required" instead of this cron silently
+    // failing the same way every 10-15 minutes forever with no visible cause.
+    if (e.invalidGrant) {
+      conn.status = "revoked";
+      conn.lastError = "Google access expired or was revoked — reconnect this account.";
+      await conn.save();
+    }
+    throw e;
+  }
 }
 
 /* ------------------------------- GMB API ---------------------------------- */
