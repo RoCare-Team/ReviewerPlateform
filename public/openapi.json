@@ -1,0 +1,482 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ReviewHub API",
+    "description": "API for the ReviewHub platform — business review campaigns, reviewer payouts, and admin operations. Authentication is session-cookie based via NextAuth; sign in through the app first, then this cookie is sent automatically by the browser (or must be forwarded manually by non-browser clients).",
+    "version": "1.0.0",
+    "contact": { "name": "ReviewHub" }
+  },
+  "servers": [
+    { "url": "https://www.rapportlook.com", "description": "Production" },
+    { "url": "/", "description": "Current origin" }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Signup, login, OTP verification, password recovery. Public." },
+    { "name": "Business", "description": "Business dashboard: campaigns, wallet, Google Business Profile. Requires business_owner session." },
+    { "name": "Reviewer", "description": "Reviewer app: claim, submit, appeal, withdraw. Requires reviewer session." },
+    { "name": "Admin", "description": "Internal console. Requires admin session." },
+    { "name": "Public", "description": "No authentication required." },
+    { "name": "Cron", "description": "Background jobs, unauthenticated by design." },
+    { "name": "Webhooks", "description": "Server-to-server callbacks, authenticated by signature." }
+  ],
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "authjs.session-token",
+        "description": "Set by NextAuth after sign-in via /api/auth/[...nextauth]."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" },
+          "code": { "type": "string" },
+          "details": { "type": "object" }
+        },
+        "required": ["error"]
+      },
+      "Ok": {
+        "type": "object",
+        "properties": { "ok": { "type": "boolean", "example": true } }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Not signed in",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "error": "Unauthorized" } } }
+      },
+      "Forbidden": {
+        "description": "Signed in, missing permission",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "error": "Forbidden" } } }
+      },
+      "NotFound": {
+        "description": "Not found / not yours",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "BadRequest": {
+        "description": "Validation or business-rule failure",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Conflict": {
+        "description": "Conflicting state (double-submit, invalid transition)",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/otp/phone/send": {
+      "post": {
+        "tags": ["Auth"], "summary": "Send phone OTP",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["phone"], "properties": {
+          "phone": { "type": "string" }, "intent": { "type": "string", "enum": ["login", "signup"] }, "role": { "type": "string" }
+        } }, "example": { "phone": "+919876543210", "intent": "signup" } } } },
+        "responses": {
+          "200": { "description": "OTP sent", "content": { "application/json": { "example": { "ok": true, "message": "OTP sent" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/auth/otp/phone/verify": {
+      "post": {
+        "tags": ["Auth"], "summary": "Verify phone OTP",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["phone", "otp", "intent"], "properties": {
+          "phone": { "type": "string" }, "otp": { "type": "string", "example": "1234" }, "intent": { "type": "string" }, "role": { "type": "string" }
+        } } } } },
+        "responses": {
+          "200": { "description": "Verified", "content": { "application/json": { "examples": {
+            "existing": { "value": { "ok": true, "status": "existing", "otpToken": "…" } },
+            "new": { "value": { "ok": true, "status": "new", "verifiedToken": "…" } }
+          } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/auth/otp/send": {
+      "post": {
+        "tags": ["Auth"], "summary": "Send email OTP",
+        "description": "Always responds the same way, whether or not the email is registered (anti-enumeration). Rate-limited: 10/hr/IP, 5/hr/email.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email", "purpose"], "properties": {
+          "email": { "type": "string", "format": "email" }, "purpose": { "type": "string", "enum": ["signup", "login"] }
+        } } } } },
+        "responses": {
+          "200": { "description": "Always this response", "content": { "application/json": { "example": { "ok": true, "message": "If an account exists, a code has been sent." } } } },
+          "429": { "description": "Rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/auth/otp/verify": {
+      "post": {
+        "tags": ["Auth"], "summary": "Verify email OTP",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email", "code", "purpose"], "properties": {
+          "email": { "type": "string" }, "code": { "type": "string", "example": "123456" }, "purpose": { "type": "string" }
+        } } } } },
+        "responses": {
+          "200": { "description": "Verified", "content": { "application/json": { "example": { "ok": true, "next": "/login", "loginToken": "…" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "429": { "description": "Rate limited" }
+        }
+      }
+    },
+    "/api/auth/password/forgot": {
+      "post": {
+        "tags": ["Auth"], "summary": "Request password reset",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email"], "properties": { "email": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "Always this response (opaque)", "content": { "application/json": { "example": { "ok": true, "message": "If an account exists, a reset link has been sent." } } } } }
+      }
+    },
+    "/api/auth/password/reset": {
+      "post": {
+        "tags": ["Auth"], "summary": "Reset password",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["token", "password"], "properties": {
+          "token": { "type": "string" }, "password": { "type": "string", "minLength": 8 }
+        } } } } },
+        "responses": {
+          "200": { "description": "Password changed", "content": { "application/json": { "example": { "ok": true, "next": "/login" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/auth/signup/business": {
+      "post": {
+        "tags": ["Auth"], "summary": "Signup — business (email/password)",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name", "email", "password"], "properties": {
+          "name": { "type": "string" }, "email": { "type": "string" }, "password": { "type": "string" }
+        } } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "example": { "ok": true, "next": "/verify-otp" } } } } }
+      }
+    },
+    "/api/auth/signup/business/complete": {
+      "post": {
+        "tags": ["Auth"], "summary": "Complete signup — business (phone flow)",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["phone", "name", "verifiedToken"], "properties": {
+          "phone": { "type": "string" }, "name": { "type": "string" }, "verifiedToken": { "type": "string" }, "referralCode": { "type": "string" }
+        } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "otpToken": "…" } } } } }
+      }
+    },
+    "/api/auth/signup/reviewer": {
+      "post": {
+        "tags": ["Auth"], "summary": "Signup — reviewer (email/password)",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name", "email", "password"], "properties": {
+          "name": { "type": "string" }, "email": { "type": "string" }, "password": { "type": "string" }
+        } } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "example": { "ok": true, "next": "/verify-otp" } } } } }
+      }
+    },
+    "/api/auth/signup/reviewer/complete": {
+      "post": {
+        "tags": ["Auth"], "summary": "Complete signup — reviewer (phone flow)",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["phone", "name", "verifiedToken", "city"], "properties": {
+          "phone": { "type": "string" }, "name": { "type": "string" }, "verifiedToken": { "type": "string" }, "city": { "type": "string" }, "referralCode": { "type": "string" }
+        } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "otpToken": "…" } } } } }
+      }
+    },
+
+    "/api/business/campaigns": {
+      "get": {
+        "tags": ["Business"], "summary": "List campaigns", "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "example": { "campaigns": [] } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Business"], "summary": "Create campaign (single or batch)", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": {
+          "name": { "type": "string" }, "platform": { "type": "string", "example": "google" }, "budget": { "type": "number" },
+          "cities": { "type": "array", "items": { "type": "string" } }, "targetUrl": { "type": "string" }, "locationId": { "type": "string" },
+          "reviewDrafts": { "type": "array", "items": { "type": "string" } }, "reviewImages": { "type": "array", "items": { "type": "string" } },
+          "pacingLimit": { "type": "number" }, "pacingWindowHours": { "type": "number" },
+          "notes": { "type": "string" },
+          "locations": { "type": "array", "description": "Batch mode: one entry per Google location instead of the single-campaign fields above", "items": { "type": "object", "properties": {
+            "locationId": { "type": "string" }, "budget": { "type": "number" }, "targetUrl": { "type": "string" },
+            "cities": { "type": "array", "items": { "type": "string" } } } } }
+        } }, "example": { "name": "Diwali Push", "platform": "google", "budget": 5000, "cities": ["Pune"], "locationId": "loc_123" } } } },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "example": { "ok": true, "campaign": {}, "balance": 4200 } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }, "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/business/campaigns/{id}": {
+      "patch": {
+        "tags": ["Business"], "summary": "Pause / activate / edit a campaign", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["action"], "properties": {
+          "action": { "type": "string", "enum": ["pause", "activate", "edit"] },
+          "name": { "type": "string" }, "notes": { "type": "string" }, "targetUrl": { "type": "string" },
+          "cities": { "type": "array", "items": { "type": "string" } }, "reviews": { "type": "number" }, "locationId": { "type": "string" }
+        } }, "example": { "action": "pause" } } } },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "example": { "ok": true, "campaign": {} } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }, "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/business/campaigns/suggest-keywords": {
+      "post": {
+        "tags": ["Business"], "summary": "AI keyword suggestions", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": {
+          "name": { "type": "string" }, "category": { "type": "string" }, "count": { "type": "integer", "minimum": 1, "maximum": 50 }
+        } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "keywords": ["fast service", "friendly staff"] } } } }, "503": { "description": "AI not configured" }, "502": { "description": "Generation failed" } }
+      }
+    },
+    "/api/business/campaigns/suggest-reviews": {
+      "post": {
+        "tags": ["Business"], "summary": "AI review draft suggestions", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": {
+          "name": { "type": "string" }, "platform": { "type": "string" }, "notes": { "type": "string" }, "category": { "type": "string" },
+          "keywords": { "type": "array", "items": { "type": "string" } }, "count": { "type": "integer" }
+        } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "reviews": ["Great experience overall…"] } } } } }
+      }
+    },
+    "/api/business/campaigns/upload-image": {
+      "post": {
+        "tags": ["Business"], "summary": "Upload campaign image", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["image"], "properties": {
+          "image": { "type": "string", "format": "binary", "description": "PNG/JPG/WebP, ≤5MB" }
+        } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "url": "https://res.cloudinary.com/…" } } } }, "400": { "$ref": "#/components/responses/BadRequest" } }
+      }
+    },
+    "/api/business/gmb/connect": {
+      "get": { "tags": ["Business"], "summary": "Start Google Business OAuth", "security": [{ "sessionCookie": [] }],
+        "responses": { "302": { "description": "Redirects to Google consent screen" } } }
+    },
+    "/api/business/gmb/callback": {
+      "get": { "tags": ["Business"], "summary": "Google OAuth callback (browser redirect, not JSON)", "security": [{ "sessionCookie": [] }],
+        "parameters": [
+          { "name": "code", "in": "query", "schema": { "type": "string" } },
+          { "name": "state", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "302": { "description": "Redirects to /business/connections" } } }
+    },
+    "/api/business/gmb/sync": {
+      "post": { "tags": ["Business"], "summary": "Sync locations/reviews", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["connectionId"], "properties": { "connectionId": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "synced": 4, "locations": [], "errors": [] } } } }, "401": { "description": "Reconnect required" } } }
+    },
+    "/api/business/gmb/reply": {
+      "post": { "tags": ["Business"], "summary": "Reply to a Google review", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["reviewId", "comment"], "properties": {
+          "reviewId": { "type": "string" }, "comment": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "reply": {} } } } }, "404": { "$ref": "#/components/responses/NotFound" }, "502": { "description": "Google rejected the reply" } } }
+    },
+    "/api/business/gmb/auto-reply": {
+      "post": { "tags": ["Business"], "summary": "Toggle AI auto-reply", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["enabled"], "properties": { "enabled": { "type": "boolean" } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "enabled": true } } } } } }
+    },
+    "/api/business/gmb/{id}": {
+      "delete": { "tags": ["Business"], "summary": "Disconnect a location", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true } } } }, "404": { "$ref": "#/components/responses/NotFound" } } }
+    },
+    "/api/business/places/cities": {
+      "get": { "tags": ["Business"], "summary": "City autocomplete", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "q", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "cities": [{ "placeId": "…", "description": "Pune, Maharashtra, India", "city": "Pune" }] } } } }, "429": { "description": "Rate limited" } } }
+    },
+    "/api/business/profile": {
+      "patch": { "tags": ["Business"], "summary": "Update business profile", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": {
+          "name": { "type": "string" }, "bio": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "profile": { "name": "Acme Co", "bio": "" } } } } }, "404": { "$ref": "#/components/responses/NotFound" } } }
+    },
+    "/api/business/wallet": {
+      "get": { "tags": ["Business"], "summary": "Get wallet balance + transactions", "security": [{ "sessionCookie": [] }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "balance": 4200, "transactions": [] } } } } } }
+    },
+    "/api/business/wallet/order": {
+      "post": { "tags": ["Business"], "summary": "Create Razorpay top-up order", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["amount"], "properties": {
+          "amount": { "type": "number", "minimum": 1, "maximum": 500000 } } }, "example": { "amount": 5000 } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "orderId": "order_ABC", "amount": 5000, "currency": "INR", "keyId": "rzp_test_…" } } } }, "400": { "$ref": "#/components/responses/BadRequest" }, "502": { "description": "Razorpay failed" } } }
+    },
+    "/api/business/wallet/verify": {
+      "post": { "tags": ["Business"], "summary": "Verify payment and credit wallet", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["razorpay_order_id", "razorpay_payment_id", "razorpay_signature", "amount"], "properties": {
+          "razorpay_order_id": { "type": "string" }, "razorpay_payment_id": { "type": "string" }, "razorpay_signature": { "type": "string" }, "amount": { "type": "number" }
+        } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "balance": 9200, "alreadyCredited": false } } } }, "400": { "description": "Invalid signature" } } }
+    },
+
+    "/api/reviewer/campaigns/{id}/claim": {
+      "post": { "tags": ["Reviewer"], "summary": "Claim a campaign slot", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "targetUrl": "https://g.page/…", "expiresAt": "2026-08-19T18:00:00Z", "reviewText": "…", "imageUrl": "…" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }, "409": { "$ref": "#/components/responses/Conflict" }
+        } }
+    },
+    "/api/reviewer/location": {
+      "post": { "tags": ["Reviewer"], "summary": "Set reviewer city", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["city"], "properties": { "city": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "city": "Pune" } } } }, "403": { "$ref": "#/components/responses/Forbidden" } } }
+    },
+    "/api/reviewer/profile": {
+      "patch": { "tags": ["Reviewer"], "summary": "Update reviewer profile", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "bio": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "profile": { "name": "Riya", "bio": "" } } } } }, "404": { "$ref": "#/components/responses/NotFound" } } }
+    },
+    "/api/reviewer/submissions": {
+      "post": { "tags": ["Reviewer"], "summary": "Submit review proof", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["campaignId", "screenshot"], "properties": {
+          "campaignId": { "type": "string" }, "note": { "type": "string" }, "screenshot": { "type": "string", "format": "binary" } } } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "examples": {
+            "approved": { "value": { "ok": true, "status": "approved", "reward": 150 } },
+            "rejected": { "value": { "ok": true, "status": "rejected", "reason": "Screenshot doesn't match" } },
+            "pending": { "value": { "ok": true, "status": "pending" } }
+          } } } },
+          "409": { "$ref": "#/components/responses/Conflict" }, "502": { "description": "Upload failed" }
+        } }
+    },
+    "/api/reviewer/submissions/{id}/appeal": {
+      "post": { "tags": ["Reviewer"], "summary": "Appeal a rejected submission", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": {
+          "message": { "type": "string", "minLength": 10, "maxLength": 500 } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true } } } }, "409": { "$ref": "#/components/responses/Conflict" } } }
+    },
+    "/api/reviewer/withdrawals": {
+      "get": { "tags": ["Reviewer"], "summary": "List withdrawal requests", "security": [{ "sessionCookie": [] }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "requests": [] } } } } } },
+      "post": { "tags": ["Reviewer"], "summary": "Request a payout", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["amount", "accountHolderName", "accountNumber", "ifsc"], "properties": {
+          "amount": { "type": "number" }, "accountHolderName": { "type": "string" }, "accountNumber": { "type": "string" }, "ifsc": { "type": "string" }
+        } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "id": "wd_123", "balance": 350 } } } }, "400": { "$ref": "#/components/responses/BadRequest" }, "409": { "$ref": "#/components/responses/Conflict" } } }
+    },
+
+    "/api/admin/blog": {
+      "get": { "tags": ["Admin"], "summary": "List blog posts", "security": [{ "sessionCookie": [] }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "posts": [] } } } } } },
+      "post": { "tags": ["Admin"], "summary": "Create blog post", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["title", "description", "excerpt", "category", "content", "coverImage", "status"], "properties": {
+          "title": { "type": "string" }, "slug": { "type": "string" }, "description": { "type": "string" }, "excerpt": { "type": "string" },
+          "category": { "type": "string" }, "tags": { "type": "array", "items": { "type": "string" } }, "author": { "type": "string" },
+          "content": { "type": "string" }, "coverImage": { "type": "string" }, "status": { "type": "string", "enum": ["draft", "published"] }
+        } } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "example": { "ok": true, "id": "post_1", "slug": "welcome" } } } } } }
+    },
+    "/api/admin/blog/upload-image": {
+      "post": { "tags": ["Admin"], "summary": "Upload blog image", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["image"], "properties": { "image": { "type": "string", "format": "binary" } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "url": "https://…" } } } } } }
+    },
+    "/api/admin/blog/{id}": {
+      "get": { "tags": ["Admin"], "summary": "Get blog post", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "post": {} } } } }, "404": { "$ref": "#/components/responses/NotFound" } } },
+      "patch": { "tags": ["Admin"], "summary": "Update blog post", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "slug": "welcome" } } } }, "404": { "$ref": "#/components/responses/NotFound" } } },
+      "delete": { "tags": ["Admin"], "summary": "Delete blog post", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true } } } }, "404": { "$ref": "#/components/responses/NotFound" } } }
+    },
+    "/api/admin/blog/{id}/status": {
+      "patch": { "tags": ["Admin"], "summary": "Publish/unpublish blog post", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["status"], "properties": { "status": { "type": "string", "enum": ["draft", "published"] } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "status": "published" } } } } } }
+    },
+    "/api/admin/campaigns/{id}/reward": {
+      "patch": { "tags": ["Admin"], "summary": "Override campaign reward", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["reviewerReward"], "properties": { "reviewerReward": { "type": "number", "nullable": true } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "reviewerReward": 200 } } } }, "400": { "$ref": "#/components/responses/BadRequest" }, "404": { "$ref": "#/components/responses/NotFound" } } }
+    },
+    "/api/admin/campaigns/{id}/status": {
+      "patch": { "tags": ["Admin"], "summary": "Force pause/activate campaign", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["action"], "properties": { "action": { "type": "string", "enum": ["pause", "activate"] } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "status": "paused" } } } }, "409": { "$ref": "#/components/responses/Conflict" } } }
+    },
+    "/api/admin/cron/status": {
+      "get": { "tags": ["Admin"], "summary": "Cron job run history", "security": [{ "sessionCookie": [] }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "jobs": [] } } } } } }
+    },
+    "/api/admin/impersonate/{userId}": {
+      "post": { "tags": ["Admin"], "summary": "Impersonate a user", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "redirect": "/business" } } } }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } } }
+    },
+    "/api/admin/impersonate/stop": {
+      "post": { "tags": ["Admin"], "summary": "Stop impersonating", "security": [{ "sessionCookie": [] }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "redirect": "/admin" } } } }, "400": { "description": "Not impersonating" } } }
+    },
+    "/api/admin/settings": {
+      "get": { "tags": ["Admin"], "summary": "Get platform settings", "security": [{ "sessionCookie": [] }],
+        "responses": { "200": { "description": "OK" } } },
+      "patch": { "tags": ["Admin"], "summary": "Update platform settings", "security": [{ "sessionCookie": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": {
+          "reviewRate": { "type": "integer" }, "reviewerReward": { "type": "integer" }, "minWithdrawal": { "type": "integer" },
+          "minTopup": { "type": "integer" }, "referralReward": { "type": "integer" }
+        } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "settings": {} } } } }, "400": { "$ref": "#/components/responses/BadRequest" } } }
+    },
+    "/api/admin/submissions/{id}": {
+      "patch": { "tags": ["Admin"], "summary": "Approve / reject / unverify a submission", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["action"], "properties": {
+          "action": { "type": "string", "enum": ["approve", "reject", "unverify", "dismiss_appeal"] }, "reason": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "reward": 150 } } } }, "400": { "$ref": "#/components/responses/BadRequest" }, "409": { "$ref": "#/components/responses/Conflict" } } }
+    },
+    "/api/admin/testimonials/{id}": {
+      "delete": { "tags": ["Admin"], "summary": "Delete testimonial", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true } } } }, "404": { "$ref": "#/components/responses/NotFound" } } }
+    },
+    "/api/admin/users/{id}/wallet": {
+      "post": { "tags": ["Admin"], "summary": "Credit a business wallet", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["amount"], "properties": { "amount": { "type": "number", "minimum": 1, "maximum": 1000000 }, "note": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "balance": 9200 } } } }, "400": { "$ref": "#/components/responses/BadRequest" }, "404": { "$ref": "#/components/responses/NotFound" } } }
+    },
+    "/api/admin/withdrawals/{id}": {
+      "patch": { "tags": ["Admin"], "summary": "Approve / reject a payout", "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["action"], "properties": { "action": { "type": "string", "enum": ["approve", "reject"] }, "reason": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "payoutStatus": "processed" } } } }, "502": { "description": "Payout provider failure (auto-refunded)" } } }
+    },
+
+    "/api/contact": {
+      "post": { "tags": ["Public"], "summary": "Submit contact form",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["name", "email", "phone", "description"], "properties": {
+          "name": { "type": "string" }, "email": { "type": "string" }, "phone": { "type": "string" }, "description": { "type": "string" } } } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "example": { "success": true, "message": "Thanks, we'll be in touch." } } } }, "400": { "$ref": "#/components/responses/BadRequest" } } }
+    },
+    "/api/testimonials": {
+      "get": { "tags": ["Public"], "summary": "List published testimonials",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "testimonials": [] } } } } } },
+      "post": { "tags": ["Public"], "summary": "Submit a testimonial",
+        "requestBody": { "required": true, "content": { "multipart/form-data": { "schema": { "type": "object", "required": ["name", "quote", "rating"], "properties": {
+          "name": { "type": "string" }, "role": { "type": "string" }, "quote": { "type": "string" }, "rating": { "type": "number" }, "photo": { "type": "string", "format": "binary" } } } } } },
+        "responses": { "201": { "description": "Created", "content": { "application/json": { "example": { "success": true, "message": "Thanks for the feedback!" } } } }, "429": { "description": "Rate limited" } } }
+    },
+
+    "/api/cron/gmb-auto-reply": {
+      "get": { "tags": ["Cron"], "summary": "Auto-reply to new Google reviews (Vercel Cron)",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "connectionsChecked": 12, "repliesPosted": 3, "skipped": 1, "errors": [] } } } } } }
+    },
+    "/api/cron/gmb-recheck": {
+      "get": { "tags": ["Cron"], "summary": "Recheck AI-approved submissions against Google (Vercel Cron)",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "example": { "ok": true, "checked": 8, "approved": 5 } } } } } }
+    },
+
+    "/api/webhooks/razorpay": {
+      "post": { "tags": ["Webhooks"], "summary": "Razorpay payment/payout webhook",
+        "description": "Authenticated via HMAC signature in the x-razorpay-signature header (RAZORPAY_WEBHOOK_SECRET), not a session cookie.",
+        "parameters": [{ "name": "x-razorpay-signature", "in": "header", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Processed", "content": { "application/json": { "example": { "ok": true } } } }, "400": { "description": "Invalid signature" } } }
+    }
+  }
+}
