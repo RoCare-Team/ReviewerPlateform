@@ -3,9 +3,9 @@
 import { useMemo, useState } from "react";
 import { ExternalLink, Inbox, Megaphone } from "lucide-react";
 import CampaignRewardControl from "./CampaignRewardControl";
+import CampaignStatusControl from "./CampaignStatusControl";
 import SearchInput from "./SearchInput";
 
-const STATUS_STYLE = { active: "pill-verified", completed: "pill-accent", paused: "pill-pending", draft: "pill-pending" };
 const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
 
 function inr(n) {
@@ -50,6 +50,7 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.ownerName.toLowerCase().includes(q) ||
+        (c.ownerPhone ?? "").toLowerCase().includes(q) ||
         (c.city ?? "").toLowerCase().includes(q) ||
         (PLATFORM_LABEL[c.platform] ?? c.platform).toLowerCase().includes(q)
     );
@@ -69,7 +70,7 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface-sunken">
             <Inbox className="h-6 w-6 text-muted" aria-hidden="true" />
           </span>
-          <p className="mt-4 text-sm font-semibold text-primary">No campaigns match "{query}"</p>
+          <p className="mt-4 text-sm font-semibold text-primary">No campaigns match &quot;{query}&quot;</p>
           <p className="mt-1 text-sm text-secondary">Try a different spelling — search covers the current status tab only.</p>
         </div>
       )}
@@ -82,11 +83,13 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
           <thead className="border-b border-default bg-surface-sunken text-left text-xs uppercase tracking-wide text-muted">
             <tr>
               <th className="px-5 py-3 font-semibold">Campaign</th>
+              <th className="px-5 py-3 font-semibold">Owner</th>
               <th className="px-5 py-3 font-semibold">Status</th>
               <th className="px-5 py-3 font-semibold">Budget</th>
               <th className="px-5 py-3 font-semibold">Rate</th>
               <th className="px-5 py-3 font-semibold">Reviewer reward</th>
               <th className="px-5 py-3 font-semibold">Progress</th>
+              <th className="px-5 py-3 font-semibold">Created</th>
               <th className="px-5 py-3 font-semibold">Link</th>
             </tr>
           </thead>
@@ -108,18 +111,22 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
                         )}
                       </div>
                       <p className="truncate text-xs text-muted">
-                        {PLATFORM_LABEL[c.platform] ?? c.platform} · {c.ownerName}
-                        {c.city && <> · <span className="font-medium text-secondary">{c.city}</span></>} · {c.date}
+                        {PLATFORM_LABEL[c.platform] ?? c.platform}
+                        {c.city && <> · <span className="font-medium text-secondary">{c.city}</span></>}
                       </p>
                       {c.notes && <p className="mt-1 truncate text-xs text-secondary" title={c.notes}>{c.notes}</p>}
                     </div>
                   </div>
                 </td>
 
+                <td className="max-w-40 px-5 py-4">
+                  <p className="truncate font-medium text-primary">{c.ownerName}</p>
+                  {c.ownerEmail && <p className="truncate text-xs text-muted">{c.ownerEmail}</p>}
+                  {c.ownerPhone && <p className="nums truncate text-xs text-muted">{c.ownerPhone}</p>}
+                </td>
+
                 <td className="px-5 py-4">
-                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLE[c.status]}`}>
-                    {c.status}
-                  </span>
+                  <CampaignStatusControl campaignId={c.id} status={c.status} />
                 </td>
 
                 <td className="nums px-5 py-4 font-semibold text-primary">{inr(c.budget)}</td>
@@ -131,6 +138,11 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
 
                 <td className="px-5 py-4">
                   <ProgressBar collected={c.collected} target={c.targetReviews} status={c.status} />
+                </td>
+
+                <td className="whitespace-nowrap px-5 py-4 text-secondary">
+                  <p>{c.date}</p>
+                  <p className="text-xs text-muted">{c.time}</p>
                 </td>
 
                 <td className="px-5 py-4">
@@ -166,9 +178,7 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="truncate text-base font-bold text-primary">{c.name}</h3>
-                  <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLE[c.status]}`}>
-                    {c.status}
-                  </span>
+                  <CampaignStatusControl campaignId={c.id} status={c.status} />
                   {c.pending > 0 && (
                     <span className="inline-flex shrink-0 rounded-full bg-pending-subtle px-2.5 py-0.5 text-xs font-semibold text-pending">
                       {c.pending} pending
@@ -177,8 +187,10 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
                 </div>
                 <p className="mt-1 text-xs text-muted">
                   {PLATFORM_LABEL[c.platform] ?? c.platform} · by {c.ownerName}
-                  {c.city && <> · <span className="font-medium text-secondary">{c.city}</span></>} · {c.date}
+                  {c.city && <> · <span className="font-medium text-secondary">{c.city}</span></>}
                 </p>
+                {c.ownerEmail && <p className="truncate text-xs text-muted">{c.ownerEmail}</p>}
+                {c.ownerPhone && <p className="nums truncate text-xs text-muted">{c.ownerPhone}</p>}
               </div>
               {c.targetUrl && (
                 <a
@@ -207,6 +219,12 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
                 <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">Reviewer reward</dt>
                 <dd className="mt-0.5">
                   <CampaignRewardControl campaignId={c.id} override={c.reviewerReward} globalReward={globalReward} />
+                </dd>
+              </div>
+              <div className="col-span-2 rounded-btn border border-default bg-surface p-3">
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">Created</dt>
+                <dd className="mt-0.5 text-sm font-semibold text-primary">
+                  {c.date} <span className="font-normal text-muted">at {c.time}</span>
                 </dd>
               </div>
             </dl>

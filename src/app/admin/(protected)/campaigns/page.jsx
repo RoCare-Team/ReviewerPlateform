@@ -29,7 +29,7 @@ export default async function AdminCampaignsPage({ searchParams }) {
   const totalCampaigns = statusAgg.reduce((s, r) => s + r.n, 0);
 
   const ownerIds = [...new Set(campaigns.map((c) => String(c.user)))];
-  const owners = await User.find({ _id: { $in: ownerIds } }).select("name email").lean();
+  const owners = await User.find({ _id: { $in: ownerIds } }).select("name email phone").lean();
   const oMap = new Map(owners.map((o) => [String(o._id), o]));
 
   // Pending submissions per campaign (so admin sees what needs verifying).
@@ -122,7 +122,10 @@ export default async function AdminCampaignsPage({ searchParams }) {
               targetReviews: c.targetReviews,
               pending: pendingMap.get(String(c._id)) ?? 0,
               ownerName: owner?.name || owner?.email || "Unknown",
-              date: new Date(c.createdAt).toLocaleDateString("en-IN"),
+              ownerEmail: owner?.email || "",
+              ownerPhone: owner?.phone ? `+91 ${owner.phone}` : "",
+              date: new Date(c.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+              time: new Date(c.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
             };
           })}
         />

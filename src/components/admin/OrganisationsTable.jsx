@@ -52,9 +52,12 @@ export default function OrganisationsTable({ rows }) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return rows;
-    // Name AND email, so an admin can paste either one from a support ticket.
+    // Name, email AND phone, so an admin can paste any of them from a support ticket.
     return rows.filter(
-      (r) => r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q)
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        (r.email || "").toLowerCase().includes(q) ||
+        (r.phone || "").toLowerCase().includes(q)
     );
   }, [rows, query]);
 
@@ -105,6 +108,7 @@ export default function OrganisationsTable({ rows }) {
                           <div className="min-w-0">
                             <p className="truncate font-semibold text-primary">{b.name}</p>
                             <p className="truncate text-xs text-muted">{b.email}</p>
+                            <p className="nums truncate text-xs text-muted">{b.phone}</p>
                           </div>
                         </div>
                       </td>
@@ -153,6 +157,7 @@ export default function OrganisationsTable({ rows }) {
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-primary">{b.name}</p>
                     <p className="truncate text-xs text-muted">{b.email}</p>
+                    <p className="nums truncate text-xs text-muted">{b.phone}</p>
                   </div>
                   <StatusPill status={b.status} />
                 </div>

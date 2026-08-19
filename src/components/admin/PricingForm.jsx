@@ -75,8 +75,8 @@ export default function PricingForm({ initial }) {
   const margin = Number(reviewRate) - Number(reviewerReward);
 
   return (
-    <form onSubmit={onSubmit} className="max-w-lg">
-      <div className="grid gap-5 sm:grid-cols-2">
+    <form onSubmit={onSubmit} className="max-w-3xl">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <label htmlFor="rate" className="mb-1.5 block text-sm font-medium text-primary">
             Business pays / review (₹)
