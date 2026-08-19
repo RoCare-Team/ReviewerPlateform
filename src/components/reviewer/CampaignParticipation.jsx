@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Clipboard, ClipboardCheck, Clock, Download, ExternalLink, MapPin, Megaphone, RotateCcw, Upload, Star, X, XCircle } from "lucide-react";
+import { Building2, CheckCircle2, Clipboard, ClipboardCheck, Clock, Download, ExternalLink, MapPin, Megaphone, RotateCcw, Ticket, Upload, Star, X, XCircle } from "lucide-react";
 import { toast } from "../../lib/toast";
+import CampaignDetailsModal from "./CampaignDetailsModal";
 
 /**
  * Available-campaign cards for reviewers. The review link is never sent down
@@ -24,9 +25,18 @@ function inr(n) {
 // back to the "start over" state — without a second effect watching the
 // derived countdown value.
 function useCountdown(expiresAt, onExpire) {
-  const [msLeft, setMsLeft] = useState(() => (expiresAt ? new Date(expiresAt).getTime() - Date.now() : 0));
+  // Starts unmeasured (null), not a `Date.now()`-derived value — computing
+  // that up front ran during SSR too, at a different instant than the
+  // client's first render, so the two disagreed on the second and React
+  // flagged a hydration mismatch. Staying null until the effect below (which
+  // only ever runs client-side, after hydration) measures it for real means
+  // server and client render the exact same "no countdown yet" output first.
+  const [msLeft, setMsLeft] = useState(null);
 
   useEffect(() => {
+    // Nothing to do here when there's no expiry — the render guard below
+    // already returns null off `!expiresAt` alone, so a stale `msLeft` from
+    // a previous expiry never leaks through even without resetting it here.
     if (!expiresAt) return;
     let firedExpiry = false;
     const tick = () => {
@@ -43,7 +53,7 @@ function useCountdown(expiresAt, onExpire) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onExpire is a fresh closure each render by design
   }, [expiresAt]);
 
-  if (!expiresAt) return null;
+  if (!expiresAt || msLeft === null) return null;
   const totalSeconds = Math.max(0, Math.floor(msLeft / 1000));
   const mm = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
   const ss = String(totalSeconds % 60).padStart(2, "0");
@@ -59,6 +69,10 @@ function Card({ campaign }) {
   // navigating away and back (or just re-rendering) doesn't lose the
   // countdown and force a re-click that used to reset the 30-minute timer.
   const [open, setOpen] = useState(() => Boolean(campaign.activeClaimExpiresAt));
+  // "View campaign" — a non-committal peek at how this campaign works before
+  // reserving a slot. Never touches the server on its own; the modal's own
+  // "Book slot" button is what actually calls claimAndOpen.
+  const [showInfo, setShowInfo] = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [expiresAt, setExpiresAt] = useState(() => campaign.activeClaimExpiresAt ?? null);
   const [reviewText, setReviewText] = useState(() => campaign.activeReviewText || "");
@@ -67,7 +81,6 @@ function Card({ campaign }) {
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [file, setFile] = useState(null);
-  const [filePreview, setFilePreview] = useState(null);
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -161,17 +174,15 @@ function Card({ campaign }) {
 
   // Local preview for whatever screenshot is currently selected — chosen via
   // the file picker or pasted from the clipboard, doesn't matter which.
-  // Revoke the previous blob URL whenever `file` changes/clears so we don't
-  // leak one per selection.
+  // Derived (not stateful) so there's nothing to reset when `file` clears —
+  // the object URL just stops being created. The effect below only revokes
+  // it, never sets state.
+  const filePreview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => {
-    if (!file) {
-      setFilePreview(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setFilePreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    return () => {
+      if (filePreview) URL.revokeObjectURL(filePreview);
+    };
+  }, [filePreview]);
 
   // Ctrl/Cmd+V anywhere while the submit panel is open grabs an image straight
   // off the clipboard (e.g. a screenshot copied with Win+Shift+S) — same
@@ -309,77 +320,120 @@ function Card({ campaign }) {
   const pct = campaign.target ? Math.min(100, Math.round((campaign.collected / campaign.target) * 100)) : 0;
 
   return (
-    <div className="group flex h-full flex-col rounded-card border border-default bg-surface-raised p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/30 hover:shadow-lg">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-subtle text-accent transition-transform duration-300 group-hover:scale-110">
-            <Megaphone className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="truncate text-base font-bold text-primary">{campaign.name}</h3>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span className="text-xs font-medium capitalize text-muted">{campaign.platform}</span>
-              {campaign.city && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted">
-                  <MapPin className="h-3 w-3" aria-hidden="true" />
-                  {campaign.city}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1 rounded-full bg-verified-subtle px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-verified">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-verified opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-verified" />
-                </span>
-                Live
-              </span>
-            </div>
-          </div>
-        </div>
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-verified-subtle px-2.5 py-1 text-xs font-bold text-verified">
-          <Star className="h-3.5 w-3.5 fill-verified text-verified" aria-hidden="true" />
-          Earn {inr(reward)}
+    <div className="group flex h-full min-w-0 flex-col overflow-hidden rounded-card border border-default bg-surface-raised shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/30 hover:shadow-lg">
+      {/* Top strip: icon, name/business, reward — reward pinned as its own
+          badge so it never has to fight the title for space on narrow cards. */}
+      <div className="flex items-start gap-3 p-5 pb-0">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-subtle text-accent transition-transform duration-300 group-hover:scale-110">
+          <Megaphone className="h-5 w-5" aria-hidden="true" />
         </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="min-w-0 truncate text-base font-bold text-primary">{campaign.name}</h3>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-subtle px-2.5 py-1 text-xs font-bold text-accent">
+              <Star className="h-3.5 w-3.5 fill-accent text-accent" aria-hidden="true" />
+              {inr(reward)}
+            </span>
+          </div>
+          {campaign.businessName && (
+            <p className="mt-0.5 flex min-w-0 items-center gap-1 text-xs font-semibold text-secondary" title={campaign.businessCategory}>
+              <Building2 className="h-3 w-3 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 truncate">
+                {campaign.businessName}
+                {campaign.businessCategory && <span className="font-normal text-muted"> · {campaign.businessCategory}</span>}
+              </span>
+            </p>
+          )}
+        </div>
       </div>
 
-      {campaign.previouslyRejected && (
-        <p className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-danger-subtle px-2.5 py-1 text-xs font-semibold text-danger">
-          <RotateCcw className="h-3 w-3" aria-hidden="true" />
-          Previously rejected — try again with a new screenshot
-        </p>
-      )}
-
-      {campaign.notes && <p className="mt-3 text-sm leading-relaxed text-secondary">{campaign.notes}</p>}
-
-      {/* Live progress — spots left toward the campaign target */}
-      {typeof campaign.target === "number" && (
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-xs font-medium text-secondary">
-            <span className="nums">{campaign.collected} / {campaign.target} collected</span>
-            <span className="nums font-bold text-accent">{campaign.remaining} spots left</span>
-          </div>
-          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-sunken">
-            <div
-              className="h-full rounded-full bg-accent transition-all duration-700 ease-out"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
+      <div className="min-w-0 flex-1 px-5 pb-5">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-default pb-3">
+          <span className="text-xs font-medium capitalize text-muted">{campaign.platform}</span>
+          {campaign.cities?.length > 0 && (
+            <span
+              className="inline-flex items-center gap-1 text-xs font-medium text-muted"
+              title={campaign.cities.join(", ")}
+            >
+              <MapPin className="h-3 w-3" aria-hidden="true" />
+              {campaign.cities.length === 1 ? campaign.cities[0] : `${campaign.cities[0]} +${campaign.cities.length - 1} more`}
+            </span>
+          )}
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-verified-subtle px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-verified">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-verified opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-verified" />
+            </span>
+            Live
+          </span>
         </div>
-      )}
 
-      {!open ? (
-        <div className="mt-5">
-          <button
-            type="button"
-            onClick={() => claimAndOpen(false)}
-            disabled={claiming}
-            className="flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            {claiming ? "Reserving your slot…" : campaign.previouslyRejected ? "Resubmit" : "Start review"}
-          </button>
-          <p className="mt-1.5 text-center text-xs text-muted">
-            Reserves your spot and gets your review text/photo ready — the review page opens once you&apos;re set.
+        {campaign.previouslyRejected && (
+          <p className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-danger-subtle px-2.5 py-1 text-xs font-semibold text-danger">
+            <RotateCcw className="h-3 w-3" aria-hidden="true" />
+            Previously rejected — try again with a new screenshot
           </p>
+        )}
+
+        {campaign.notes && <p className="mt-3 text-sm leading-relaxed text-secondary">{campaign.notes}</p>}
+
+        {/* Live progress — spots left toward the campaign target */}
+        {typeof campaign.target === "number" && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-2 text-xs font-medium text-secondary">
+              <span className="nums">{campaign.collected}/{campaign.target} collected</span>
+              <span className="nums inline-flex shrink-0 items-center rounded-full bg-accent-subtle px-2 py-0.5 font-bold text-accent">
+                {campaign.remaining} left
+              </span>
+            </div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-surface-sunken">
+              <div
+                className="h-full rounded-full bg-accent transition-all duration-700 ease-out"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {!open ? (
+        <div className="mt-5 flex-1 flex flex-col justify-end">
+          {/* Stacked on narrow screens, side-by-side from sm up — a fixed-
+              width "View campaign" next to a flex-1 "Book slot" refused to
+              shrink below its own content on very narrow viewports (375px)
+              and overflowed the whole card horizontally instead of wrapping. */}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => setShowInfo(true)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-btn border border-default bg-surface px-3.5 py-2.5 text-sm font-semibold text-secondary transition-all duration-200 hover:border-accent/40 hover:text-primary"
+            >
+              View campaign
+            </button>
+            <button
+              type="button"
+              onClick={() => claimAndOpen(false)}
+              disabled={claiming}
+              className="flex min-w-0 items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:flex-1"
+            >
+              <Ticket className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {claiming ? "Booking…" : campaign.previouslyRejected ? "Resubmit" : "Book slot"}
+            </button>
+          </div>
+          <p className="mt-2 text-center text-[11px] leading-snug text-muted">
+            Reserves your spot &amp; preps your review text/photo — opens automatically once you&apos;re set.
+          </p>
+
+          {showInfo && (
+            <CampaignDetailsModal
+              campaign={campaign}
+              claiming={claiming}
+              onClose={() => setShowInfo(false)}
+              onBook={async () => {
+                setShowInfo(false);
+                await claimAndOpen(false);
+              }}
+            />
+          )}
         </div>
       ) : (
         <form onSubmit={submit} className="animate-fade-up mt-5 border-t border-default pt-4" style={{ animationDuration: "200ms" }}>
@@ -435,14 +489,17 @@ function Card({ campaign }) {
             </div>
           )}
 
+          <button
+            type="button"
+            onClick={() => claimAndOpen(true)}
+            disabled={claiming}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+            {claiming ? "Opening…" : "1. Open the review link"}
+          </button>
+
           <ol className="mt-3 space-y-2 text-sm text-secondary">
-            <li className="flex items-start gap-2">
-              <span className="font-bold text-accent">1.</span>
-              <button type="button" onClick={() => claimAndOpen(true)} disabled={claiming}
-                className="inline-flex items-center gap-1 font-semibold text-accent transition-colors duration-150 hover:underline disabled:opacity-60">
-                Open the review link <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            </li>
             <li className="flex items-start gap-2">
               <span className="font-bold text-accent">2.</span>
               {reviewText ? "Paste the copied review above" : "Leave your honest review"}
@@ -489,6 +546,7 @@ function Card({ campaign }) {
           </button>
         </form>
       )}
+      </div>
     </div>
   );
 }
@@ -539,7 +597,7 @@ export default function CampaignParticipation({ campaigns }) {
         <div
           key={c.id}
           id={`campaign-${c.id}`}
-          className={`animate-fade-up h-full scroll-mt-24 rounded-card transition-shadow duration-500 ${
+          className={`animate-fade-up h-full min-w-0 scroll-mt-24 rounded-card transition-shadow duration-500 ${
             highlightId === `campaign-${c.id}` ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : ""
           }`}
           style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}

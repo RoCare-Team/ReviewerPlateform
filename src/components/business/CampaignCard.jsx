@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Building2,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -90,13 +91,6 @@ export default function CampaignCard({ campaign, locations = [], walletBalance =
             <h3 className="truncate text-base font-bold text-primary">{c.name}</h3>
             <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-medium text-muted">
               <span>{PLATFORM_LABEL[c.platform] ?? c.platform}</span>
-              {c.city && (
-                <span className="inline-flex items-center gap-1">
-                  <span aria-hidden="true">·</span>
-                  <MapPin className="h-3 w-3" aria-hidden="true" />
-                  {c.city}
-                </span>
-              )}
               {c.createdAt && (
                 <span className="inline-flex items-center gap-1">
                   <span aria-hidden="true">·</span>
@@ -105,6 +99,27 @@ export default function CampaignCard({ campaign, locations = [], walletBalance =
                 </span>
               )}
             </p>
+            {(c.locationTitle || c.cities?.length > 0) && (
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-secondary">
+                {c.locationTitle && (
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-1" title={c.locationTitle}>
+                    <Building2 className="h-3 w-3 shrink-0 text-muted" aria-hidden="true" />
+                    <span className="min-w-0 truncate">
+                      {c.locationTitle}
+                      {c.businessCategory && <span className="text-muted"> · {c.businessCategory}</span>}
+                    </span>
+                  </span>
+                )}
+                {c.cities?.length > 0 && (
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-1" title={c.cities.join(", ")}>
+                    <MapPin className="h-3 w-3 shrink-0 text-muted" aria-hidden="true" />
+                    <span className="min-w-0 truncate">
+                      {c.cities.length === 1 ? c.cities[0] : `${c.cities[0]} +${c.cities.length - 1} more`}
+                    </span>
+                  </span>
+                )}
+              </p>
+            )}
             <SetupBadges campaign={c} />
             {hasSetup && (
               <button

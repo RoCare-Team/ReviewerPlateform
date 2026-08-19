@@ -20,9 +20,8 @@ import {
   X,
 } from "lucide-react";
 import { inr } from "../../lib/campaigns";
-import { findStateForCity } from "../../lib/data/indiaStatesCities";
 import { Label, Input, FormError } from "../auth/Field";
-import StateCitySelect from "../ui/StateCitySelect";
+import CityMultiSelect from "../business/CityMultiSelect";
 import { toast } from "../../lib/toast";
 
 const selectClass =
@@ -64,7 +63,7 @@ function formatPacingGap(count, days) {
 export default function NewCampaignModal({ walletBalance, locations = [], rate = 100 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [values, setValues] = useState({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", state: "", city: "" });
+  const [values, setValues] = useState({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", cities: [] });
   const [rows, setRows] = useState(
     locations.length > 0
       ? [
@@ -72,8 +71,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
             locationId: "",
             reviews: "",
             targetUrl: "",
-            state: "",
-            city: "",
+            cities: [],
             keywords: [],
             images: [],
             pacingOn: false,
@@ -173,20 +171,14 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
           if (next.platform === "google" && loc?.reviewUrl) {
             next.targetUrl = loc.reviewUrl;
           }
-          // Same auto-fill for city — only when the field is still empty or
-          // still holding the previous location's auto-filled city, so a
-          // manual edit never gets clobbered by switching locations. Only
-          // applied when the derived city is an exact match in the dataset
-          // (findStateForCity) — otherwise the dropdown would have nothing
-          // valid to show and the owner picks manually instead.
+          // Same auto-add for city — only when the list is still empty or
+          // still holding just the previous location's auto-added city, so a
+          // manually built city list never gets clobbered by switching
+          // locations.
           const prevLoc = locations.find((l) => l.id === v.locationId);
-          const cityUntouched = !next.city || next.city === prevLoc?.city;
-          if (key === "locationId" && cityUntouched && loc?.city) {
-            const matchedState = findStateForCity(loc.city);
-            if (matchedState) {
-              next.state = matchedState;
-              next.city = loc.city;
-            }
+          const citiesUntouched = next.cities.length === 0 || (next.cities.length === 1 && next.cities[0] === prevLoc?.city);
+          if (key === "locationId" && citiesUntouched && loc?.city) {
+            next.cities = [loc.city];
           }
         }
 
@@ -202,8 +194,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         locationId: "",
         reviews: "",
         targetUrl: "",
-        state: "",
-        city: "",
+        cities: [],
         keywords: [],
         images: [],
         pacingOn: false,
@@ -240,13 +231,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         const newLoc = locations.find((l) => l.id === value);
         if (untouched && newLoc?.reviewUrl) row.targetUrl = newLoc.reviewUrl;
 
-        const cityUntouched = !row.city || row.city === prevLoc?.city;
-        if (cityUntouched && newLoc?.city) {
-          const matchedState = findStateForCity(newLoc.city);
-          if (matchedState) {
-            row.state = matchedState;
-            row.city = newLoc.city;
-          }
+        const citiesUntouched = row.cities.length === 0 || (row.cities.length === 1 && row.cities[0] === prevLoc?.city);
+        if (citiesUntouched && newLoc?.city) {
+          row.cities = [newLoc.city];
         }
       }
 
@@ -276,10 +263,11 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   // ("RO service near me") instead of generic praise.
   const suggestCategory = locations.find((l) => l.id === values.locationId)?.category || "";
 
-  // One click, two AI calls: suggest exactly `reviewsNum` keywords, then
-  // immediately write one review per keyword onto that same list — no
-  // separate "now generate reviews" click needed. Keywords stay editable
-  // afterward; each has its own "regenerate" button once it has a review.
+  // Step 1 — keywords only. Used to also chain straight into generating
+  // reviews for all of them in the same click; now deliberately stops here
+  // so the owner can look over/edit the keyword list first. Generating the
+  // actual review text is its own separate click — the "Generate reviews"
+  // button below (generateReviewsFromKeywords).
   async function suggestKeywords() {
     if (reviewsNum < 1) {
       toast.error("Enter how many reviews you need first.");
@@ -299,7 +287,6 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     }
     const kw = data.keywords.map((text) => ({ text, selected: true })); // no `.review` yet — set once generation actually returns
     setKeywords(kw);
-    await generateReviewsFromKeywords(kw);
   }
 
   function toggleKeyword(i) {
@@ -419,7 +406,6 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     }
     const kw = data.keywords.map((text) => ({ text, selected: true })); // no `.review` yet — set once generation actually returns
     setRow(index, "keywords", kw);
-    await generateReviewsFromRowKeywords(index, kw);
   }
 
   function toggleRowKeyword(rowIndex, i) {
@@ -642,8 +628,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         if (!r.targetUrl?.trim()) {
           return setError(`Add a review URL for ${loc?.title || "each location"}.`);
         }
-        if (!r.city?.trim()) {
-          return setError(`Add a city for ${loc?.title || "each location"}.`);
+        if (!r.cities || r.cities.length === 0) {
+          return setError(`Add at least one city for ${loc?.title || "each location"}.`);
         }
         if ((Number(r.reviews) || 0) < 1) {
           return setError(`Ask for at least 1 review for ${loc?.title || "each location"}.`);
@@ -677,7 +663,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
             locationId: r.locationId,
             budget: n * rate,
             targetUrl: r.targetUrl?.trim() || undefined,
-            city: r.city?.trim() || undefined,
+            cities: r.cities ?? [],
             reviewDrafts: drafts.length > 0 ? drafts : undefined,
             reviewImages: imgs.length > 0 ? imgs : undefined,
             ...rowPacing,
@@ -686,7 +672,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
       };
     } else {
       if (!values.targetUrl.trim()) return setError("Add the review URL where customers should leave a review.");
-      if (!values.city.trim()) return setError("Add the city this campaign is for.");
+      if (values.cities.length === 0) return setError("Add at least one city this campaign is for.");
       if (reviewsNum < 1) return setError("Ask for at least 1 review.");
       if (overBudget) {
         toast.error("You don't have enough funds in your wallet. Add funds to request more reviews.");
@@ -698,7 +684,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         budget: Math.floor(budgetNum),
         notes: values.notes.trim(),
         targetUrl: values.targetUrl.trim(),
-        city: values.city.trim(),
+        cities: values.cities,
         locationId: values.locationId || undefined,
         reviewDrafts: keywords
           .filter((k) => k.selected && k.review?.trim())
@@ -731,7 +717,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     }
 
     toast.success(multiMode && body.locations.length > 1 ? `${body.locations.length} campaigns created.` : "Campaign created.");
-    setValues({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", state: "", city: "" });
+    setValues({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", cities: [] });
     setRows(
       locations.length > 0
         ? [
@@ -739,8 +725,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
               locationId: "",
               reviews: "",
               targetUrl: "",
-              state: "",
-              city: "",
+              cities: [],
               keywords: [],
               images: [],
               pacingOn: false,
@@ -927,17 +912,12 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                 )}
 
                                 <div className="mt-2.5">
-                                  <StateCitySelect
+                                  <CityMultiSelect
                                     idPrefix={`c-loc-${i}`}
-                                    state={row.state}
-                                    city={row.city}
-                                    onStateChange={(state) => {
-                                      setRow(i, "state", state);
-                                      setRow(i, "city", "");
-                                    }}
-                                    onCityChange={(city) => setRow(i, "city", city)}
+                                    cities={row.cities}
+                                    onChange={(cities) => setRow(i, "cities", cities)}
                                   />
-                                  {row.city && row.city === loc?.city && (
+                                  {row.cities.length === 1 && row.cities[0] === loc?.city && (
                                     <p className="mt-1 flex items-center gap-1 text-xs font-medium text-verified">
                                       <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
                                       Auto-filled — edit if this isn&apos;t right.
@@ -1000,9 +980,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                   </button>
                                 </div>
                                 <p className="mt-0.5 text-[11px] leading-snug text-muted">
-                                  Click once — AI writes {rowReviews} ready-to-copy review{rowReviews === 1 ? "" : "s"} for this
-                                  location. Reviewers will pick one, copy it, and paste it when leaving their review — you don&apos;t
-                                  have to do anything else here.
+                                  Two steps: generate {rowReviews} search-phrase keyword{rowReviews === 1 ? "" : "s"} first, then
+                                  click &quot;Generate reviews&quot; below to write the actual review text for each one.
                                 </p>
 
                                 {row.keywords?.length > 0 && (
@@ -1096,13 +1075,19 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                       type="button"
                                       onClick={() => generateReviewsFromRowKeywords(i)}
                                       disabled={rowDraftsPending[i] || row.keywords.filter((k) => k.selected).length === 0}
-                                      title="Rewrites every ticked review above at once — an unticked one is skipped and kept as-is"
-                                      className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                                      title={
+                                        row.keywords.some((k) => k.review !== undefined)
+                                          ? "Rewrites every ticked review above at once — an unticked one is skipped and kept as-is"
+                                          : "Writes a full review for each ticked keyword above"
+                                      }
+                                      className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-btn bg-accent px-3 py-1.5 text-xs font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                                     >
                                       <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                                       {rowDraftsPending[i]
                                         ? "Writing reviews…"
-                                        : `Rewrite all ${row.keywords.filter((k) => k.selected).length} ticked reviews`}
+                                        : row.keywords.some((k) => k.review !== undefined)
+                                          ? `Rewrite all ${row.keywords.filter((k) => k.selected).length} ticked reviews`
+                                          : `Generate ${row.keywords.filter((k) => k.selected).length} review${row.keywords.filter((k) => k.selected).length === 1 ? "" : "s"}`}
                                     </button>
                                   </>
                                 )}
@@ -1297,16 +1282,14 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                     </div>
 
                     <div>
-                      <Label htmlFor="c-state-state">State &amp; city</Label>
-                      <StateCitySelect
-                        idPrefix="c-state"
-                        state={values.state}
-                        city={values.city}
-                        onStateChange={(state) => setValues((v) => ({ ...v, state, city: "" }))}
-                        onCityChange={(city) => setValues((v) => ({ ...v, city }))}
+                      <Label htmlFor="c-cities-input">Cities</Label>
+                      <CityMultiSelect
+                        idPrefix="c-cities"
+                        cities={values.cities}
+                        onChange={(cities) => setValues((v) => ({ ...v, cities }))}
                       />
                       <p className="mt-1.5 text-xs text-muted">
-                        Reviewers only see this campaign if it&apos;s in (or near) their own city.
+                        Add every city you want reviewers from — this campaign shows up for reviewers in ANY of them.
                       </p>
                     </div>
 
@@ -1349,8 +1332,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-primary">Reviews for reviewers to copy (optional)</p>
                           <p className="mt-0.5 text-xs text-muted">
-                            Click once — AI writes {reviewsNum || "N"} ready-to-copy reviews. Reviewers pick one, copy it, and
-                            paste it when leaving their review — you don&apos;t have to write anything yourself.
+                            Two steps: generate {reviewsNum || "N"} search-phrase keywords first, review/edit them, then click
+                            &quot;Generate reviews&quot; below to write the actual review text for each one.
                           </p>
                         </div>
                         <button
@@ -1446,21 +1429,29 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                             })}
                           </ul>
 
-                          {/* Bulk regenerate — for when several keywords
-                              changed at once; a single keyword edit is
-                              better served by the refresh icon on that one
-                              item above. */}
+                          {/* Step 2 — write the actual review text. Separate,
+                              explicit click from step 1's keyword list above;
+                              doubles as "regenerate" once reviews already
+                              exist (bulk-rewrites every ticked one — a single
+                              keyword edit is better served by the refresh
+                              icon on that one item above). */}
                           <button
                             type="button"
                             onClick={() => generateReviewsFromKeywords()}
                             disabled={draftsPending || keywords.filter((k) => k.selected).length === 0}
-                            title="Rewrites every ticked review above at once — an unticked one is skipped and kept as-is"
-                            className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-2 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                            title={
+                              keywords.some((k) => k.review !== undefined)
+                                ? "Rewrites every ticked review above at once — an unticked one is skipped and kept as-is"
+                                : "Writes a full review for each ticked keyword above"
+                            }
+                            className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-btn bg-accent px-3 py-2 text-xs font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                           >
                             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                             {draftsPending
                               ? "Writing reviews…"
-                              : `Rewrite all ${keywords.filter((k) => k.selected).length} ticked reviews`}
+                              : keywords.some((k) => k.review !== undefined)
+                                ? `Rewrite all ${keywords.filter((k) => k.selected).length} ticked reviews`
+                                : `Generate ${keywords.filter((k) => k.selected).length} review${keywords.filter((k) => k.selected).length === 1 ? "" : "s"}`}
                           </button>
                         </>
                       )}

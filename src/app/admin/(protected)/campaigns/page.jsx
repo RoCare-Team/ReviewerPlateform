@@ -5,6 +5,7 @@ import Campaign from "../../../../models/Campaign";
 import User from "../../../../models/User";
 import Submission from "../../../../models/Submission";
 import { getSettings, inr } from "../../../../lib/settings";
+import { campaignCities } from "../../../../lib/campaigns";
 import AdminCampaignsTable from "../../../../components/admin/AdminCampaignsTable";
 
 export const metadata = { title: "Campaigns · Admin", robots: { index: false } };
@@ -110,7 +111,9 @@ export default async function AdminCampaignsPage({ searchParams }) {
             return {
               id: String(c._id),
               name: c.name,
-              city: c.city || "",
+              cities: campaignCities(c),
+              businessName: c.businessName || "",
+              businessCategory: c.businessCategory || "",
               platform: c.platform,
               status: c.status,
               notes: c.notes,

@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ExternalLink, Megaphone, Pause, Play } from "lucide-react";
+import { Building2, ChevronDown, ExternalLink, MapPin, Megaphone, Pause, Play } from "lucide-react";
 import CampaignCard from "./CampaignCard";
 import EditCampaignModal from "../models/EditCampaignModal";
 import { SetupBadges, CampaignDetails } from "./CampaignSetupDetails";
@@ -60,6 +60,7 @@ export default function CampaignsTable({ campaigns, locations = [], walletBalanc
           <thead className="border-b border-default bg-surface-sunken text-left text-xs uppercase tracking-wide text-muted">
             <tr>
               <th className="px-5 py-3 font-semibold">Campaign</th>
+              <th className="px-5 py-3 font-semibold">Location</th>
               <th className="px-5 py-3 font-semibold">Status</th>
               <th className="px-5 py-3 font-semibold">Progress</th>
               <th className="px-5 py-3 font-semibold">Budget</th>
@@ -107,6 +108,27 @@ export default function CampaignsTable({ campaigns, locations = [], walletBalanc
                           )}
                         </div>
                       </div>
+                    </td>
+
+                    <td className="max-w-40 px-5 py-4">
+                      {c.locationTitle && (
+                        <p className="flex min-w-0 items-center gap-1.5 text-secondary" title={c.locationTitle}>
+                          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
+                          <span className="min-w-0 truncate">{c.locationTitle}</span>
+                        </p>
+                      )}
+                      {c.businessCategory && (
+                        <p className="mt-0.5 truncate text-xs text-muted">{c.businessCategory}</p>
+                      )}
+                      {c.cities?.length > 0 && (
+                        <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted" title={c.cities.join(", ")}>
+                          <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          <span className="min-w-0 truncate">
+                            {c.cities.length === 1 ? c.cities[0] : `${c.cities[0]} +${c.cities.length - 1} more`}
+                          </span>
+                        </p>
+                      )}
+                      {!c.locationTitle && !(c.cities?.length > 0) && <span className="text-xs text-muted">—</span>}
                     </td>
 
                     <td className="px-5 py-4">
@@ -205,7 +227,7 @@ export default function CampaignsTable({ campaigns, locations = [], walletBalanc
 
                   {expanded && (
                     <tr className="animate-fade-up border-b border-default bg-surface-sunken/50" style={{ animationDuration: "150ms" }}>
-                      <td colSpan={8} className="px-5 py-4">
+                      <td colSpan={9} className="px-5 py-4">
                         <CampaignDetails campaign={c} />
                       </td>
                     </tr>

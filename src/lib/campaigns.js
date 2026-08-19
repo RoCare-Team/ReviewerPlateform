@@ -17,3 +17,33 @@ export function approxReviews(budget, rate = RATE_PER_REVIEW) {
 export function inr(n) {
   return `₹${Number(n || 0).toLocaleString("en-IN")}`;
 }
+
+/**
+ * The effective list of cities a campaign is restricted to — `[]` means open
+ * to any city. Resolves the new `cities` array (multi-city picker) against
+ * the legacy single `city` field (still what batch/multi-location campaigns
+ * write) so every caller checks exactly one thing instead of both fields
+ * separately. `cities` wins when both are somehow set (it's the newer,
+ * more-specific one); `city` is the fallback for campaigns created before
+ * `cities` existed.
+ */
+export function campaignCities(campaign) {
+  if (Array.isArray(campaign?.cities) && campaign.cities.length > 0) {
+    return campaign.cities.map((c) => String(c).trim()).filter(Boolean);
+  }
+  return campaign?.city ? [String(campaign.city).trim()] : [];
+}
+
+/**
+ * True if `reviewerCity` (case-insensitive) is allowed to see this campaign.
+ * A reviewer with no declared city still sees every campaign — matches the
+ * original single-city behavior, where an empty reviewer city never excluded
+ * anything. In practice this never comes up: city is mandatory at reviewer
+ * signup (PhoneOtpForm.jsx).
+ */
+export function campaignOpenToCity(campaign, reviewerCity) {
+  const cities = campaignCities(campaign);
+  if (cities.length === 0 || !reviewerCity) return true;
+  const target = String(reviewerCity).trim().toLowerCase();
+  return cities.some((c) => c.toLowerCase() === target);
+}

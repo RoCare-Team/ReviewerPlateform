@@ -24,12 +24,28 @@ const CampaignSchema = new mongoose.Schema(
       default: "google",
     },
     location: { type: mongoose.Schema.Types.ObjectId, ref: "GmbLocation", default: null },
-    // The city this campaign's reviews should come from — captured at
-    // creation (typed for a single campaign, auto-filled from the GMB
-    // location for a batch). Reviewers only see campaigns whose city is
-    // blank (open to anyone) or matches their own detected city — see
-    // /(app)/reviewer/campaigns/page.jsx.
+    // Snapshotted from the linked GmbLocation at creation time (title/category
+    // synced from Google — see models/GmbLocation.js). Copied rather than
+    // read live through `location` so a campaign's own record of "which
+    // business, what kind" survives the owner disconnecting/renaming that
+    // GMB location later — reviewers and admin see what it actually was when
+    // they claimed/reviewed it, not whatever it's called now.
+    businessName: { type: String, trim: true, default: "" },
+    businessCategory: { type: String, trim: true, default: "" },
+    // LEGACY single-city field — still populated for batch (multi-location)
+    // campaigns, auto-filled per-location from the GMB address. A single
+    // campaign created through the new city picker instead uses `cities`
+    // below. Kept (not migrated away) so every campaign created before that
+    // picker existed keeps matching exactly as it always did.
     city: { type: String, trim: true, default: "", index: true },
+    // The set of cities this campaign's reviews should come from — lets ONE
+    // campaign be live to reviewers across several cities at once, picked via
+    // Google Places search (see components/business/CityMultiSelect.jsx).
+    // Empty array = open to any city (same "open to anyone" meaning `city:
+    // ""` has always had) UNLESS `city` (legacy, above) is non-blank, in
+    // which case that single value still gates it — see the resolution in
+    // lib/campaigns.js#campaignCities() and reviewer/campaigns/page.jsx.
+    cities: { type: [{ type: String, trim: true }], default: [] },
     targetUrl: { type: String, trim: true, default: "" },
     notes: { type: String, trim: true, default: "" },
 

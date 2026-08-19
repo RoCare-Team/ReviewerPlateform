@@ -51,7 +51,7 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
         c.name.toLowerCase().includes(q) ||
         c.ownerName.toLowerCase().includes(q) ||
         (c.ownerPhone ?? "").toLowerCase().includes(q) ||
-        (c.city ?? "").toLowerCase().includes(q) ||
+        (c.cities ?? []).some((city) => city.toLowerCase().includes(q)) ||
         (PLATFORM_LABEL[c.platform] ?? c.platform).toLowerCase().includes(q)
     );
   }, [campaigns, query]);
@@ -110,9 +110,17 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
                           </span>
                         )}
                       </div>
-                      <p className="truncate text-xs text-muted">
+                      {c.businessName && (
+                        <p className="truncate text-xs font-medium text-secondary" title={c.businessCategory}>
+                          {c.businessName}
+                          {c.businessCategory && <span className="font-normal text-muted"> · {c.businessCategory}</span>}
+                        </p>
+                      )}
+                      <p className="truncate text-xs text-muted" title={c.cities?.join(", ")}>
                         {PLATFORM_LABEL[c.platform] ?? c.platform}
-                        {c.city && <> · <span className="font-medium text-secondary">{c.city}</span></>}
+                        {c.cities?.length > 0 && (
+                          <> · <span className="font-medium text-secondary">{c.cities.length === 1 ? c.cities[0] : `${c.cities[0]} +${c.cities.length - 1} more`}</span></>
+                        )}
                       </p>
                       {c.notes && <p className="mt-1 truncate text-xs text-secondary" title={c.notes}>{c.notes}</p>}
                     </div>
@@ -185,9 +193,17 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-xs text-muted">
+                {c.businessName && (
+                  <p className="mt-0.5 truncate text-xs font-medium text-secondary">
+                    {c.businessName}
+                    {c.businessCategory && <span className="font-normal text-muted"> · {c.businessCategory}</span>}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-muted" title={c.cities?.join(", ")}>
                   {PLATFORM_LABEL[c.platform] ?? c.platform} · by {c.ownerName}
-                  {c.city && <> · <span className="font-medium text-secondary">{c.city}</span></>}
+                  {c.cities?.length > 0 && (
+                    <> · <span className="font-medium text-secondary">{c.cities.length === 1 ? c.cities[0] : `${c.cities[0]} +${c.cities.length - 1} more`}</span></>
+                  )}
                 </p>
                 {c.ownerEmail && <p className="truncate text-xs text-muted">{c.ownerEmail}</p>}
                 {c.ownerPhone && <p className="nums truncate text-xs text-muted">{c.ownerPhone}</p>}

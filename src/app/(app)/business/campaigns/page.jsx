@@ -7,7 +7,7 @@ import Campaign from "../../../../models/Campaign";
 import GmbLocation from "../../../../models/GmbLocation";
 import NewCampaignModal from "../../../../components/models/NewCampaignModal";
 import CampaignsTable from "../../../../components/business/CampaignsTable";
-import { inr } from "../../../../lib/campaigns";
+import { inr, campaignCities } from "../../../../lib/campaigns";
 import { getSettings } from "../../../../lib/settings";
 
 export const metadata = { title: "Campaigns · RapportLook Business" };
@@ -33,6 +33,8 @@ export default async function BusinessCampaignsPage() {
     reviewUrl: l.reviewUrl || "",
     category: l.category || "",
   }));
+
+  const locationTitleById = new Map(locations.map((l) => [l.id, l.title]));
 
   return (
     <div>
@@ -60,7 +62,13 @@ export default async function BusinessCampaignsPage() {
             notes: c.notes,
             targetUrl: c.targetUrl,
             city: c.city,
+            cities: campaignCities(c),
             location: c.location ? String(c.location) : "",
+            // Prefer the campaign's own snapshot (survives the GMB location
+            // being renamed/disconnected later) — falls back to a live
+            // lookup only for campaigns created before this was captured.
+            locationTitle: c.businessName || (c.location ? locationTitleById.get(String(c.location)) || "" : ""),
+            businessCategory: c.businessCategory || "",
             collected: c.collected ?? 0,
             targetReviews: c.targetReviews,
             budget: c.budget,

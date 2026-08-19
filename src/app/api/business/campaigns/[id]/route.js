@@ -37,7 +37,9 @@ const editSchema = z
     name: z.string().trim().min(1, "Give your campaign a name.").max(200),
     notes: z.string().trim().max(1000).optional().default(""),
     targetUrl: z.union([z.string().trim().url(), z.literal("")]).optional().default(""),
-    city: z.string().trim().max(200).optional().default(""),
+    // Replaces the old single `city` field — see models/Campaign.js's `city`
+    // vs `cities` and lib/campaigns.js#campaignCities.
+    cities: z.array(z.string().trim().min(1).max(120)).max(20).optional().default([]),
     reviews: z.number().int().min(1).max(1_000_000),
     locationId: z.string().trim().optional().default(""),
   })
@@ -81,7 +83,7 @@ export async function PATCH(request, { params }) {
 }
 
 async function editCampaign(id, user, data) {
-  const { name, notes, targetUrl, city, reviews, locationId } = data;
+  const { name, notes, targetUrl, cities, reviews, locationId } = data;
 
   const existing = await Campaign.findOne({ _id: id, user: user.id, status: { $ne: "completed" } });
   if (!existing) {
@@ -137,10 +139,22 @@ async function editCampaign(id, user, data) {
   existing.name = name;
   existing.notes = notes;
   existing.targetUrl = targetUrl;
-  existing.city = city;
+  // The edit form always submits the new multi-city picker's value — clear
+  // the legacy single `city` field too, so it can't linger and win the
+  // fallback in lib/campaigns.js#campaignCities() after the owner has
+  // explicitly emptied the city list here.
+  existing.cities = [...new Set(cities.map((c) => c.trim()).filter(Boolean))];
+  existing.city = "";
   existing.targetReviews = reviews;
   existing.budget = newBudget;
-  if (locationDoc) existing.location = locationDoc._id;
+  if (locationDoc) {
+    existing.location = locationDoc._id;
+    // Re-snapshot — see models/Campaign.js's businessName/businessCategory.
+    // Switching to a different location should update these too, not leave
+    // them pointing at whatever the PREVIOUS location was called.
+    existing.businessName = locationDoc.title || "";
+    existing.businessCategory = locationDoc.category || "";
+  }
   await existing.save();
 
   return Response.json({ ok: true, campaign: existing });

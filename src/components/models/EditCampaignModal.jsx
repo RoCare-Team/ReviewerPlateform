@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Globe2, IndianRupee, Link2, MapPinned, Pencil, Star, Tag, Target, Wallet, X } from "lucide-react";
 import { Label, Input, FormError } from "../auth/Field";
-import StateCitySelect from "../ui/StateCitySelect";
-import { findStateForCity } from "../../lib/data/indiaStatesCities";
-import { inr } from "../../lib/campaigns";
+import CityMultiSelect from "../business/CityMultiSelect";
+import { inr, campaignCities } from "../../lib/campaigns";
 import { toast } from "../../lib/toast";
 
 const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
@@ -44,8 +43,7 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
       name: campaign.name || "",
       notes: campaign.notes || "",
       targetUrl: campaign.targetUrl || "",
-      city: campaign.city || "",
-      state: campaign.city ? findStateForCity(campaign.city) || "" : "",
+      cities: campaignCities(campaign),
       locationId: campaign.location || "",
       reviews: String(campaign.targetReviews ?? 0),
     };
@@ -81,18 +79,16 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
       const loc = locations.find((l) => l.id === locationId);
       const next = { ...v, locationId };
       // Same auto-fill courtesy as the create form — only when the URL/city
-      // are still empty or still holding the previous location's values, so
-      // a manual edit is never silently overwritten by switching locations.
+      // list is still empty or still holding just the previous location's
+      // auto-added city, so a manual edit is never silently overwritten by
+      // switching locations.
       const prevLoc = locations.find((l) => l.id === v.locationId);
       if (loc?.reviewUrl && (!next.targetUrl || next.targetUrl === prevLoc?.reviewUrl)) {
         next.targetUrl = loc.reviewUrl;
       }
-      if (loc?.city && (!next.city || next.city === prevLoc?.city)) {
-        const matchedState = findStateForCity(loc.city);
-        if (matchedState) {
-          next.state = matchedState;
-          next.city = loc.city;
-        }
+      const citiesUntouched = next.cities.length === 0 || (next.cities.length === 1 && next.cities[0] === prevLoc?.city);
+      if (loc?.city && citiesUntouched) {
+        next.cities = [loc.city];
       }
       return next;
     });
@@ -145,7 +141,7 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
         name: values.name.trim(),
         notes: values.notes.trim(),
         targetUrl: values.targetUrl.trim(),
-        city: values.city.trim(),
+        cities: values.cities,
         reviews: Math.floor(reviewsNum),
         locationId: values.locationId || "",
       }),
@@ -276,13 +272,11 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
                 </div>
 
                 <div>
-                  <Label htmlFor="ec-state-state">State & city</Label>
-                  <StateCitySelect
-                    idPrefix="ec-state"
-                    state={values.state}
-                    city={values.city}
-                    onStateChange={(v) => setValues((prev) => ({ ...prev, state: v }))}
-                    onCityChange={(v) => setValues((prev) => ({ ...prev, city: v }))}
+                  <Label htmlFor="ec-cities-input">Cities</Label>
+                  <CityMultiSelect
+                    idPrefix="ec-cities"
+                    cities={values.cities}
+                    onChange={(cities) => setValues((prev) => ({ ...prev, cities }))}
                   />
                 </div>
 
@@ -300,7 +294,7 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
                     icon={Star}
                   />
                   <p className="mt-1.5 flex items-center justify-between text-xs text-muted">
-                    <span>{campaign.collected} already collected — target can't go lower.</span>
+                    <span>{campaign.collected} already collected — target can&apos;t go lower.</span>
                     <span className="nums font-semibold text-primary">
                       <IndianRupee className="mb-0.5 inline h-3 w-3" aria-hidden="true" />
                       {inr(campaign.ratePerReview)}/review

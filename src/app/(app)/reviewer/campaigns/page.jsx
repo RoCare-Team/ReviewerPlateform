@@ -8,6 +8,7 @@ import Claim from "../../../../models/Claim";
 import { getSettings } from "../../../../lib/settings";
 import { releaseExpiredClaims } from "../../../../lib/claims";
 import { checkPacing } from "../../../../lib/pacing";
+import { campaignCities, campaignOpenToCity } from "../../../../lib/campaigns";
 import CampaignParticipation from "../../../../components/reviewer/CampaignParticipation";
 
 export const metadata = { title: "Available campaigns · RapportLook" };
@@ -58,12 +59,12 @@ export default async function ReviewerCampaignsPage() {
   // so it keeps showing up here for a resubmission with a new screenshot.
   const statusByCampaign = new Map(mySubs.map((s) => [String(s.campaign), s.status]));
 
-  // Reviewer's own detected city (src/models/User.js `location.city`, set
-  // from browser geolocation — see api/reviewer/location). A campaign with
-  // no city set is open to anyone; one WITH a city only shows to reviewers
-  // in that same city (case-insensitive) — this is the whole point of
-  // capturing city at campaign creation.
-  const reviewerCity = (me?.location?.city || "").trim().toLowerCase();
+  // Reviewer's own declared city (src/models/User.js `location.city`, set at
+  // signup — see PhoneOtpForm.jsx). A campaign with no cities set is open to
+  // anyone; one WITH cities only shows to reviewers in one of those cities
+  // (case-insensitive) — see lib/campaigns.js#campaignOpenToCity, which also
+  // resolves the legacy single-city field batch campaigns still use.
+  const reviewerCity = (me?.location?.city || "").trim();
 
   const available = openCampaigns
     .filter((c) => {
@@ -81,8 +82,7 @@ export default async function ReviewerCampaignsPage() {
       const status = statusByCampaign.get(String(c._id));
       if (status && status !== "rejected") return false;
 
-      const campaignCity = (c.city || "").trim().toLowerCase();
-      if (campaignCity && reviewerCity && campaignCity !== reviewerCity) return false;
+      if (!campaignOpenToCity(c, reviewerCity)) return false;
       return true;
     })
     .map((c) => {
@@ -91,7 +91,9 @@ export default async function ReviewerCampaignsPage() {
         id: String(c._id),
         name: c.name,
         platform: c.platform,
-        city: c.city || "",
+        cities: campaignCities(c),
+        businessName: c.businessName || "",
+        businessCategory: c.businessCategory || "",
         notes: c.notes,
         collected: c.collected ?? 0,
         target: c.targetReviews,
@@ -114,7 +116,7 @@ export default async function ReviewerCampaignsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-primary">Available campaigns</h1>
-      <p className="mt-2 text-secondary">
+      <p className="mt-2 hidden text-secondary sm:block">
         Earn a reward for every verified review — shown on each campaign below. Rewards are for
         verified participation, never for positive ratings.
       </p>

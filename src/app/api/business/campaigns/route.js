@@ -42,9 +42,12 @@ const locationItemSchema = z.object({
   // Defaults to the location's own synced reviewUrl when omitted — this lets
   // the owner override it per-location (see createBatch below).
   targetUrl: z.string().trim().max(500).optional(),
-  // Defaults to the city parsed from the location's own address when
-  // omitted — same override pattern as targetUrl.
-  city: z.string().trim().max(120).optional(),
+  // Defaults to [the location's own address-derived city] when omitted —
+  // same override pattern as targetUrl, but now a set: this location's
+  // campaign can be open to reviewers in several cities, not just the one
+  // the business itself sits in. Searched/added via Google Places, see
+  // components/business/CityMultiSelect.jsx.
+  cities: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
   // This location's slice of the AI-drafted (or owner-written) review pool —
   // see models/Campaign.js reviewDrafts.
   reviewDrafts: z.array(reviewDraftSchema).max(200).optional(),
@@ -69,9 +72,12 @@ const createSchema = z
     name: z.string().trim().min(1, "Name is required").max(120),
     platform: z.enum(["google", "trustpilot", "capterra", "amazon", "playstore"]).default("google"),
     budget: z.number().int().positive().max(10_000_000).optional(),
-    // Single-campaign city (batch campaigns instead derive it per-location
-    // from the connected GMB location — see createBatch below).
-    city: z.string().trim().max(120).optional().default(""),
+    // Single-campaign cities — lets one campaign be live to reviewers in
+    // several cities at once (searched/added via Google Places, see
+    // components/business/CityMultiSelect.jsx). Batch campaigns instead
+    // derive a single city per-location from the connected GMB location —
+    // see createBatch below, and models/Campaign.js's `city` vs `cities`.
+    cities: z.array(z.string().trim().min(1).max(120)).max(20).optional().default([]),
     notes: z.string().trim().max(500).optional().default(""),
     targetUrl: z.string().trim().max(500).optional().default(""),
     locationId: z.string().optional(),
@@ -94,9 +100,9 @@ const createSchema = z
     message: "Budget is required.",
     path: ["budget"],
   })
-  .refine((d) => Boolean(d.locations) || d.city.length > 0, {
-    message: "City is required.",
-    path: ["city"],
+  .refine((d) => Boolean(d.locations) || d.cities.length > 0, {
+    message: "Add at least one city.",
+    path: ["cities"],
   })
   .refine((d) => Boolean(d.pacingLimit) === Boolean(d.pacingWindowHours), {
     message: "Pacing needs both a review count and a time window.",
@@ -128,7 +134,7 @@ export async function POST(request) {
     name,
     platform,
     budget,
-    city,
+    cities,
     notes,
     targetUrl,
     locationId,
@@ -148,7 +154,7 @@ export async function POST(request) {
     return createBatch({ user, name, platform, notes, locations, reviewRate });
   }
 
-  const trimmedCity = city.trim();
+  const trimmedCities = [...new Set(cities.map((c) => c.trim()).filter(Boolean))];
 
   if (budget < reviewRate) {
     return Response.json(
@@ -180,6 +186,13 @@ export async function POST(request) {
     balanceAfter: debited.walletBalance,
   });
 
+  // Snapshot the business name/category off the linked GMB location, if any
+  // — see models/Campaign.js's businessName/businessCategory for why this is
+  // copied rather than read live through `location` later.
+  const linkedLocation = locationId
+    ? await GmbLocation.findOne({ _id: locationId, user: user.id }).select("title category")
+    : null;
+
   const campaign = await Campaign.create({
     user: user.id,
     name,
@@ -189,8 +202,10 @@ export async function POST(request) {
     targetReviews: approxReviews(budget, reviewRate),
     notes,
     targetUrl,
-    city: trimmedCity,
+    cities: trimmedCities,
     location: locationId || null,
+    businessName: linkedLocation?.title || "",
+    businessCategory: linkedLocation?.category || "",
     status: "active",
     reviewDrafts: normalizeDrafts(reviewDrafts).map((d) => ({ ...d, assignedTo: null, assignedAt: null })),
     reviewImages: (reviewImages ?? []).map((url) => ({ url, assignedTo: null, assignedAt: null })),
@@ -277,8 +292,10 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
           targetReviews: approxReviews(l.budget, reviewRate),
           notes,
           targetUrl: l.targetUrl || loc.reviewUrl || "",
-          city: l.city?.trim() || derivedCity,
+          cities: l.cities?.length > 0 ? [...new Set(l.cities.map((c) => c.trim()).filter(Boolean))] : [derivedCity].filter(Boolean),
           location: loc._id,
+          businessName: loc.title || "",
+          businessCategory: loc.category || "",
           status: "active",
           reviewDrafts: normalizeDrafts(l.reviewDrafts).map((d) => ({ ...d, assignedTo: null, assignedAt: null })),
           reviewImages: (l.reviewImages ?? []).map((url) => ({ url, assignedTo: null, assignedAt: null })),
