@@ -15,6 +15,12 @@ import { ROLES } from "../../../../../../lib/auth/roles";
  * can't exist without one. This replaces the old post-login mandatory
  * browser-geolocation capture (LocationGate) with a one-time declaration
  * at signup.
+ *
+ * `ageConfirmed` is mandatory too — a self-declared "I'm 18 or older"
+ * checkbox, not a verified date of birth. Reviewers post real reviews on
+ * real platforms under their own participation, so this is a genuine
+ * eligibility rule, checked here AND re-checked in completePhoneSignup()
+ * (the actual account-creation gate).
  */
 const schema = z
   .object({
@@ -22,11 +28,16 @@ const schema = z
     name: z.string().trim().min(1, "Name is required").max(100),
     verifiedToken: z.string().min(1),
     city: z.string().trim().min(1, "City is required").max(120),
+    ageConfirmed: z.boolean(),
     // Optional — auto-filled from a `?ref=` link or typed in manually. See
     // lib/referral.js; an invalid code is simply ignored, never an error.
     referralCode: z.string().trim().max(20).optional(),
   })
-  .strict();
+  .strict()
+  .refine((v) => v.ageConfirmed === true, {
+    message: "You are not eligible for review — you must be 18 or older.",
+    path: ["ageConfirmed"],
+  });
 
 export async function POST(request) {
   const body = await request.json().catch(() => null);

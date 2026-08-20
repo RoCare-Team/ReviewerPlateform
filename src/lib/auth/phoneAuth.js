@@ -76,9 +76,16 @@ export async function requestPhoneOtp(phone, { intent, role } = {}, request) {
 /**
  * Step 2: check the code, then decide what's next.
  *
- * `intent: "login"` (role-agnostic, used by /login):
- *   - found  → { ok: true, status: "existing", otpToken }
- *   - not found → { ok: false, code: "NOT_FOUND" }
+ * `intent: "login"` (role-agnostic, used by /login) — there's no separate
+ * "signup" concept from the reviewer/business owner's point of view: they
+ * just try to log in, and a phone with no account yet gets the exact same
+ * "new" outcome signup does (verifiedToken, no account created) so the
+ * client can ask which kind of account to create right there instead of
+ * dead-ending with "sign up first":
+ *   - found     → { ok: true, status: "existing", otpToken }
+ *   - not found → { ok: true, status: "new", verifiedToken } — see
+ *     completePhoneSignup(); the client still has to collect a role before
+ *     it can call that (login never declared one).
  *
  * `intent: "signup"` (requires `role`, fixed by the calling route — never the
  * body, same discipline as lib/auth/signup.js):
@@ -126,13 +133,11 @@ export async function verifyPhoneOtp({ phone, otp, intent, role }, request) {
     return { ok: true, status: "existing", otpToken };
   }
 
-  if (intent !== "signup") {
-    return { ok: false, message: "No account found with this number. Sign up first.", code: "NOT_FOUND" };
-  }
-
   // Genuinely new phone — the code has been checked, but there's no account
   // to attach it to yet. Hand back a short-lived token proving verification
   // already happened, so the name step below doesn't re-ask for the OTP.
+  // Same outcome whether they arrived via /login or a /signup/* page — see
+  // the docblock above for why "login with no account" isn't an error here.
   const verifiedToken = await issueToken(phone, "phone_verified");
   return { ok: true, status: "new", verifiedToken };
 }
@@ -149,8 +154,15 @@ export async function verifyPhoneOtp({ phone, otp, intent, role }, request) {
  * up front, instead of granting browser geolocation. Campaign matching
  * (reviewer/campaigns/page.jsx) reads this same field either way.
  */
-export async function completePhoneSignup({ phone, name, role, verifiedToken, city, referralCode }) {
+export async function completePhoneSignup({ phone, name, role, verifiedToken, city, ageConfirmed, referralCode }) {
   if (!canSelfSignup(role)) return { ok: false, message: "Signup isn't available for this account type." };
+
+  // Reviewer-only, but enforced here (not just in the route's zod schema) —
+  // this is the actual account-creation gate. Self-declared, not verified
+  // against any ID — same trust level as the checkbox itself.
+  if (role === "reviewer" && ageConfirmed !== true) {
+    return { ok: false, message: "You are not eligible for review — you must be 18 or older." };
+  }
 
   const redeemed = await consumeToken(verifiedToken, "phone_verified");
   if (!redeemed || redeemed.identifier !== phone) {
@@ -194,8 +206,9 @@ export async function completePhoneSignup({ phone, name, role, verifiedToken, ci
     passwordHash: null,
     referralCode: ownReferralCode,
     referredBy: referrer?._id ?? null,
-    // Reviewer-only — business accounts don't carry a location field.
+    // Reviewer-only — business accounts don't carry a location/age field.
     ...(role === "reviewer" && city ? { location: { city, updatedAt: new Date() } } : {}),
+    ...(role === "reviewer" ? { ageConfirmed: true } : {}),
   });
 
   if (referrer) await payReferralBonus(created);

@@ -5,7 +5,7 @@ import Campaign from "../../../../models/Campaign";
 import GmbLocation from "../../../../models/GmbLocation";
 import WalletTransaction from "../../../../models/WalletTransaction";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
-import { approxReviews } from "../../../../lib/campaigns";
+import { approxReviews, canonicalizeCity } from "../../../../lib/campaigns";
 import { getSettings } from "../../../../lib/settings";
 
 /**
@@ -154,7 +154,7 @@ export async function POST(request) {
     return createBatch({ user, name, platform, notes, locations, reviewRate });
   }
 
-  const trimmedCities = [...new Set(cities.map((c) => c.trim()).filter(Boolean))];
+  const trimmedCities = [...new Set(cities.map((c) => canonicalizeCity(c)).filter(Boolean))];
 
   if (budget < reviewRate) {
     return Response.json(
@@ -292,7 +292,7 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
           targetReviews: approxReviews(l.budget, reviewRate),
           notes,
           targetUrl: l.targetUrl || loc.reviewUrl || "",
-          cities: l.cities?.length > 0 ? [...new Set(l.cities.map((c) => c.trim()).filter(Boolean))] : [derivedCity].filter(Boolean),
+          cities: l.cities?.length > 0 ? [...new Set(l.cities.map((c) => canonicalizeCity(c)).filter(Boolean))] : [canonicalizeCity(derivedCity)].filter(Boolean),
           location: loc._id,
           businessName: loc.title || "",
           businessCategory: loc.category || "",

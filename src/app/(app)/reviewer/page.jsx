@@ -4,9 +4,9 @@ import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
 import dbConnect from "../../../lib/db";
 import User from "../../../models/User";
-import Campaign from "../../../models/Campaign";
 import Submission from "../../../models/Submission";
 import { getSettings, inr } from "../../../lib/settings";
+import { getAvailableCampaignsForReviewer } from "../../../lib/reviewerCampaigns";
 import OverviewStats from "../../../components/reviewer/OverviewStats";
 
 export const metadata = { title: "Your dashboard · RapportLook" };
@@ -17,25 +17,19 @@ export default async function ReviewerHomePage() {
   await dbConnect();
   const settings = await getSettings();
 
-  const [me, mySubs] = await Promise.all([
+  const [me, mySubs, available] = await Promise.all([
     User.findById(user.id).select("walletBalance").lean(),
     Submission.find({ reviewer: user.id }).select("campaign status").lean(),
+    // Same city/pacing/claimed-slots rules as /reviewer/campaigns — this used
+    // to be its own shortcut filter (collected-only, no city, no pacing) so
+    // the count here could say "4" while the actual list showed fewer/none.
+    getAvailableCampaignsForReviewer(user.id),
   ]);
 
   const approved = mySubs.filter((s) => s.status === "approved").length;
   const pending = mySubs.filter((s) => s.status === "pending").length;
   const rejected = mySubs.filter((s) => s.status === "rejected").length;
-
-  // Same "is it actually available" rule as /reviewer/campaigns: a rejected
-  // submission doesn't take a campaign off this count — it's still open for
-  // a resubmission.
-  const statusByCampaign = new Map(mySubs.map((s) => [String(s.campaign), s.status]));
-  const openCampaigns = await Campaign.find({ status: "active" }).select("collected targetReviews").lean();
-  const availableCount = openCampaigns.filter((c) => {
-    if ((c.collected ?? 0) >= c.targetReviews) return false;
-    const status = statusByCampaign.get(String(c._id));
-    return !status || status === "rejected";
-  }).length;
+  const availableCount = available.length;
 
   return (
     <div>

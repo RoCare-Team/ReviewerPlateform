@@ -5,6 +5,7 @@ import GmbLocation from "../../../../../models/GmbLocation";
 import User from "../../../../../models/User";
 import WalletTransaction from "../../../../../models/WalletTransaction";
 import { apiRequirePermission } from "../../../../../lib/auth/guards";
+import { canonicalizeCity } from "../../../../../lib/campaigns";
 
 /**
  * Two things happen through this route for one of the business owner's own
@@ -143,7 +144,7 @@ async function editCampaign(id, user, data) {
   // the legacy single `city` field too, so it can't linger and win the
   // fallback in lib/campaigns.js#campaignCities() after the owner has
   // explicitly emptied the city list here.
-  existing.cities = [...new Set(cities.map((c) => c.trim()).filter(Boolean))];
+  existing.cities = [...new Set(cities.map((c) => canonicalizeCity(c)).filter(Boolean))];
   existing.city = "";
   existing.targetReviews = reviews;
   existing.budget = newBudget;

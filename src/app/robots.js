@@ -22,8 +22,6 @@ export default function robots() {
           "/auth-error",
           "/post-login",
         ],
-        // /signup, /signup/business, /signup/reviewer are NOT disallowed —
-        // they're real marketing landing pages with their own metadata.
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

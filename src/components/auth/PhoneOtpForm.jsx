@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { User as UserIcon, ShieldCheck, ArrowLeft, RotateCcw, Gift } from "lucide-react";
+import { User as UserIcon, ShieldCheck, ArrowLeft, RotateCcw, Gift, Building2, MessageSquareQuote } from "lucide-react";
 import { Label, Input, FormError, SubmitButton } from "./Field";
 import StateCitySelect from "../ui/StateCitySelect";
 import { toast } from "../../lib/toast";
@@ -23,8 +23,13 @@ const RESEND_SECONDS = 30;
  *     ├─ existing account, OTHER role   → cross-role notice → /login
  *     └─ brand-new phone (signup only)  → one more step: name → account created
  *
- * mode="login"  → role-agnostic, only works for an already-registered phone.
- * mode="signup" → `role` required, can create a new account.
+ * mode="login"  → role-agnostic. An already-registered phone signs straight
+ *   in as before. A phone with NO account isn't a dead end anymore either —
+ *   there's no real "signup" concept from the user's side, just "log in, and
+ *   if you're new we'll ask what kind of account to make": one extra step
+ *   (Business/Reviewer) is inserted before the name step in that case.
+ * mode="signup" → `role` fixed by the calling page (/signup/business or
+ *   /signup/reviewer), so that extra role step never shows here.
  *
  * See src/lib/auth/phoneAuth.js for the three-step server side of this
  * (requestPhoneOtp / verifyPhoneOtp / completePhoneSignup).
@@ -36,16 +41,34 @@ export default function PhoneOtpForm({ mode = "login", role }) {
   const rawNext = params.get("next") ?? "";
   const next = /^\/(?!\/)/.test(rawNext) ? rawNext : null;
 
-  const [step, setStep] = useState("phone"); // "phone" | "otp" | "name"
+  // ?role=business_owner|reviewer — set by the "How do you want to use
+  // RapportLook?" role picker (see RoleSignupModal.jsx) before landing here.
+  // Purely a hint for a brand-new phone: it skips the inline "role" step
+  // below and goes straight to name/city. An existing account ignores it
+  // entirely and just logs in as whatever it already is.
+  const roleParam = params.get("role");
+  const roleHint = roleParam === "business_owner" || roleParam === "reviewer" ? roleParam : null;
+
+  const [step, setStep] = useState("phone"); // "phone" | "otp" | "role" | "name"
   const [phone, setPhone] = useState("");
   const [otpDigits, setOtpDigits] = useState(["", "", "", ""]);
   const [name, setName] = useState("");
+  // Set from the "role" step below (a /login attempt with no fixed `role`
+  // prop, no `roleHint`, that turned out to be a brand-new phone) OR
+  // pre-filled from `roleHint`. Signup pages that pass `role` as a prop never
+  // touch this — `effectiveRole` falls back to the prop first.
+  const [pickedRole, setPickedRole] = useState(() => roleHint);
+  const effectiveRole = role || pickedRole;
   // Reviewer signup only — a business account has no city field. Campaigns
   // are matched to reviewers by city (Campaign.city, reviewer/campaigns/page.jsx),
   // so this replaces the old post-login mandatory GPS capture (LocationGate)
   // with a one-time declaration right here, before the account even exists.
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
+  // Reviewer signup only — self-declared 18+ checkbox, enforced again
+  // server-side (completePhoneSignup) so this client check is a UX nicety,
+  // not the gate.
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   // Auto-filled from a shared link (?ref=CODE — see lib/referral.js), but
   // always left editable: someone can still type a code by hand, or a friend
   // can tell them theirs verbally instead of sending a link.
@@ -63,7 +86,7 @@ export default function PhoneOtpForm({ mode = "login", role }) {
     return () => clearTimeout(t);
   }, [resendIn]);
 
-  const completeEndpoint = role === "business_owner" ? "/api/auth/signup/business/complete" : "/api/auth/signup/reviewer/complete";
+  const completeEndpoint = effectiveRole === "business_owner" ? "/api/auth/signup/business/complete" : "/api/auth/signup/reviewer/complete";
 
   async function finishSignIn(otpToken) {
     const signInRes = await signIn("phone-otp", { phone, otpToken, redirect: false });
@@ -173,10 +196,17 @@ export default function PhoneOtpForm({ mode = "login", role }) {
       return;
     }
 
-    // Brand-new phone (signup only) — OTP already confirmed, now ask for a
-    // name before the account is actually created.
+    // Brand-new phone — OTP already confirmed, account not created yet.
+    // Role already known (signup page's `role` prop, or a `?role=` hint from
+    // the role picker) → straight to the name step. Otherwise nobody's said
+    // what kind of account this should be yet — ask that first.
     setPending(false);
     setVerifiedToken(data.verifiedToken);
+    setStep(effectiveRole ? "name" : "role");
+  }
+
+  function pickRole(r) {
+    setPickedRole(r);
     setStep("name");
   }
 
@@ -188,8 +218,12 @@ export default function PhoneOtpForm({ mode = "login", role }) {
       setError("Enter your name.");
       return;
     }
-    if (role === "reviewer" && !city.trim()) {
+    if (effectiveRole === "reviewer" && !city.trim()) {
       setError("Select your city.");
+      return;
+    }
+    if (effectiveRole === "reviewer" && !ageConfirmed) {
+      setError("You are not eligible for review — you must be 18 or older.");
       return;
     }
 
@@ -201,7 +235,7 @@ export default function PhoneOtpForm({ mode = "login", role }) {
         phone,
         name: name.trim(),
         verifiedToken,
-        ...(role === "reviewer" ? { city: city.trim() } : {}),
+        ...(effectiveRole === "reviewer" ? { city: city.trim(), ageConfirmed } : {}),
         ...(referralCode.trim() ? { referralCode: referralCode.trim() } : {}),
       }),
     });
@@ -225,6 +259,56 @@ export default function PhoneOtpForm({ mode = "login", role }) {
     setPending(false);
   }
 
+  // Login-only: the phone turned out to have no account, so before asking
+  // for a name we need to know which kind of account to create — inline
+  // right here in the OTP flow, not a separate signup page. Picking one
+  // moves straight to the name step.
+  if (step === "role") {
+    return (
+      <div>
+        <div className="mb-4 flex items-center justify-center gap-1.5" aria-hidden="true">
+          <span className="h-1.5 w-4 rounded-full bg-accent" />
+          <span className="h-1.5 w-4 rounded-full bg-accent" />
+          <span className="h-1.5 w-4 rounded-full bg-default/40" />
+        </div>
+
+        <p className="text-center text-sm font-semibold text-primary">
+          No account yet on this number — how do you want to use RapportLook?
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => pickRole("business_owner")}
+            className="flex flex-col items-start rounded-card border border-default bg-surface p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent hover:bg-accent-subtle hover:shadow-md"
+          >
+            <Building2 className="h-5 w-5 text-accent" aria-hidden="true" />
+            <span className="mt-2 text-sm font-bold text-primary">Business</span>
+            <span className="mt-0.5 text-xs text-secondary">Collect verified customer reviews.</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => pickRole("reviewer")}
+            className="flex flex-col items-start rounded-card border border-default bg-surface p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-accent hover:bg-accent-subtle hover:shadow-md"
+          >
+            <MessageSquareQuote className="h-5 w-5 text-accent" aria-hidden="true" />
+            <span className="mt-2 text-sm font-bold text-primary">Reviewer</span>
+            <span className="mt-0.5 text-xs text-secondary">Leave reviews, get rewarded.</span>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => { setStep("phone"); setError(""); }}
+          className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-secondary transition hover:text-primary"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          Change number
+        </button>
+      </div>
+    );
+  }
+
   if (step === "name") {
     return (
       <form onSubmit={completeSignup} noValidate>
@@ -241,32 +325,47 @@ export default function PhoneOtpForm({ mode = "login", role }) {
         </div>
 
         <div>
-          <Label htmlFor="name">{role === "business_owner" ? "Your name" : "Full name"}</Label>
+          <Label htmlFor="name">{effectiveRole === "business_owner" ? "Your name" : "Full name"}</Label>
           <Input
             id="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={role === "business_owner" ? "Priya Sharma" : "Aditya Verma"}
+            placeholder={effectiveRole === "business_owner" ? "Priya Sharma" : "Aditya Verma"}
             icon={UserIcon}
             required
             autoFocus
           />
         </div>
 
-        {role === "reviewer" && (
-          <div className="mt-4">
-            <Label htmlFor="signup-state-state">Your city</Label>
-            <StateCitySelect
-              idPrefix="signup-state"
-              state={state}
-              city={city}
-              onStateChange={(s) => { setState(s); setCity(""); }}
-              onCityChange={setCity}
-            />
-            <p className="mt-1.5 text-xs text-muted">
-              You&apos;ll only see campaigns from this city — no location access needed.
-            </p>
-          </div>
+        {effectiveRole === "reviewer" && (
+          <>
+            <div className="mt-4">
+              <Label htmlFor="signup-state-state">Your city</Label>
+              <StateCitySelect
+                idPrefix="signup-state"
+                state={state}
+                city={city}
+                onStateChange={(s) => { setState(s); setCity(""); }}
+                onCityChange={setCity}
+              />
+              <p className="mt-1.5 text-xs text-muted">
+                You&apos;ll only see campaigns from this city — no location access needed.
+              </p>
+            </div>
+
+            <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-btn border border-default bg-surface px-3.5 py-3 transition-colors duration-200 hover:border-strong">
+              <input
+                type="checkbox"
+                checked={ageConfirmed}
+                onChange={(e) => setAgeConfirmed(e.target.checked)}
+                required
+                className="mt-0.5 h-4 w-4 shrink-0 accent-accent"
+              />
+              <span className="text-sm text-primary">
+                I confirm I am <span className="font-semibold">18 years or older</span>.
+              </span>
+            </label>
+          </>
         )}
 
         <div className="mt-4">

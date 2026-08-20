@@ -5,15 +5,15 @@ import AuthAside from "../../components/auth/AuthAside";
 // Public. No session required — these ARE the pages you use to get one.
 // Already-authenticated users are bounced to their home by src/middleware.js.
 //
-// No blanket robots directive here on purpose: /signup, /signup/business and
-// /signup/reviewer are real marketing landing pages worth indexing (they're
-// linked from the footer's "For businesses" / "For reviewers"). Only the
-// forms with no search intent — login, forgot/reset password, verify-otp,
-// auth-error — set their own noindex, in their own page.jsx.
+// /signup, /signup/business and /signup/reviewer no longer exist as pages —
+// /login (see PhoneOtpForm.jsx) is the single entry point for both an
+// existing account and a brand-new one; next.config.mjs 301-redirects the
+// old URLs there. Each remaining page here (login, forgot/reset password,
+// verify-otp, auth-error) sets its own noindex in its own page.jsx.
 export default function AuthLayout({ children }) {
   return (
     <div className="grid h-dvh overflow-hidden lg:grid-cols-2">
-      {/* Left: branded content panel (desktop only), copy varies by route */}
+      {/* Left: branded content panel (desktop only) */}
       <AuthAside />
 
       {/* Right: form area — scrolls internally only if the form is taller than

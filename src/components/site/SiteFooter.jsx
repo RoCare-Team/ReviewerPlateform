@@ -87,8 +87,11 @@ const COLUMNS = [
   {
     heading: "Get started",
     links: [
-      { href: "/signup/business", label: "For businesses" },
-      { href: "/signup/reviewer", label: "For reviewers" },
+      // No standalone signup pages anymore — both route into /login with a
+      // `?role=` hint (only used if the phone turns out to be brand-new; see
+      // RoleSignupModal.jsx / PhoneOtpForm.jsx).
+      { href: "/login?role=business_owner", label: "For businesses" },
+      { href: "/login?role=reviewer", label: "For reviewers" },
       { href: "/login", label: "Log in" },
     ],
   },

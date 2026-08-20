@@ -29,8 +29,10 @@ const HOME = {
   [ROLES.REVIEWER]: "/reviewer",
 };
 
-// Public auth surfaces. An already-authenticated user gets bounced to their home.
-const AUTH_PAGES = ["/login", "/signup", "/verify-otp", "/forgot-password", "/reset-password"];
+// Public auth surfaces. An already-authenticated user gets bounced to their
+// home. No /signup here — it no longer exists as a page (next.config.mjs
+// 301-redirects it to /login, which handles both login and signup inline).
+const AUTH_PAGES = ["/login", "/verify-otp", "/forgot-password", "/reset-password"];
 
 export async function proxy(request) {
   const { pathname } = request.nextUrl;

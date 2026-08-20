@@ -18,6 +18,42 @@ export function inr(n) {
   return `₹${Number(n || 0).toLocaleString("en-IN")}`;
 }
 
+// Common old/alternate spellings → the canonical name our own city list
+// (lib/data/indiaStatesCities.js) uses. Google Places autocomplete (see
+// components/business/CityMultiSelect.jsx) still happily returns the old
+// name for several renamed Indian cities, while reviewers can only pick the
+// canonical one at signup (PhoneOtpForm.jsx) — without this map the two
+// would never string-match and a campaign silently never shows up for
+// reviewers in that city. Keys are lowercase; extend as new mismatches turn up.
+const CITY_ALIASES = {
+  gurgaon: "Gurugram",
+  bombay: "Mumbai",
+  bangalore: "Bengaluru",
+  calcutta: "Kolkata",
+  madras: "Chennai",
+  cochin: "Kochi",
+  trivandrum: "Thiruvananthapuram",
+  mysore: "Mysuru",
+  poona: "Pune",
+  baroda: "Vadodara",
+  simla: "Shimla",
+  allahabad: "Prayagraj",
+  pondicherry: "Puducherry",
+  vizag: "Visakhapatnam",
+};
+
+/**
+ * Resolve a freely-typed/Google-Places city name to the canonical spelling
+ * we standardize on, so a business picking "Gurgaon" and a reviewer set to
+ * "Gurugram" still match (see campaignOpenToCity below). Falls through to
+ * the input unchanged (just trimmed) when there's no known alias.
+ */
+export function canonicalizeCity(name) {
+  const trimmed = String(name || "").trim();
+  if (!trimmed) return "";
+  return CITY_ALIASES[trimmed.toLowerCase()] || trimmed;
+}
+
 /**
  * The effective list of cities a campaign is restricted to — `[]` means open
  * to any city. Resolves the new `cities` array (multi-city picker) against

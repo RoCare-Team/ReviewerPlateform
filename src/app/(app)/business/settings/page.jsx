@@ -78,7 +78,7 @@ export default async function BusinessSettingsPage() {
       <div className="mt-10">
         <ReferralCard
           code={doc?.referralCode}
-          signupPath="/signup/business"
+          signupPath="/login"
           rewardDisplay={inr(settings.referralReward)}
           referredCount={referredCount}
           appUrl={process.env.APP_URL ?? "http://localhost:3000"}

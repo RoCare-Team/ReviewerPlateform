@@ -21,6 +21,18 @@ const nextConfig = {
       },
     ],
   },
+
+  // There's no standalone signup page anymore — /login (PhoneOtpForm.jsx)
+  // handles both: an already-registered phone signs straight in, a new one
+  // gets asked for a role + name right there. These just catch anyone who
+  // still has the old /signup* URLs bookmarked, linked, or indexed.
+  async redirects() {
+    return [
+      { source: "/signup", destination: "/login", permanent: true },
+      { source: "/signup/business", destination: "/login", permanent: true },
+      { source: "/signup/reviewer", destination: "/login", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

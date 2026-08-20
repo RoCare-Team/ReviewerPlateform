@@ -80,7 +80,7 @@ export default function SiteHeader() {
   }, []);
 
   // Same escape-to-close + scroll-lock pattern as the app's modals
-  // (ContactModal, RoleSignupModal) — this drawer is functionally a modal,
+  // (ContactModal) — this drawer is functionally a modal,
   // just anchored to the right edge instead of centered.
   useEffect(() => {
     if (!mobileMenuOpen) return;

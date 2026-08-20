@@ -180,7 +180,7 @@ export default function AboutPage() {
                 </p>
               </div>
               <Link
-                href="/signup"
+                href="/login?role=business_owner"
                 className="mt-7 inline-flex items-center gap-2 rounded-btn bg-accent px-6 py-3 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md"
               >
                 Start collecting verified reviews
@@ -328,7 +328,7 @@ export default function AboutPage() {
             </p>
             <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/signup"
+                href="/login"
                 className="inline-flex items-center gap-2 rounded-btn bg-accent px-6 py-3 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md"
               >
                 Get started

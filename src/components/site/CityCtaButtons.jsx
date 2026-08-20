@@ -4,9 +4,11 @@ import { useState } from "react";
 import ContactModal from "../models/ContactModal";
 import RoleSignupModal from "../models/RoleSignupModal";
 
-// Shared CTA pair for the city landing page — opens the same signup/contact
-// modals used site-wide instead of navigating away, so the page keeps the
-// visitor rather than dropping them onto /signup or /contact directly.
+// Shared CTA pair for the city landing page — opens the same role-picker/
+// contact modals used site-wide instead of navigating away, so the page
+// keeps the visitor rather than dropping them onto /login or /contact
+// directly. The role picker itself routes into /login (there's no separate
+// signup page — see RoleSignupModal.jsx).
 const VARIANTS = {
   hero: {
     wrapper: "mt-8 flex flex-col gap-3 sm:flex-row",

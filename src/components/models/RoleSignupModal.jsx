@@ -5,21 +5,24 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Building2, Check, MessageSquareQuote, X } from "lucide-react";
 
-// Role picker, in a modal instead of a full page navigation. Each choice
-// routes to a distinct signup page, which posts to a distinct endpoint — the
-// role is carried by the URL, never by a form field. Mirrors the copy/options
-// on /signup so the two stay in sync; this is the fast path from the header
-// and hero CTAs, /signup is still there directly for anyone who lands on it.
+// Role picker, in a modal instead of a full page navigation. There's no
+// separate /signup/business or /signup/reviewer page anymore — both options
+// route to the SAME /login page (PhoneOtpForm.jsx), just with a `?role=`
+// hint attached. That hint only matters if the phone entered turns out to
+// be brand-new: it skips PhoneOtpForm's own inline role question and goes
+// straight to name/city. An existing account ignores the hint completely
+// and logs in as whatever it already is — so picking "wrong" here never
+// blocks anyone, it just saves a tap for a genuinely new signup.
 const OPTIONS = [
   {
-    href: "/signup/business",
+    href: "/login?role=business_owner",
     Icon: Building2,
     title: "Business",
     description: "Collect verified customer reviews and grow your online reputation.",
     points: ["Run review campaigns", "Track ratings across platforms", "Reply to feedback faster"],
   },
   {
-    href: "/signup/reviewer",
+    href: "/login?role=reviewer",
     Icon: MessageSquareQuote,
     title: "Reviewer",
     description: "Leave honest reviews for real businesses and get rewarded for it.",
@@ -115,6 +118,17 @@ export default function RoleSignupModal({ isOpen, onClose }) {
             </button>
           ))}
         </div>
+
+        <p className="mt-6 text-center text-sm font-medium text-secondary">
+          Already have an account?{" "}
+          <button
+            type="button"
+            onClick={() => choose("/login")}
+            className="font-semibold text-accent hover:underline"
+          >
+            Log in
+          </button>
+        </p>
       </div>
     </div>,
     document.body

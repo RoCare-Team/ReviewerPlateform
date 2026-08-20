@@ -17,11 +17,12 @@ import { ROLES } from "../../../../../../lib/auth/roles";
  *  - { ok:true, status:"existing", otpToken } — redeem via
  *    signIn("phone-otp", { phone, otpToken }) to log straight in. No name
  *    was asked, none was needed.
- *  - { ok:true, status:"new", verifiedToken } — signup intent only: phone has
- *    no account yet. Client shows a name field, then POSTs
+ *  - { ok:true, status:"new", verifiedToken } — phone has no account yet,
+ *    either intent (a /login attempt with no matching account gets this too,
+ *    not an error — see phoneAuth.js). Client asks for a role (if it doesn't
+ *    already know one — /login doesn't) then a name, then POSTs
  *    /api/auth/signup/{business,reviewer}/complete with this token.
- *  - { ok:false, error, code? } — invalid code, cross-role, suspended, or
- *    (login intent) no account at all.
+ *  - { ok:false, error, code? } — invalid code, cross-role, or suspended.
  */
 const schema = z
   .object({

@@ -128,9 +128,15 @@ function Card({ campaign }) {
     // the new tab, and browsers refuse clipboard/programmatic-download
     // actions once this document isn't the focused one anymore — so both
     // have to happen BEFORE it, not after.
-    if (data.reviewText) await copyReviewText(data.reviewText);
-    if (data.imageUrl) await downloadImage(data.imageUrl);
-    if (openLink) window.open(data.targetUrl, "_blank", "noopener,noreferrer");
+    // A resubmission skips the copy/download/open-link side effects entirely
+    // — the review's already posted, so there's nothing here for the
+    // reviewer to act on (see the previouslyRejected branch in the form
+    // below, which hides these steps for the same reason).
+    if (!campaign.previouslyRejected) {
+      if (data.reviewText) await copyReviewText(data.reviewText);
+      if (data.imageUrl) await downloadImage(data.imageUrl);
+      if (openLink) window.open(data.targetUrl, "_blank", "noopener,noreferrer");
+    }
   }
 
   async function copyReviewText(text = reviewText) {
@@ -456,57 +462,75 @@ function Card({ campaign }) {
             </p>
           )}
 
-          {reviewText && (
-            <div className="mt-3 rounded-card border border-accent-border bg-accent-subtle p-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-accent">Use this in your review</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-primary">{reviewText}</p>
+          {/* A resubmission means the review itself is already posted (that's
+              what got rejected — the screenshot, not the review) — so the
+              review-link/copy-text/photo-download steps that walk a FIRST-time
+              reviewer through posting a review don't apply here. Re-showing
+              "Open the review link" would let them re-post the same review
+              text on top of their existing one, which is never what a
+              rejected-then-retrying reviewer needs — they just need a fresh
+              screenshot. */}
+          {!campaign.previouslyRejected && (
+            <>
+              {reviewText && (
+                <div className="mt-3 rounded-card border border-accent-border bg-accent-subtle p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-accent">Use this in your review</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-primary">{reviewText}</p>
+                  <button
+                    type="button"
+                    onClick={copyReviewText}
+                    className="mt-2.5 inline-flex items-center gap-1.5 rounded-btn border border-accent bg-surface px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand"
+                  >
+                    {copied ? <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" /> : <Clipboard className="h-3.5 w-3.5" aria-hidden="true" />}
+                    {copied ? "Copied" : "Copy review"}
+                  </button>
+                </div>
+              )}
+
+              {imageUrl && (
+                <div className="mt-3 rounded-card border border-accent-border bg-accent-subtle p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-accent">
+                    Attach this photo to your review {downloaded && <span className="text-verified">· Downloaded</span>}
+                  </p>
+                  <img src={imageUrl} alt="" className="mt-2 h-28 w-full rounded-btn border border-default object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => downloadImage()}
+                    disabled={downloading}
+                    className="mt-2.5 inline-flex items-center gap-1.5 rounded-btn border border-accent bg-surface px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                    {downloading ? "Downloading…" : downloaded ? "Download again" : "Download image"}
+                  </button>
+                </div>
+              )}
+
               <button
                 type="button"
-                onClick={copyReviewText}
-                className="mt-2.5 inline-flex items-center gap-1.5 rounded-btn border border-accent bg-surface px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand"
+                onClick={() => claimAndOpen(true)}
+                disabled={claiming}
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
               >
-                {copied ? <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" /> : <Clipboard className="h-3.5 w-3.5" aria-hidden="true" />}
-                {copied ? "Copied" : "Copy review"}
+                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                {claiming ? "Opening…" : "1. Open the review link"}
               </button>
-            </div>
+
+              <ol className="mt-3 space-y-2 text-sm text-secondary">
+                <li className="flex items-start gap-2">
+                  <span className="font-bold text-accent">2.</span>
+                  {reviewText ? "Paste the copied review above" : "Leave your honest review"}
+                  {imageUrl ? " and attach the downloaded photo." : "."}
+                </li>
+                <li className="flex items-start gap-2"><span className="font-bold text-accent">3.</span> Upload a screenshot as proof.</li>
+              </ol>
+            </>
           )}
 
-          {imageUrl && (
-            <div className="mt-3 rounded-card border border-accent-border bg-accent-subtle p-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-accent">
-                Attach this photo to your review {downloaded && <span className="text-verified">· Downloaded</span>}
-              </p>
-              <img src={imageUrl} alt="" className="mt-2 h-28 w-full rounded-btn border border-default object-cover" />
-              <button
-                type="button"
-                onClick={() => downloadImage()}
-                disabled={downloading}
-                className="mt-2.5 inline-flex items-center gap-1.5 rounded-btn border border-accent bg-surface px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                {downloading ? "Downloading…" : downloaded ? "Download again" : "Download image"}
-              </button>
-            </div>
+          {campaign.previouslyRejected && (
+            <p className="mt-3 text-sm text-secondary">
+              Your review is already posted — just upload a fresh screenshot of it below.
+            </p>
           )}
-
-          <button
-            type="button"
-            onClick={() => claimAndOpen(true)}
-            disabled={claiming}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
-          >
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-            {claiming ? "Opening…" : "1. Open the review link"}
-          </button>
-
-          <ol className="mt-3 space-y-2 text-sm text-secondary">
-            <li className="flex items-start gap-2">
-              <span className="font-bold text-accent">2.</span>
-              {reviewText ? "Paste the copied review above" : "Leave your honest review"}
-              {imageUrl ? " and attach the downloaded photo." : "."}
-            </li>
-            <li className="flex items-start gap-2"><span className="font-bold text-accent">3.</span> Upload a screenshot as proof.</li>
-          </ol>
 
           {file && filePreview ? (
             <div className="mt-4 flex items-center gap-3 rounded-btn border border-default bg-surface p-2">

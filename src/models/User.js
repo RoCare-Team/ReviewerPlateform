@@ -50,6 +50,14 @@ const UserSchema = new mongoose.Schema(
       updatedAt: { type: Date, default: null },
     },
 
+    // Reviewer-only: self-declared "I'm 18 or older" checkbox, ticked once at
+    // signup (see PhoneOtpForm.jsx + api/auth/signup/reviewer/complete) and
+    // enforced there — signup is rejected outright unless this is true, so
+    // in practice every reviewer account has it set. Kept as a stored field
+    // (not just a one-time gate) as an audit record of the confirmation.
+    // Never set for business_owner/admin.
+    ageConfirmed: { type: Boolean, default: false },
+
     // Wallet balance in whole rupees. Mutated only server-side via the wallet
     // API — never from a client payload directly.
     walletBalance: { type: Number, default: 0, min: 0 },

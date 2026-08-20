@@ -6,16 +6,14 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.rapportlook.co
 // Next.js App Router convention — this file IS /sitemap.xml, generated at
 // request time so new blog posts (published from /admin/blog) and cities
 // appear without a manual step. Only public, indexable routes belong here: no
-// /login, /signup/*, /admin, /business, /reviewer — those are noindexed in
-// their own layouts and have no business being crawled.
+// /login (noindexed in its own page.jsx — it's the single entry point for
+// both login and signup now, nothing left to index separately), /admin,
+// /business, /reviewer.
 export default async function sitemap() {
   const now = new Date().toISOString();
 
   const staticRoutes = [
     { path: "/", priority: 1, changeFrequency: "weekly" },
-    { path: "/signup", priority: 0.7, changeFrequency: "monthly" },
-    { path: "/signup/business", priority: 0.7, changeFrequency: "monthly" },
-    { path: "/signup/reviewer", priority: 0.6, changeFrequency: "monthly" },
     { path: "/about", priority: 0.6, changeFrequency: "monthly" },
     { path: "/contact", priority: 0.5, changeFrequency: "monthly" },
     { path: "/careers", priority: 0.4, changeFrequency: "monthly" },
