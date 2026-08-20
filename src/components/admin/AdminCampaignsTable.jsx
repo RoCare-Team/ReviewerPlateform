@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ExternalLink, Inbox, Megaphone } from "lucide-react";
 import CampaignRewardControl from "./CampaignRewardControl";
 import CampaignStatusControl from "./CampaignStatusControl";
+import DeleteCampaignButton from "./DeleteCampaignButton";
 import SearchInput from "./SearchInput";
 
 const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
@@ -91,6 +92,7 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
               <th className="px-5 py-3 font-semibold">Progress</th>
               <th className="px-5 py-3 font-semibold">Created</th>
               <th className="px-5 py-3 font-semibold">Link</th>
+              <th className="px-5 py-3 font-semibold">Delete</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-default">
@@ -169,6 +171,16 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
                     <span className="text-xs text-muted">—</span>
                   )}
                 </td>
+
+                <td className="px-5 py-4">
+                  <DeleteCampaignButton
+                    campaignId={c.id}
+                    campaignName={c.name}
+                    budget={c.budget}
+                    collected={c.collected}
+                    ratePerReview={c.ratePerReview}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -208,16 +220,25 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
                 {c.ownerEmail && <p className="truncate text-xs text-muted">{c.ownerEmail}</p>}
                 {c.ownerPhone && <p className="nums truncate text-xs text-muted">{c.ownerPhone}</p>}
               </div>
-              {c.targetUrl && (
-                <a
-                  href={c.targetUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex max-w-40 shrink-0 items-center gap-1 truncate text-xs font-semibold text-accent transition-colors duration-150 hover:underline"
-                >
-                  Review link <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                </a>
-              )}
+              <div className="flex shrink-0 items-center gap-2">
+                {c.targetUrl && (
+                  <a
+                    href={c.targetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex max-w-40 shrink-0 items-center gap-1 truncate text-xs font-semibold text-accent transition-colors duration-150 hover:underline"
+                  >
+                    Review link <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  </a>
+                )}
+                <DeleteCampaignButton
+                  campaignId={c.id}
+                  campaignName={c.name}
+                  budget={c.budget}
+                  collected={c.collected}
+                  ratePerReview={c.ratePerReview}
+                />
+              </div>
             </div>
 
             {c.notes && <p className="mt-3 text-sm text-secondary">{c.notes}</p>}

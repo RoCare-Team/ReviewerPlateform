@@ -89,7 +89,7 @@ export default function CityMultiSelect({ cities, onChange, idPrefix = "city-mul
             onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
             onKeyDown={handleKeyDown}
-            placeholder="Search a city — e.g. Mumbai"
+            placeholder="Preferred city for review — e.g. Mumbai"
             className="w-full bg-transparent px-2.5 py-2.5 text-sm text-primary outline-none placeholder:text-muted/70"
           />
           {loading && <Loader2 className="mr-3 h-4 w-4 shrink-0 animate-spin text-muted" aria-hidden="true" />}

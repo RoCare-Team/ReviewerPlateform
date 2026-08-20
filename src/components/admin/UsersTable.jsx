@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { LogIn } from "lucide-react";
 import SearchInput from "./SearchInput";
+import DeleteUserButton from "./DeleteUserButton";
 import { toast } from "../../lib/toast";
 
 /**
@@ -126,17 +127,22 @@ export default function UsersTable({ rows }) {
                     <td className="px-5 py-3.5 text-muted">{u.joined}</td>
                     <td className="px-5 py-3.5 text-muted">{u.lastLogin}</td>
                     <td className="px-5 py-3.5">
-                      {u.role !== "admin" && u.status === "active" && (
-                        <button
-                          type="button"
-                          onClick={() => loginAs(u)}
-                          disabled={impersonating === u.id}
-                          className="inline-flex items-center gap-1.5 rounded-btn border border-accent/40 bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:bg-accent hover:text-on-brand disabled:opacity-60"
-                        >
-                          <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
-                          {impersonating === u.id ? "Logging in…" : "Login as"}
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {u.role !== "admin" && u.status === "active" && (
+                          <button
+                            type="button"
+                            onClick={() => loginAs(u)}
+                            disabled={impersonating === u.id}
+                            className="inline-flex items-center gap-1.5 rounded-btn border border-accent/40 bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:bg-accent hover:text-on-brand disabled:opacity-60"
+                          >
+                            <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
+                            {impersonating === u.id ? "Logging in…" : "Login as"}
+                          </button>
+                        )}
+                        {u.role !== "admin" && (
+                          <DeleteUserButton userId={u.id} userName={u.name} walletBalance={u.walletBalance} />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -169,16 +175,21 @@ export default function UsersTable({ rows }) {
                   </span>
                   <span className="nums font-semibold text-primary">{u.walletDisplay}</span>
                 </div>
-                {u.role !== "admin" && u.status === "active" && (
-                  <button
-                    type="button"
-                    onClick={() => loginAs(u)}
-                    disabled={impersonating === u.id}
-                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-btn border border-accent/40 bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:bg-accent hover:text-on-brand disabled:opacity-60"
-                  >
-                    <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
-                    {impersonating === u.id ? "Logging in…" : "Login as"}
-                  </button>
+                {u.role !== "admin" && (
+                  <div className="mt-3 flex items-center gap-2">
+                    {u.status === "active" && (
+                      <button
+                        type="button"
+                        onClick={() => loginAs(u)}
+                        disabled={impersonating === u.id}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-btn border border-accent/40 bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:bg-accent hover:text-on-brand disabled:opacity-60"
+                      >
+                        <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
+                        {impersonating === u.id ? "Logging in…" : "Login as"}
+                      </button>
+                    )}
+                    <DeleteUserButton userId={u.id} userName={u.name} walletBalance={u.walletBalance} />
+                  </div>
                 )}
               </li>
             ))}

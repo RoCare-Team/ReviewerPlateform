@@ -30,6 +30,7 @@ export default async function AdminUsersPage({ searchParams }) {
     email: u.email || u.phone || "",
     role: u.role,
     status: u.status,
+    walletBalance: u.walletBalance ?? 0,
     walletDisplay: inr(u.walletBalance ?? 0),
     joined: new Date(u.createdAt).toLocaleDateString("en-IN"),
     lastLogin: u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString("en-IN") : "—",
