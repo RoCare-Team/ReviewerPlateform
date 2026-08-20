@@ -4,6 +4,7 @@ import { Mail, MapPin, Phone } from "lucide-react";
 import Container from "./Container";
 import { getCities } from "../../lib/cities";
 import { getContact } from "../../lib/contact";
+import WhatsAppButton from "./WhatsAppButton";
 
 // Brand name is read from data/contact.json — the single source of truth —
 // so renaming the product only ever means editing that one file.
@@ -126,6 +127,12 @@ const SOCIALS = SOCIAL_DEFS
 export default function SiteFooter() {
   return (
     <footer className="border-t border-default/60 bg-surface-sunken">
+      {/* Fixed-position, so it renders here (every public page already
+          includes SiteFooter) but floats over the whole viewport regardless
+          of where in the DOM it sits — no need to also thread it through
+          every page.jsx that has a SiteHeader. */}
+      <WhatsAppButton phone={CONTACT_PHONE_E164} />
+
       <Container className="py-14 sm:py-16">
         {/* Adjusted to lg:grid-cols-6 with Brand Column taking 2 spans for optimal width ratios */}
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-6 lg:gap-8">

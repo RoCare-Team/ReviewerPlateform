@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  Check,
   Globe2,
   ImagePlus,
   IndianRupee,
@@ -11,6 +12,7 @@ import {
   Loader2,
   MapPin,
   MessageSquareText,
+  Pencil,
   Plus,
   Sparkles,
   Star,
@@ -103,6 +105,12 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   // index (single mode) or `${rowIndex}:${keywordIndex}` (multi mode).
   const [regeneratingOne, setRegeneratingOne] = useState({});
   const [rowRegeneratingOne, setRowRegeneratingOne] = useState({});
+  // Search-phrase inputs are read-only by default (they're AI-generated —
+  // typo-ing one by accident while just skimming the list would silently
+  // drift the review text out of sync with what's actually shown). The
+  // pencil icon unlocks ONE at a time, same keying as regeneratingOne above.
+  const [editingKeyword, setEditingKeyword] = useState({});
+  const [rowEditingKeyword, setRowEditingKeyword] = useState({});
 
   // Optional pool of images for reviewers to download and attach to the
   // review they post — one per review, same "up to reviewsNum" cap as
@@ -988,6 +996,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                   <>
                                     <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
                                       <span className="inline-flex items-center gap-1"><span className="font-semibold text-primary">✓</span> tick = include this review</span>
+                                      <span className="inline-flex items-center gap-1"><Pencil className="h-3 w-3" aria-hidden="true" /> = edit the search phrase</span>
                                       <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> = rewrite just this one</span>
                                       <span className="inline-flex items-center gap-1"><Trash2 className="h-3 w-3" aria-hidden="true" /> = discard this one</span>
                                     </p>
@@ -1018,13 +1027,36 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                                   type="text"
                                                   value={k.text}
                                                   onChange={(e) => updateRowKeyword(i, ki, e.target.value)}
+                                                  readOnly={!rowEditingKeyword[`${i}:${ki}`]}
                                                   maxLength={100}
                                                   title="What the reviewer searched for — the review below is written around this phrase"
-                                                  className={`mt-0.5 w-full rounded-btn border border-default bg-surface px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
-                                                    k.selected ? "text-primary" : "text-muted line-through"
-                                                  }`}
+                                                  className={`mt-0.5 w-full rounded-btn border border-default px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
+                                                    rowEditingKeyword[`${i}:${ki}`] ? "bg-surface" : "cursor-default bg-surface-sunken"
+                                                  } ${k.selected ? "text-primary" : "text-muted line-through"}`}
                                                 />
                                               </div>
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  setRowEditingKeyword((prev) => ({
+                                                    ...prev,
+                                                    [`${i}:${ki}`]: !prev[`${i}:${ki}`],
+                                                  }))
+                                                }
+                                                aria-label={rowEditingKeyword[`${i}:${ki}`] ? "Save this search phrase" : "Edit this search phrase"}
+                                                title={rowEditingKeyword[`${i}:${ki}`] ? "Save this search phrase" : "Edit this search phrase"}
+                                                className={`shrink-0 self-end rounded-full p-1.5 transition-all duration-200 ${
+                                                  rowEditingKeyword[`${i}:${ki}`]
+                                                    ? "bg-verified text-white hover:opacity-90"
+                                                    : "text-muted hover:bg-accent-subtle hover:text-accent"
+                                                }`}
+                                              >
+                                                {rowEditingKeyword[`${i}:${ki}`] ? (
+                                                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                                                ) : (
+                                                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                                                )}
+                                              </button>
                                               <button
                                                 type="button"
                                                 onClick={() => removeRowKeyword(i, ki)}
@@ -1351,6 +1383,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                         <>
                           <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
                             <span className="inline-flex items-center gap-1"><span className="font-semibold text-primary">✓</span> tick = include this review</span>
+                            <span className="inline-flex items-center gap-1"><Pencil className="h-3 w-3" aria-hidden="true" /> = edit the search phrase</span>
                             <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> = rewrite just this one</span>
                             <span className="inline-flex items-center gap-1"><Trash2 className="h-3 w-3" aria-hidden="true" /> = discard this one</span>
                           </p>
@@ -1380,13 +1413,31 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                         type="text"
                                         value={k.text}
                                         onChange={(e) => updateKeyword(i, e.target.value)}
+                                        readOnly={!editingKeyword[i]}
                                         maxLength={100}
                                         title="What the reviewer searched for — the review below is written around this phrase"
-                                        className={`mt-0.5 w-full rounded-btn border border-default bg-surface px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
-                                          k.selected ? "text-primary" : "text-muted line-through"
-                                        }`}
+                                        className={`mt-0.5 w-full rounded-btn border border-default px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
+                                          editingKeyword[i] ? "bg-surface" : "cursor-default bg-surface-sunken"
+                                        } ${k.selected ? "text-primary" : "text-muted line-through"}`}
                                       />
                                     </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingKeyword((prev) => ({ ...prev, [i]: !prev[i] }))}
+                                      aria-label={editingKeyword[i] ? "Save this search phrase" : "Edit this search phrase"}
+                                      title={editingKeyword[i] ? "Save this search phrase" : "Edit this search phrase"}
+                                      className={`shrink-0 self-end rounded-full p-1.5 transition-all duration-200 ${
+                                        editingKeyword[i]
+                                          ? "bg-verified text-white hover:opacity-90"
+                                          : "text-muted hover:bg-accent-subtle hover:text-accent"
+                                      }`}
+                                    >
+                                      {editingKeyword[i] ? (
+                                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                                      ) : (
+                                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                                      )}
+                                    </button>
                                     <button
                                       type="button"
                                       onClick={() => removeKeyword(i)}
