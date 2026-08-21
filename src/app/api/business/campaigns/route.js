@@ -48,6 +48,12 @@ const locationItemSchema = z.object({
   // the business itself sits in. Searched/added via Google Places, see
   // components/business/CityMultiSelect.jsx.
   cities: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+  // Explicit "All India" tab pick (NewCampaignModal.jsx) — an empty `cities`
+  // array alone is ambiguous with "owner didn't touch this field yet" (which
+  // falls back to the location's own address-derived city, below), so this
+  // is the actual signal that skips that fallback and leaves the campaign
+  // open to every reviewer regardless of city.
+  allIndia: z.boolean().optional(),
   // This location's slice of the AI-drafted (or owner-written) review pool —
   // see models/Campaign.js reviewDrafts.
   reviewDrafts: z.array(reviewDraftSchema).max(200).optional(),
@@ -78,6 +84,9 @@ const createSchema = z
     // derive a single city per-location from the connected GMB location —
     // see createBatch below, and models/Campaign.js's `city` vs `cities`.
     cities: z.array(z.string().trim().min(1).max(120)).max(20).optional().default([]),
+    // See locationItemSchema's `allIndia` above — same "explicit, not just
+    // an empty array" signal, single-campaign mode's version of it.
+    allIndia: z.boolean().optional(),
     notes: z.string().trim().max(500).optional().default(""),
     targetUrl: z.string().trim().max(500).optional().default(""),
     locationId: z.string().optional(),
@@ -100,8 +109,8 @@ const createSchema = z
     message: "Budget is required.",
     path: ["budget"],
   })
-  .refine((d) => Boolean(d.locations) || d.cities.length > 0, {
-    message: "Add at least one city.",
+  .refine((d) => Boolean(d.locations) || d.cities.length > 0 || d.allIndia === true, {
+    message: "Add at least one city, or choose All India.",
     path: ["cities"],
   })
   .refine((d) => Boolean(d.pacingLimit) === Boolean(d.pacingWindowHours), {
@@ -292,7 +301,11 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
           targetReviews: approxReviews(l.budget, reviewRate),
           notes,
           targetUrl: l.targetUrl || loc.reviewUrl || "",
-          cities: l.cities?.length > 0 ? [...new Set(l.cities.map((c) => canonicalizeCity(c)).filter(Boolean))] : [canonicalizeCity(derivedCity)].filter(Boolean),
+          cities: l.allIndia
+            ? []
+            : l.cities?.length > 0
+              ? [...new Set(l.cities.map((c) => canonicalizeCity(c)).filter(Boolean))]
+              : [canonicalizeCity(derivedCity)].filter(Boolean),
           location: loc._id,
           businessName: loc.title || "",
           businessCategory: loc.category || "",

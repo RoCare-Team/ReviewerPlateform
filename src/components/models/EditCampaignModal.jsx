@@ -39,11 +39,17 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
   const minReviews = Math.max(1, campaign.collected || 0);
 
   function initialValues() {
+    const cities = campaignCities(campaign);
     return {
       name: campaign.name || "",
       notes: campaign.notes || "",
       targetUrl: campaign.targetUrl || "",
-      cities: campaignCities(campaign),
+      cities,
+      // Mirrors NewCampaignModal's All India / Preferred city tabs — an
+      // existing campaign with no cities set is already open to everyone,
+      // so it opens on the All India tab; one with cities set opens on
+      // Preferred with them prefilled.
+      cityMode: cities.length > 0 ? "preferred" : "all_india",
       locationId: campaign.location || "",
       reviews: String(campaign.targetReviews ?? 0),
     };
@@ -126,6 +132,9 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
     setError("");
     if (!values.name.trim()) return setError("Give your campaign a name.");
     if (!values.targetUrl.trim()) return setError("Add the review URL where customers should leave a review.");
+    if (values.cityMode === "preferred" && values.cities.length === 0) {
+      return setError("Add at least one city, or switch to All India.");
+    }
     if (reviewsNum < minReviews) return setError(`Target can't go below ${minReviews} — that many are already collected.`);
     if (overBudget) {
       toast.error("You don't have enough funds in your wallet. Add funds to request more reviews.");
@@ -141,7 +150,7 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
         name: values.name.trim(),
         notes: values.notes.trim(),
         targetUrl: values.targetUrl.trim(),
-        cities: values.cities,
+        cities: values.cityMode === "all_india" ? [] : values.cities,
         reviews: Math.floor(reviewsNum),
         locationId: values.locationId || "",
       }),
@@ -272,12 +281,43 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
                 </div>
 
                 <div>
-                  <Label htmlFor="ec-cities-input">Cities</Label>
-                  <CityMultiSelect
-                    idPrefix="ec-cities"
-                    cities={values.cities}
-                    onChange={(cities) => setValues((prev) => ({ ...prev, cities }))}
-                  />
+                  <Label>Who can see this campaign</Label>
+                  <div className="inline-flex rounded-lg border border-default bg-surface p-0.5" role="tablist" aria-label="Which reviewers can see this campaign">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={values.cityMode !== "preferred"}
+                      onClick={() => setValues((v) => ({ ...v, cityMode: "all_india" }))}
+                      className={`rounded-[5px] px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                        values.cityMode !== "preferred" ? "bg-accent text-on-brand" : "text-secondary hover:text-primary"
+                      }`}
+                    >
+                      All India
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={values.cityMode === "preferred"}
+                      onClick={() => setValues((v) => ({ ...v, cityMode: "preferred" }))}
+                      className={`rounded-[5px] px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                        values.cityMode === "preferred" ? "bg-accent text-on-brand" : "text-secondary hover:text-primary"
+                      }`}
+                    >
+                      Preferred city
+                    </button>
+                  </div>
+
+                  {values.cityMode === "preferred" ? (
+                    <div className="mt-2">
+                      <CityMultiSelect
+                        idPrefix="ec-cities"
+                        cities={values.cities}
+                        onChange={(cities) => setValues((prev) => ({ ...prev, cities }))}
+                      />
+                    </div>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-muted">Open to reviewers anywhere in India.</p>
+                  )}
                 </div>
 
                 <div>

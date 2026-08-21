@@ -65,7 +65,24 @@ function formatPacingGap(count, days) {
 export default function NewCampaignModal({ walletBalance, locations = [], rate = 100 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [values, setValues] = useState({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", cities: [] });
+  // "All India" vs "Preferred city" — a campaign defaults to open-to-everyone
+  // (empty `cities`, same meaning campaignOpenToCity() already gives an empty
+  // array) rather than forcing the owner to pick a city up front. The city
+  // search box only shows up once they switch to the second tab. See
+  // onSubmit() below for how `cityMode` maps to what's actually sent — an
+  // explicit `allIndia: true` rather than just an empty array, since an empty
+  // array alone is ambiguous with "this location's city hasn't loaded yet"
+  // in batch mode (api/business/campaigns/route.js's createBatch).
+  const [values, setValues] = useState({
+    name: "",
+    platform: "google",
+    reviews: "",
+    notes: "",
+    locationId: "",
+    targetUrl: "",
+    cities: [],
+    cityMode: "all_india",
+  });
   const [rows, setRows] = useState(
     locations.length > 0
       ? [
@@ -74,9 +91,11 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
             reviews: "",
             targetUrl: "",
             cities: [],
+            cityMode: "all_india",
             keywords: [],
             images: [],
-            pacingOn: false,
+            pacingOn: true,
+            pacingMode: "daily",
             pacingCount: "1",
             pacingDays: "1",
           },
@@ -127,9 +146,15 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   // can get reviews pulled). Off by default. Multi mode keeps this PER ROW
   // instead (row.pacingOn/pacingCount/pacingDays) — each location decides
   // its own pace independently. See lib/pacing.js.
-  const [pacingOn, setPacingOn] = useState(false);
+  const [pacingOn, setPacingOn] = useState(true);
   const [pacingCount, setPacingCount] = useState("1");
   const [pacingDays, setPacingDays] = useState("1");
+  // Daily/Alternate are just shortcuts that set pacingCount/pacingDays for
+  // you (1 review/1 day, 1 review/2 days) — Custom is the only one that
+  // actually shows the raw number fields. Doesn't touch what gets submitted
+  // (still pacingLimit/pacingWindowHours, same as before); purely which UI
+  // is on screen.
+  const [pacingMode, setPacingMode] = useState("daily");
 
   const multiMode = values.platform === "google" && locations.length > 0;
 
@@ -203,9 +228,11 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         reviews: "",
         targetUrl: "",
         cities: [],
+        cityMode: "all_india",
         keywords: [],
         images: [],
-        pacingOn: false,
+        pacingOn: true,
+        pacingMode: "daily",
         pacingCount: "1",
         pacingDays: "1",
       },
@@ -636,8 +663,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         if (!r.targetUrl?.trim()) {
           return setError(`Add a review URL for ${loc?.title || "each location"}.`);
         }
-        if (!r.cities || r.cities.length === 0) {
-          return setError(`Add at least one city for ${loc?.title || "each location"}.`);
+        if (r.cityMode !== "all_india" && (!r.cities || r.cities.length === 0)) {
+          return setError(`Add at least one city for ${loc?.title || "each location"}, or switch it to All India.`);
         }
         if ((Number(r.reviews) || 0) < 1) {
           return setError(`Ask for at least 1 review for ${loc?.title || "each location"}.`);
@@ -671,7 +698,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
             locationId: r.locationId,
             budget: n * rate,
             targetUrl: r.targetUrl?.trim() || undefined,
-            cities: r.cities ?? [],
+            cities: r.cityMode === "all_india" ? [] : (r.cities ?? []),
+            allIndia: r.cityMode === "all_india",
             reviewDrafts: drafts.length > 0 ? drafts : undefined,
             reviewImages: imgs.length > 0 ? imgs : undefined,
             ...rowPacing,
@@ -680,7 +708,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
       };
     } else {
       if (!values.targetUrl.trim()) return setError("Add the review URL where customers should leave a review.");
-      if (values.cities.length === 0) return setError("Add at least one city this campaign is for.");
+      if (values.cityMode !== "all_india" && values.cities.length === 0) {
+        return setError("Add at least one city this campaign is for, or switch to All India.");
+      }
       if (reviewsNum < 1) return setError("Ask for at least 1 review.");
       if (overBudget) {
         toast.error("You don't have enough funds in your wallet. Add funds to request more reviews.");
@@ -692,7 +722,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         budget: Math.floor(budgetNum),
         notes: values.notes.trim(),
         targetUrl: values.targetUrl.trim(),
-        cities: values.cities,
+        cities: values.cityMode === "all_india" ? [] : values.cities,
+        allIndia: values.cityMode === "all_india",
         locationId: values.locationId || undefined,
         reviewDrafts: keywords
           .filter((k) => k.selected && k.review?.trim())
@@ -725,7 +756,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     }
 
     toast.success(multiMode && body.locations.length > 1 ? `${body.locations.length} campaigns created.` : "Campaign created.");
-    setValues({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", cities: [] });
+    setValues({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", cities: [], cityMode: "all_india" });
     setRows(
       locations.length > 0
         ? [
@@ -734,9 +765,11 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
               reviews: "",
               targetUrl: "",
               cities: [],
+              cityMode: "all_india",
               keywords: [],
               images: [],
-              pacingOn: false,
+              pacingOn: true,
+              pacingMode: "daily",
               pacingCount: "1",
               pacingDays: "1",
             },
@@ -745,7 +778,8 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     );
     setKeywords([]);
     setImages([]);
-    setPacingOn(false);
+    setPacingOn(true);
+    setPacingMode("daily");
     setPacingCount("1");
     setPacingDays("1");
     setOpen(false);
@@ -920,16 +954,47 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                 )}
 
                                 <div className="mt-2.5">
-                                  <CityMultiSelect
-                                    idPrefix={`c-loc-${i}`}
-                                    cities={row.cities}
-                                    onChange={(cities) => setRow(i, "cities", cities)}
-                                  />
-                                  {row.cities.length === 1 && row.cities[0] === loc?.city && (
-                                    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-verified">
-                                      <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
-                                      Auto-filled — edit if this isn&apos;t right.
-                                    </p>
+                                  <div className="inline-flex rounded-lg border border-default bg-surface p-0.5" role="tablist" aria-label="Which reviewers can see this location">
+                                    <button
+                                      type="button"
+                                      role="tab"
+                                      aria-selected={row.cityMode !== "preferred"}
+                                      onClick={() => setRow(i, "cityMode", "all_india")}
+                                      className={`rounded-[5px] px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                        row.cityMode !== "preferred" ? "bg-accent text-on-brand" : "text-secondary hover:text-primary"
+                                      }`}
+                                    >
+                                      All India
+                                    </button>
+                                    <button
+                                      type="button"
+                                      role="tab"
+                                      aria-selected={row.cityMode === "preferred"}
+                                      onClick={() => setRow(i, "cityMode", "preferred")}
+                                      className={`rounded-[5px] px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                        row.cityMode === "preferred" ? "bg-accent text-on-brand" : "text-secondary hover:text-primary"
+                                      }`}
+                                    >
+                                      Preferred city
+                                    </button>
+                                  </div>
+
+                                  {row.cityMode === "preferred" ? (
+                                    <div className="mt-2">
+                                      <CityMultiSelect
+                                        idPrefix={`c-loc-${i}`}
+                                        cities={row.cities}
+                                        onChange={(cities) => setRow(i, "cities", cities)}
+                                      />
+                                      {row.cities.length === 1 && row.cities[0] === loc?.city && (
+                                        <p className="mt-1 flex items-center gap-1 text-xs font-medium text-verified">
+                                          <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                          Auto-filled — edit if this isn&apos;t right.
+                                        </p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <p className="mt-1.5 text-xs text-muted">Open to reviewers anywhere in India.</p>
                                   )}
                                 </div>
                               </div>
@@ -969,7 +1034,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                               <div className="rounded-card border border-default bg-surface-raised p-2.5">
                                 <div className="flex items-center justify-between gap-3">
                                   <p className="text-xs font-semibold text-primary">
-                                    Reviews for reviewers to copy <span className="font-normal text-muted">(optional)</span>
+                                    Reviews For Reviewers to Copy <span className="font-normal text-muted">(optional)</span>
                                   </p>
                                   <button
                                     type="button"
@@ -1187,43 +1252,59 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                     independently per location, not shared
                                     across the batch. */}
                                 <div className="mt-3 border-t border-default pt-2.5">
-                                  <label className="flex cursor-pointer items-center justify-between gap-2">
-                                    <span className="text-sm font-semibold text-primary">
-                                      Pace out reviews <span className="font-normal text-muted">(optional)</span>
-                                    </span>
-                                    <input
-                                      type="checkbox"
-                                      checked={row.pacingOn}
-                                      onChange={(e) => setRow(i, "pacingOn", e.target.checked)}
-                                      className="h-4.5 w-4.5 shrink-0 rounded border-default accent-accent"
-                                    />
-                                  </label>
-                                  <div className={`mt-2 flex flex-wrap items-center gap-2 text-sm transition-opacity duration-150 ${row.pacingOn ? "text-secondary" : "pointer-events-none opacity-40"}`}>
-                                    <span>Allow</span>
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      max={1000}
-                                      value={row.pacingCount}
-                                      disabled={!row.pacingOn}
-                                      onChange={(e) => setRow(i, "pacingCount", e.target.value)}
-                                      className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
-                                    />
-                                    <span>review{Number(row.pacingCount) === 1 ? "" : "s"} every</span>
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      max={90}
-                                      value={row.pacingDays}
-                                      disabled={!row.pacingOn}
-                                      onChange={(e) => setRow(i, "pacingDays", e.target.value)}
-                                      className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
-                                    />
-                                    <span>day{Number(row.pacingDays) === 1 ? "" : "s"}.</span>
+                                  <span className="text-sm font-semibold text-primary">Frequency of Review per Day</span>
+
+                                  <div className="mt-2">
+                                    <div className="inline-flex rounded-lg border border-default bg-surface-sunken p-0.5" role="tablist" aria-label="Review frequency">
+                                      {[
+                                        { key: "daily", label: "Daily" },
+                                        { key: "alternate", label: "Alternate" },
+                                        { key: "custom", label: "Custom" },
+                                      ].map((t) => (
+                                        <button
+                                          key={t.key}
+                                          type="button"
+                                          role="tab"
+                                          aria-selected={row.pacingMode === t.key}
+                                          onClick={() => {
+                                            setRow(i, "pacingMode", t.key);
+                                            if (t.key === "daily") { setRow(i, "pacingCount", "1"); setRow(i, "pacingDays", "1"); }
+                                            else if (t.key === "alternate") { setRow(i, "pacingCount", "1"); setRow(i, "pacingDays", "2"); }
+                                          }}
+                                          className={`rounded-[5px] px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                                            row.pacingMode === t.key ? "bg-accent text-on-brand" : "text-secondary hover:text-primary"
+                                          }`}
+                                        >
+                                          {t.label}
+                                        </button>
+                                      ))}
+                                    </div>
+
+                                    {row.pacingMode === "custom" && (
+                                      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-sm text-secondary">
+                                        <span>Allow</span>
+                                        <input
+                                          type="number"
+                                          min={1}
+                                          max={1000}
+                                          value={row.pacingCount}
+                                          onChange={(e) => setRow(i, "pacingCount", e.target.value)}
+                                          className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
+                                        />
+                                        <span>review{Number(row.pacingCount) === 1 ? "" : "s"} every</span>
+                                        <input
+                                          type="number"
+                                          min={1}
+                                          max={90}
+                                          value={row.pacingDays}
+                                          onChange={(e) => setRow(i, "pacingDays", e.target.value)}
+                                          className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
+                                        />
+                                        <span>day{Number(row.pacingDays) === 1 ? "" : "s"}.</span>
+                                      </div>
+                                    )}
                                   </div>
-                                  {row.pacingOn && (
-                                    <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(row.pacingCount, row.pacingDays)}</p>
-                                  )}
+                                  <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(row.pacingCount, row.pacingDays)}</p>
                                 </div>
                               </div>
                             )}
@@ -1314,15 +1395,46 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                     </div>
 
                     <div>
-                      <Label htmlFor="c-cities-input">Cities</Label>
-                      <CityMultiSelect
-                        idPrefix="c-cities"
-                        cities={values.cities}
-                        onChange={(cities) => setValues((v) => ({ ...v, cities }))}
-                      />
-                      <p className="mt-1.5 text-xs text-muted">
-                        Add every city you want reviewers from — this campaign shows up for reviewers in ANY of them.
-                      </p>
+                      <Label>Who can see this campaign</Label>
+                      <div className="inline-flex rounded-lg border border-default bg-surface p-0.5" role="tablist" aria-label="Which reviewers can see this campaign">
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={values.cityMode !== "preferred"}
+                          onClick={() => setValues((v) => ({ ...v, cityMode: "all_india" }))}
+                          className={`rounded-[5px] px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                            values.cityMode !== "preferred" ? "bg-accent text-on-brand" : "text-secondary hover:text-primary"
+                          }`}
+                        >
+                          All India
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={values.cityMode === "preferred"}
+                          onClick={() => setValues((v) => ({ ...v, cityMode: "preferred" }))}
+                          className={`rounded-[5px] px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                            values.cityMode === "preferred" ? "bg-accent text-on-brand" : "text-secondary hover:text-primary"
+                          }`}
+                        >
+                          Preferred city
+                        </button>
+                      </div>
+
+                      {values.cityMode === "preferred" ? (
+                        <div className="mt-2">
+                          <CityMultiSelect
+                            idPrefix="c-cities"
+                            cities={values.cities}
+                            onChange={(cities) => setValues((v) => ({ ...v, cities }))}
+                          />
+                          <p className="mt-1.5 text-xs text-muted">
+                            Add every city you want reviewers from — this campaign shows up for reviewers in ANY of them.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-muted">Open to reviewers anywhere in India.</p>
+                      )}
                     </div>
 
                     <div>
@@ -1572,47 +1684,62 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                     its own per-location pacing inside each row above. */}
                 {!multiMode && (
                   <div className="rounded-card border border-default bg-surface p-3">
-                    <label className="flex cursor-pointer items-center justify-between gap-3">
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold text-primary">Pace out reviews</span>
-                        <span className="mt-0.5 block text-xs text-muted">
-                          Spread reviews over time instead of all at once — safer for Google&apos;s spam detection.
-                        </span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={pacingOn}
-                        onChange={(e) => setPacingOn(e.target.checked)}
-                        className="h-4.5 w-4.5 shrink-0 rounded border-default accent-accent"
-                      />
-                    </label>
+                    <span className="block text-sm font-semibold text-primary">Frequency of review per day</span>
+                    <span className="mt-0.5 block text-xs text-muted">
+                      Spread reviews over time instead of all at once — safer for Google&apos;s spam detection. Defaults to daily.
+                    </span>
 
-                    <div className={`mt-3 flex flex-wrap items-center gap-2 border-t border-default pt-3 text-sm transition-opacity duration-150 ${pacingOn ? "text-secondary" : "pointer-events-none opacity-40"}`}>
-                      <span>Allow</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={1000}
-                        value={pacingCount}
-                        disabled={!pacingOn}
-                        onChange={(e) => setPacingCount(e.target.value)}
-                        className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
-                      />
-                      <span>review{Number(pacingCount) === 1 ? "" : "s"} every</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={90}
-                        value={pacingDays}
-                        disabled={!pacingOn}
-                        onChange={(e) => setPacingDays(e.target.value)}
-                        className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
-                      />
-                      <span>day{Number(pacingDays) === 1 ? "" : "s"}.</span>
+                    <div className="mt-3 border-t border-default pt-3">
+                      <div className="inline-flex rounded-lg border border-default bg-surface-sunken p-0.5" role="tablist" aria-label="Review frequency">
+                        {[
+                          { key: "daily", label: "Daily" },
+                          { key: "alternate", label: "Alternate" },
+                          { key: "custom", label: "Custom" },
+                        ].map((t) => (
+                          <button
+                            key={t.key}
+                            type="button"
+                            role="tab"
+                            aria-selected={pacingMode === t.key}
+                            onClick={() => {
+                              setPacingMode(t.key);
+                              if (t.key === "daily") { setPacingCount("1"); setPacingDays("1"); }
+                              else if (t.key === "alternate") { setPacingCount("1"); setPacingDays("2"); }
+                            }}
+                            className={`rounded-[5px] px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                              pacingMode === t.key ? "bg-accent text-on-brand" : "text-secondary hover:text-primary"
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {pacingMode === "custom" && (
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2 text-sm text-secondary">
+                          <span>Allow</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={1000}
+                            value={pacingCount}
+                            onChange={(e) => setPacingCount(e.target.value)}
+                            className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
+                          />
+                          <span>review{Number(pacingCount) === 1 ? "" : "s"} every</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={90}
+                            value={pacingDays}
+                            onChange={(e) => setPacingDays(e.target.value)}
+                            className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
+                          />
+                          <span>day{Number(pacingDays) === 1 ? "" : "s"}.</span>
+                        </div>
+                      )}
                     </div>
-                    {pacingOn && (
-                      <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(pacingCount, pacingDays)}</p>
-                    )}
+                    <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(pacingCount, pacingDays)}</p>
                   </div>
                 )}
 
