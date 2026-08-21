@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -12,6 +13,7 @@ import {
   MapPin,
   Megaphone,
   MessageSquare,
+  Plus,
   Target,
   Wallet,
   XCircle,
@@ -67,7 +69,27 @@ function ChartsRow({ approved, pending, rejected, budget, budgetUsed }) {
   const hasSubs = (approved ?? 0) + (pending ?? 0) + (rejected ?? 0) > 0;
   const hasBudget = (budget ?? 0) > 0;
 
-  if (!hasSubs && !hasBudget) return null;
+  // Used to render nothing at all here — a 0/0 donut is meaningless, but a
+  // silently blank stretch of page reads as broken, not "nothing to show
+  // yet". An explicit empty state at least explains why.
+  if (!hasSubs && !hasBudget) {
+    return (
+      <div className="mt-5 rounded-card border border-dashed border-default bg-surface-raised p-8 text-center">
+        <FileCheck2 className="mx-auto h-6 w-6 text-muted" aria-hidden="true" />
+        <p className="mt-2 text-sm font-semibold text-primary">No activity yet</p>
+        <p className="mt-1 text-sm text-secondary">
+          Charts show up here once a campaign has spent budget or collected a submission.
+        </p>
+        <Link
+          href="/business/campaigns"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Create campaign
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-5 grid gap-4 lg:grid-cols-2">

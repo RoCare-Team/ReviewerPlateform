@@ -214,7 +214,7 @@ export default function SubmissionFeed({ campaigns }) {
       )}
 
       {/* Summary — scoped to the selected campaign, or account-wide on "All" */}
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <SummaryTile label="Submissions" value={String(total)} Icon={MessageSquare} tone="text-accent" />
         <SummaryTile label="Verified" value={String(approved)} Icon={CheckCircle2} tone="text-verified" />
         <SummaryTile label="Awaiting verification" value={String(pending)} Icon={Clock} tone="text-pending" />

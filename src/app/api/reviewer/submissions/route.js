@@ -9,6 +9,7 @@ import { verifyScreenshot, AI_CONFIDENCE_THRESHOLD } from "../../../../lib/aiVer
 import { verifyAgainstGmb } from "../../../../lib/gmbVerification";
 import { approveSubmission, rejectSubmission } from "../../../../lib/verification";
 import { releaseClaim } from "../../../../lib/claims";
+import { checkReviewerDailyLimit, REVIEWER_DAILY_SUBMISSION_LIMIT } from "../../../../lib/pacing";
 import { getSettings } from "../../../../lib/settings";
 
 /**
@@ -98,6 +99,18 @@ export async function POST(request) {
   const existing = await Submission.findOne({ campaign: campaign._id, reviewer: user.id });
   if (existing && existing.status !== "rejected") {
     return Response.json({ error: "You've already submitted for this campaign." }, { status: 409 });
+  }
+
+  // Platform-wide daily cap — see lib/pacing.js#checkReviewerDailyLimit. The
+  // authoritative check (the claim route checks too, but only as an early
+  // UX nicety before the link is even revealed — a claim reserved just
+  // before midnight could otherwise slip a submission through past the cap).
+  const { blocked } = await checkReviewerDailyLimit(user.id);
+  if (blocked) {
+    return Response.json(
+      { error: `You've reached today's limit of ${REVIEWER_DAILY_SUBMISSION_LIMIT} reviews. Try again tomorrow.` },
+      { status: 400 }
+    );
   }
 
   // Free fraud check: reject a reused screenshot (excluding the reviewer's own

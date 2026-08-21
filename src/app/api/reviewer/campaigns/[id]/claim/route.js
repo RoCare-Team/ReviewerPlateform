@@ -2,6 +2,7 @@ import dbConnect from "../../../../../../lib/db";
 import Submission from "../../../../../../models/Submission";
 import { apiRequirePermission } from "../../../../../../lib/auth/guards";
 import { claimSlot } from "../../../../../../lib/claims";
+import { checkReviewerDailyLimit, REVIEWER_DAILY_SUBMISSION_LIMIT } from "../../../../../../lib/pacing";
 
 /**
  * Reserve a review slot on a campaign and hand back the review link — the
@@ -24,6 +25,19 @@ export async function POST(request, { params }) {
   const existingSub = await Submission.findOne({ campaign: campaignId, reviewer: user.id });
   if (existingSub && existingSub.status !== "rejected") {
     return Response.json({ error: "You've already submitted for this campaign." }, { status: 409 });
+  }
+
+  // Platform-wide cap — see lib/pacing.js#checkReviewerDailyLimit. Checked
+  // here (before the link is even revealed) so a reviewer who's already hit
+  // today's limit never gets as far as opening it; api/reviewer/submissions
+  // re-checks at actual submit time too, since a claim reserved just before
+  // midnight could otherwise slip a 3rd submission through after it rolls over.
+  const { blocked } = await checkReviewerDailyLimit(user.id);
+  if (blocked) {
+    return Response.json(
+      { error: `You've reached today's limit of ${REVIEWER_DAILY_SUBMISSION_LIMIT} reviews. Try again tomorrow.` },
+      { status: 400 }
+    );
   }
 
   const result = await claimSlot(campaignId, user.id);

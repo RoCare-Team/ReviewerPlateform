@@ -60,3 +60,40 @@ export async function isPacingBlocked(campaign) {
   const result = await checkPacing(campaign);
   return result.blocked;
 }
+
+/**
+ * Platform-wide reviewer cap — at most this many reviews SUBMITTED per
+ * reviewer per calendar day, across every campaign combined. Separate from
+ * the per-campaign drip pacing above (that's the business slowing down ONE
+ * campaign; this is capping one reviewer's total daily throughput
+ * everywhere, the same fraud-pattern concern Google flags — one account
+ * posting a burst of reviews across many businesses in a single day).
+ *
+ * "Day" is the UTC calendar day — simplest correct boundary without pulling
+ * in a timezone library; a review at 12:01am UTC and one at 11:59pm UTC the
+ * same day both count, same as any two on the same date would.
+ */
+export const REVIEWER_DAILY_SUBMISSION_LIMIT = 2;
+
+function startOfTodayUTC() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+/**
+ * How many submissions this reviewer has made today, counting every attempt
+ * regardless of status (approved/pending/rejected all still used up one of
+ * today's two tries) — but NOT a resubmission after a rejection, which
+ * overwrites the same Submission doc in place rather than creating a new
+ * one, so it doesn't touch `createdAt` and can't inflate today's count on
+ * retry. See api/reviewer/submissions/route.js.
+ */
+export async function reviewerSubmissionsToday(reviewerId) {
+  return Submission.countDocuments({ reviewer: reviewerId, createdAt: { $gte: startOfTodayUTC() } });
+}
+
+/** { blocked, count } — true once today's count has reached the daily cap. */
+export async function checkReviewerDailyLimit(reviewerId) {
+  const count = await reviewerSubmissionsToday(reviewerId);
+  return { blocked: count >= REVIEWER_DAILY_SUBMISSION_LIMIT, count };
+}
