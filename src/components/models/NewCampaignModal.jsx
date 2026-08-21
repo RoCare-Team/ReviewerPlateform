@@ -94,7 +94,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
             cityMode: "all_india",
             keywords: [],
             images: [],
-            pacingOn: true,
+            pacingOn: false,
             pacingMode: "daily",
             pacingCount: "1",
             pacingDays: "1",
@@ -146,7 +146,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
   // can get reviews pulled). Off by default. Multi mode keeps this PER ROW
   // instead (row.pacingOn/pacingCount/pacingDays) — each location decides
   // its own pace independently. See lib/pacing.js.
-  const [pacingOn, setPacingOn] = useState(true);
+  const [pacingOn, setPacingOn] = useState(false);
   const [pacingCount, setPacingCount] = useState("1");
   const [pacingDays, setPacingDays] = useState("1");
   // Daily/Alternate are just shortcuts that set pacingCount/pacingDays for
@@ -231,7 +231,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         cityMode: "all_india",
         keywords: [],
         images: [],
-        pacingOn: true,
+        pacingOn: false,
         pacingMode: "daily",
         pacingCount: "1",
         pacingDays: "1",
@@ -768,7 +768,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
               cityMode: "all_india",
               keywords: [],
               images: [],
-              pacingOn: true,
+              pacingOn: false,
               pacingMode: "daily",
               pacingCount: "1",
               pacingDays: "1",
@@ -778,7 +778,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     );
     setKeywords([]);
     setImages([]);
-    setPacingOn(true);
+    setPacingOn(false);
     setPacingMode("daily");
     setPacingCount("1");
     setPacingDays("1");
@@ -1252,9 +1252,19 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                     independently per location, not shared
                                     across the batch. */}
                                 <div className="mt-3 border-t border-default pt-2.5">
-                                  <span className="text-sm font-semibold text-primary">Frequency of Review per Day</span>
+                                  <label className="flex cursor-pointer items-center justify-between gap-2">
+                                    <span className="text-sm font-semibold text-primary">
+                                      Frequency of review per day <span className="font-normal text-muted">(optional)</span>
+                                    </span>
+                                    <input
+                                      type="checkbox"
+                                      checked={row.pacingOn}
+                                      onChange={(e) => setRow(i, "pacingOn", e.target.checked)}
+                                      className="h-4.5 w-4.5 shrink-0 rounded border-default accent-accent"
+                                    />
+                                  </label>
 
-                                  <div className="mt-2">
+                                  <div className={`mt-2 transition-opacity duration-150 ${row.pacingOn ? "" : "pointer-events-none opacity-40"}`}>
                                     <div className="inline-flex rounded-lg border border-default bg-surface-sunken p-0.5" role="tablist" aria-label="Review frequency">
                                       {[
                                         { key: "daily", label: "Daily" },
@@ -1288,6 +1298,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                           min={1}
                                           max={1000}
                                           value={row.pacingCount}
+                                          disabled={!row.pacingOn}
                                           onChange={(e) => setRow(i, "pacingCount", e.target.value)}
                                           className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
                                         />
@@ -1297,6 +1308,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                           min={1}
                                           max={90}
                                           value={row.pacingDays}
+                                          disabled={!row.pacingOn}
                                           onChange={(e) => setRow(i, "pacingDays", e.target.value)}
                                           className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
                                         />
@@ -1304,7 +1316,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                       </div>
                                     )}
                                   </div>
-                                  <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(row.pacingCount, row.pacingDays)}</p>
+                                  {row.pacingOn && (
+                                    <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(row.pacingCount, row.pacingDays)}</p>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -1687,12 +1701,23 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                     its own per-location pacing inside each row above. */}
                 {!multiMode && (
                   <div className="rounded-card border border-default bg-surface p-3">
-                    <span className="block text-sm font-semibold text-primary">Frequency of review per day</span>
-                    <span className="mt-0.5 block text-xs text-muted">
-                      Spread reviews over time instead of all at once — safer for Google&apos;s spam detection. Defaults to daily.
-                    </span>
+                    <label className="flex cursor-pointer items-center justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-primary">Frequency of review per day</span>
+                        <span className="mt-0.5 block text-xs text-muted">
+                          Spread reviews over time instead of all at once — safer for Google&apos;s spam detection. Off means all
+                          reviews can come in the same day.
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={pacingOn}
+                        onChange={(e) => setPacingOn(e.target.checked)}
+                        className="h-4.5 w-4.5 shrink-0 rounded border-default accent-accent"
+                      />
+                    </label>
 
-                    <div className="mt-3 border-t border-default pt-3">
+                    <div className={`mt-3 border-t border-default pt-3 transition-opacity duration-150 ${pacingOn ? "" : "pointer-events-none opacity-40"}`}>
                       <div className="inline-flex rounded-lg border border-default bg-surface-sunken p-0.5" role="tablist" aria-label="Review frequency">
                         {[
                           { key: "daily", label: "Daily" },
@@ -1726,6 +1751,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                             min={1}
                             max={1000}
                             value={pacingCount}
+                            disabled={!pacingOn}
                             onChange={(e) => setPacingCount(e.target.value)}
                             className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
                           />
@@ -1735,6 +1761,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                             min={1}
                             max={90}
                             value={pacingDays}
+                            disabled={!pacingOn}
                             onChange={(e) => setPacingDays(e.target.value)}
                             className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
                           />
@@ -1742,7 +1769,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                         </div>
                       )}
                     </div>
-                    <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(pacingCount, pacingDays)}</p>
+                    {pacingOn && (
+                      <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(pacingCount, pacingDays)}</p>
+                    )}
                   </div>
                 )}
 
