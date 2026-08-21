@@ -139,12 +139,15 @@ export default function WithdrawForm({ balance, minWithdrawal, bankDetails, hasP
           <p className="mt-4 text-sm text-secondary">
             Your wallet balance is ₹0 — complete verified reviews to earn a balance you can withdraw.
           </p>
-        ) : balance < minWithdrawal ? (
-          <p className="mt-4 text-sm text-secondary">
-            Your wallet balance ({inr(balance)}) is below the minimum withdrawal of{" "}
-            {inr(minWithdrawal)} — earn a bit more to be able to request a payout.
-          </p>
         ) : (
+          // The form itself always shows once there's SOME balance, even
+          // below the minimum — withdrawal reads as a real, working feature
+          // this way instead of a wall of text explaining why it's hidden.
+          // The amount field's own validation (below) is what actually
+          // enforces the minimum: max is clamped to the balance as they
+          // type, so a below-minimum balance simply can never produce a
+          // submittable amount, and the "Minimum withdrawal: ₹X" hint is
+          // visible right under the field either way.
           <form onSubmit={onSubmit} noValidate className="mt-5">
             <FormError>{error}</FormError>
 
@@ -154,7 +157,11 @@ export default function WithdrawForm({ balance, minWithdrawal, bankDetails, hasP
                 <Input
                   id="amount"
                   type="number"
-                  min={minWithdrawal}
+                  // Native min/max just need min <= max to stay sane — when the
+                  // balance itself is below minWithdrawal, clamping min down to
+                  // it avoids a browser-invalid range while the real minimum
+                  // enforcement still happens in amountError above.
+                  min={Math.min(minWithdrawal, balance)}
                   max={balance}
                   step="1"
                   inputMode="numeric"
@@ -167,8 +174,9 @@ export default function WithdrawForm({ balance, minWithdrawal, bankDetails, hasP
                 />
                 <FieldError id="amount-error">{amountError}</FieldError>
                 {!amountError && (
-                  <p className="mt-1.5 text-xs text-muted">
-                    Available balance: {inr(balance)}. Minimum withdrawal: {inr(minWithdrawal)}.
+                  <p className={`mt-1.5 text-xs ${balance < minWithdrawal ? "font-medium text-pending" : "text-muted"}`}>
+                    Available balance: {inr(balance)}. Minimum withdrawal: {inr(minWithdrawal)}
+                    {balance < minWithdrawal ? " — earn a bit more to unlock this." : "."}
                   </p>
                 )}
               </div>
