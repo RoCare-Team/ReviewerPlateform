@@ -261,6 +261,7 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
                         {locations.map((l) => (
                           <option key={l.id} value={l.id}>
                             {l.title}
+                            {l.areaLabel ? ` — ${l.areaLabel}` : ""}
                           </option>
                         ))}
                       </select>

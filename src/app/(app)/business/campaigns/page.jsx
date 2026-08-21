@@ -7,7 +7,7 @@ import Campaign from "../../../../models/Campaign";
 import GmbLocation from "../../../../models/GmbLocation";
 import NewCampaignModal from "../../../../components/models/NewCampaignModal";
 import CampaignsTable from "../../../../components/business/CampaignsTable";
-import { inr, campaignCities } from "../../../../lib/campaigns";
+import { inr, campaignCities, deriveCityFromAddress, deriveLocationLabel } from "../../../../lib/campaigns";
 import { getSettings } from "../../../../lib/settings";
 
 export const metadata = { title: "Campaigns · RapportLook Business" };
@@ -26,10 +26,14 @@ export default async function BusinessCampaignsPage() {
   const locations = locs.map((l) => ({
     id: String(l._id),
     title: l.title || l.locationName,
-    // Address's leading segment reads as the city/area in Google's format
-    // ("123 MG Road, Bengaluru, Karnataka") — good enough for a compact label
-    // without needing a dedicated city field on GmbLocation.
-    city: (l.address || "").split(",").slice(1, 2)[0]?.trim() || l.address || "",
+    // Pure city — what campaign.city / reviewer city-matching actually uses.
+    // See lib/campaigns.js#deriveCityFromAddress.
+    city: deriveCityFromAddress(l.address),
+    // "Locality, City" — display only, for the location dropdowns (New/Edit
+    // campaign). Two locations in the same city are indistinguishable by
+    // `city` alone; this is what tells them apart. See
+    // lib/campaigns.js#deriveLocationLabel.
+    areaLabel: deriveLocationLabel(l.address),
     reviewUrl: l.reviewUrl || "",
     category: l.category || "",
   }));

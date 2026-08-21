@@ -5,7 +5,7 @@ import Campaign from "../../../../models/Campaign";
 import GmbLocation from "../../../../models/GmbLocation";
 import WalletTransaction from "../../../../models/WalletTransaction";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
-import { approxReviews, canonicalizeCity } from "../../../../lib/campaigns";
+import { approxReviews, canonicalizeCity, deriveCityFromAddress } from "../../../../lib/campaigns";
 import { getSettings } from "../../../../lib/settings";
 
 /**
@@ -288,10 +288,9 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
     created = await Campaign.insertMany(
       locations.map((l) => {
         const loc = locMap.get(l.locationId);
-        // Address's leading segment reads as the city/area in Google's
-        // format ("123 Main St, Koramangala, Bengaluru, …") — same parse
-        // the create-campaign UI uses to label each location's city.
-        const derivedCity = (loc.address || "").split(",").slice(1, 2)[0]?.trim() || loc.address || "";
+        // See lib/campaigns.js#deriveCityFromAddress — same parse the
+        // create-campaign UI uses to label each location's city.
+        const derivedCity = deriveCityFromAddress(loc.address);
         return {
           user: user.id,
           name: locations.length > 1 ? `${name} — ${loc.title || loc.locationName}` : name,

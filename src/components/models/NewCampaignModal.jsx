@@ -925,7 +925,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                                 .map((l) => (
                                   <option key={l.id} value={l.id}>
                                     {l.title}
-                                    {l.city ? ` — ${l.city}` : ""}
+                                    {l.areaLabel ? ` — ${l.areaLabel}` : ""}
                                   </option>
                                 ))}
                             </select>
@@ -1366,7 +1366,10 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                           <select id="c-loc" value={values.locationId} onChange={set("locationId")} className={selectClass}>
                             <option value="">All locations</option>
                             {locations.map((l) => (
-                              <option key={l.id} value={l.id}>{l.title}</option>
+                              <option key={l.id} value={l.id}>
+                                {l.title}
+                                {l.areaLabel ? ` — ${l.areaLabel}` : ""}
+                              </option>
                             ))}
                           </select>
                         </div>
