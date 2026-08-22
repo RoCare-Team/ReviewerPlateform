@@ -51,21 +51,31 @@ export async function verifyAgainstGmb({ campaign, reviewerUser }) {
     return { checked: false, matched: false, reason: "Linked Google Business Profile location not found." };
   }
 
-  const conn = await GmbConnection.findOne({ _id: location.connection, status: "active" }).select(
-    "+accessToken +refreshToken"
-  );
+  // Not scoped to status:"active" — a revoked/errored connection still gets
+  // looked up so the reason below can say WHY sync will fail, instead of a
+  // flat "not connected" that reads as if the business never connected one
+  // at all. See models/GmbConnection.js's status enum.
+  const conn = await GmbConnection.findOne({ _id: location.connection }).select("+accessToken +refreshToken");
   if (!conn) {
     return { checked: false, matched: false, reason: "Business's Google account isn't connected." };
+  }
+  if (conn.status === "revoked" || conn.status === "error") {
+    return {
+      checked: false,
+      matched: false,
+      reason: conn.lastError || "Business's Google account needs reconnecting before reviews can be checked.",
+    };
   }
 
   // Pull fresh reviews right now — the reviewer just submitted, so a stale
   // (e.g. hours-old) DB copy could miss a review posted minutes ago.
-  try {
-    await syncConnectionReviews(conn, [location]);
-  } catch {
-    // Fall through and match against whatever's already synced — a live-sync
-    // failure (rate limit, expired token) shouldn't block matching entirely.
-  }
+  // syncConnectionReviews() never throws (per-location failures land in
+  // `errors` instead) — surfaced below rather than discarded, so a sync
+  // that's silently failing every single time (expired token, API not
+  // allowlisted, rate limited) shows up as a real reason instead of the
+  // generic "not found yet" that reads as "just keep waiting" when actually
+  // nothing is being checked at all.
+  const { errors: syncErrors } = await syncConnectionReviews(conn, [location]);
 
   const reviews = await GmbReview.find({
     location: location._id,
@@ -88,6 +98,9 @@ export async function verifyAgainstGmb({ campaign, reviewerUser }) {
   return {
     checked: true,
     matched: false,
-    reason: "No matching review found yet on the business's Google Business Profile.",
+    reason:
+      syncErrors.length > 0
+        ? `Couldn't fetch the latest reviews from Google (${syncErrors[0]}) — matching against what was last synced.`
+        : "No matching review found yet on the business's Google Business Profile.",
   };
 }
