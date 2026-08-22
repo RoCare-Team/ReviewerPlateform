@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, CheckCircle2, Globe2, IndianRupee, Link2, MapPinned, Pencil, Sparkles, Star, Tag, Target, Trash2, Wallet, X } from "lucide-react";
+import { Check, CheckCircle2, Globe2, ImagePlus, IndianRupee, Link2, Loader2, MapPinned, Pencil, Sparkles, Star, Tag, Target, Trash2, Wallet, X } from "lucide-react";
 import { Label, Input, FormError } from "../auth/Field";
 import CityMultiSelect from "../business/CityMultiSelect";
 import { inr, campaignCities } from "../../lib/campaigns";
@@ -80,6 +80,15 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
   const [draftsPending, setDraftsPending] = useState(false);
   const [regeneratingOne, setRegeneratingOne] = useState({});
   const [editingKeyword, setEditingKeyword] = useState({});
+
+  // Images for reviewers to download and attach — same idea as the
+  // reviewDrafts pool above: seeded from whatever's UNASSIGNED already,
+  // assigned ones left out and never touched by saving here.
+  function initialImages() {
+    return (campaign.reviewImages ?? []).filter((im) => !im.assigned).map((im) => ({ url: im.url, uploading: false }));
+  }
+  const assignedImageCount = (campaign.reviewImages ?? []).filter((im) => im.assigned).length;
+  const [images, setImages] = useState(initialImages);
   const [error, setError] = useState("");
 
   const reviewsNum = Number(values.reviews) || 0;
@@ -196,6 +205,51 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
     updateKeywordReview(i, data.reviews[0] ?? "");
   }
 
+  async function uploadOneImage(file) {
+    const fd = new FormData();
+    fd.append("image", file);
+    const res = await fetch("/api/business/campaigns/upload-image", { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? "Upload failed.");
+    return data.url;
+  }
+
+  // Capped at `reviewsNum`, same as NewCampaignModal — one image per review.
+  async function addImages(fileList) {
+    const files = Array.from(fileList ?? []);
+    if (files.length === 0) return;
+    const room = Math.max(0, reviewsNum - images.length);
+    if (room === 0) {
+      toast.error(`You can only add ${reviewsNum || 0} image(s) — one per review.`);
+      return;
+    }
+    const toUpload = files.slice(0, room);
+    if (files.length > toUpload.length) {
+      toast.error(`Only ${room} more image(s) fit — one per review. The rest were skipped.`);
+    }
+    for (const file of toUpload) {
+      const placeholder = { url: "", uploading: true };
+      setImages((list) => [...list, placeholder]);
+      try {
+        const url = await uploadOneImage(file);
+        setImages((list) => {
+          const idx = list.indexOf(placeholder);
+          if (idx === -1) return list;
+          const next = [...list];
+          next[idx] = { url, uploading: false };
+          return next;
+        });
+      } catch (e) {
+        setImages((list) => list.filter((it) => it !== placeholder));
+        toast.error(e.message ?? "Couldn't upload image.");
+      }
+    }
+  }
+
+  function removeImage(i) {
+    setImages((list) => list.filter((_, idx) => idx !== i));
+  }
+
   function setReviews(e) {
     let value = e.target.value;
     if (value !== "") {
@@ -234,6 +288,7 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
     // a previous edit (or another tab) changed them since this component mounted.
     setValues(initialValues());
     setKeywords(initialKeywords());
+    setImages(initialImages());
     setError("");
     setOpen(true);
   }
@@ -270,6 +325,7 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
       toast.error("You don't have enough funds in your wallet. Add funds to request more reviews.");
       return;
     }
+    if (images.some((im) => im.uploading)) return setError("Wait for the image uploads to finish.");
 
     setPending(true);
     const res = await fetch(`/api/business/campaigns/${campaign.id}`, {
@@ -283,13 +339,14 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
         cities: values.cityMode === "all_india" ? [] : values.cities,
         reviews: Math.floor(reviewsNum),
         locationId: values.locationId || "",
-        // The UNASSIGNED pool only — already-assigned drafts (a reviewer's
-        // mid-claim) are left untouched server-side regardless of what's
-        // sent here. See initialKeywords()'s docblock and editCampaign()'s
-        // handling of this field.
+        // The UNASSIGNED pool only — already-assigned drafts/images (a
+        // reviewer's mid-claim) are left untouched server-side regardless of
+        // what's sent here. See initialKeywords()/initialImages()'s
+        // docblocks and editCampaign()'s handling of these fields.
         reviewDrafts: keywords
           .filter((k) => k.selected && k.review?.trim())
           .map((k) => ({ text: k.review.trim(), keyword: k.text?.trim() || undefined })),
+        reviewImages: images.filter((im) => !im.uploading && im.url).map((im) => im.url),
       }),
     });
     setPending(false);
@@ -626,6 +683,70 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
                             : `Generate ${keywords.filter((k) => k.selected).length} review${keywords.filter((k) => k.selected).length === 1 ? "" : "s"}`}
                       </button>
                     </>
+                  )}
+                </div>
+
+                {/* Images for reviewers to download and attach — same
+                    upload-now, save-URL-later flow as NewCampaignModal,
+                    seeded from whatever's already unassigned. */}
+                <div className="rounded-card border border-default bg-surface p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-primary">Images for reviewers to attach (optional)</p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Up to {reviewsNum || "N"} images — one per reviewer to download and attach to their review.
+                        {assignedImageCount > 0 && (
+                          <>
+                            {" "}
+                            {assignedImageCount} already assigned to a reviewer — those stay untouched.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <label
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand ${
+                        reviewsNum < 1 || images.length >= reviewsNum ? "pointer-events-none opacity-60" : "cursor-pointer"
+                      }`}
+                    >
+                      <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+                      Add images
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          addImages(e.target.files);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  {images.length > 0 && (
+                    <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {images.map((im, i) => (
+                        <div key={i} className="relative aspect-square overflow-hidden rounded-lg border border-default bg-surface-sunken">
+                          {im.uploading ? (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Loader2 className="h-5 w-5 animate-spin text-muted" aria-hidden="true" />
+                            </div>
+                          ) : (
+                            <>
+                              <img src={im.url} alt="" className="h-full w-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => removeImage(i)}
+                                aria-label="Remove"
+                                className="absolute right-1 top-1 rounded-full bg-surface-inverse/80 p-1 text-white transition-colors duration-150 hover:bg-danger"
+                              >
+                                <X className="h-3 w-3" aria-hidden="true" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 

@@ -60,6 +60,10 @@ const editSchema = z
     // editCampaign() below); sent as `[]` explicitly clears the unassigned
     // pool down to nothing.
     reviewDrafts: z.array(reviewDraftSchema).max(200).optional(),
+    // Same optional/replace-unassigned-only treatment as reviewDrafts, for
+    // the image pool. URLs only — already uploaded via
+    // /api/business/campaigns/upload-image before this request.
+    reviewImages: z.array(z.string().trim().url()).max(200).optional(),
   })
   .strict();
 const schema = z.union([toggleSchema, editSchema]);
@@ -105,7 +109,7 @@ export async function PATCH(request, { params }) {
 }
 
 async function editCampaign(id, user, data) {
-  const { name, notes, targetUrl, cities, reviews, locationId, reviewDrafts } = data;
+  const { name, notes, targetUrl, cities, reviews, locationId, reviewDrafts, reviewImages } = data;
 
   const existing = await Campaign.findOne({ _id: id, user: user.id, status: { $ne: "completed" } });
   if (!existing) {
@@ -179,6 +183,12 @@ async function editCampaign(id, user, data) {
     const assigned = existing.reviewDrafts.filter((d) => d.assignedTo);
     const fresh = normalizeDrafts(reviewDrafts).map((d) => ({ ...d, assignedTo: null, assignedAt: null }));
     existing.reviewDrafts = [...assigned, ...fresh];
+  }
+  // Same treatment, same reasoning, for the image pool.
+  if (reviewImages !== undefined) {
+    const assignedImages = existing.reviewImages.filter((im) => im.assignedTo);
+    const freshImages = reviewImages.map((url) => ({ url, assignedTo: null, assignedAt: null }));
+    existing.reviewImages = [...assignedImages, ...freshImages];
   }
 
   if (locationDoc) {
