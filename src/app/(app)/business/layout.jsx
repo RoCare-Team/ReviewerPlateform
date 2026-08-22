@@ -1,4 +1,5 @@
 import AppShell from "../../../components/shell/AppShell";
+import ImpersonationBanner from "../../../components/shell/ImpersonationBanner";
 import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
 import { getContact } from "../../../lib/contact";
@@ -27,15 +28,18 @@ export default async function BusinessLayout({ children }) {
   const me = await User.findById(user.id).select("walletBalance").lean();
 
   return (
-    <AppShell
-      brand={`${BRAND_NAME} Business`}
-      nav={NAV}
-      user={{ name: user.name, email: user.email }}
-      profileHref="/business/settings"
-      walletBalance={me?.walletBalance ?? 0}
-      walletHref="/business/settings"
-    >
-      {children}
-    </AppShell>
+    <>
+      {user.impersonatedBy && <ImpersonationBanner adminEmail={user.impersonatedByEmail} />}
+      <AppShell
+        brand={BRAND_NAME}
+        nav={NAV}
+        user={{ name: user.name, phone: user.phone }}
+        profileHref="/business/settings"
+        walletBalance={me?.walletBalance ?? 0}
+        walletHref="/business/settings?addFunds=1"
+      >
+        {children}
+      </AppShell>
+    </>
   );
 }

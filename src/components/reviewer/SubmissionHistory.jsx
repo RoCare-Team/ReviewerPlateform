@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CheckCircle2, Clock, Inbox, RotateCcw, XCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, Clock, Gavel, Inbox, MessageCircleWarning, RotateCcw, XCircle } from "lucide-react";
 import ScreenshotViewer from "../shared/ScreenshotViewer";
+import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = { approved: "pill-verified", pending: "pill-pending", rejected: "pill-danger" };
 const STATUS_ICON = { approved: CheckCircle2, pending: Clock, rejected: XCircle };
@@ -22,6 +24,144 @@ const TABS = [
 
 function inr(n) {
   return `₹${Number(n || 0).toLocaleString("en-IN")}`;
+}
+
+/**
+ * Appeal action for a rejected submission — a way to dispute the decision
+ * itself ("the screenshot was right, please have a human look again"),
+ * distinct from the "Resubmit with a new screenshot" link next to it (which
+ * is for when there's genuinely new proof). Collapses to a status line once
+ * an appeal has been filed; only one outstanding appeal is allowed at a
+ * time — the API (api/reviewer/submissions/[id]/appeal) enforces that too.
+ */
+function AppealBox({ submissionId, appealStatus, appealMessage, appealResponse }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    if (message.trim().length < 10) {
+      setError("Explain why in a bit more detail (at least 10 characters).");
+      return;
+    }
+    setPending(true);
+    setError("");
+    const res = await fetch(`/api/reviewer/submissions/${submissionId}/appeal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: message.trim() }),
+    });
+    setPending(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data.error ?? "Couldn't submit your appeal.";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+    toast.success("Appeal submitted — an admin will take another look.");
+    setOpen(false);
+    setMessage("");
+    router.refresh();
+  }
+
+  if (appealStatus === "pending") {
+    return (
+      <div className="flex w-full items-start gap-1.5 rounded-btn border border-pending/40 bg-pending-subtle px-3 py-2 text-xs text-primary">
+        <Gavel className="mt-0.5 h-3.5 w-3.5 shrink-0 text-pending" aria-hidden="true" />
+        <div>
+          <p className="font-semibold">Appeal submitted — awaiting review.</p>
+          {appealMessage && <p className="mt-0.5 text-muted">&ldquo;{appealMessage}&rdquo;</p>}
+        </div>
+      </div>
+    );
+  }
+
+  if (appealStatus === "resolved") {
+    return (
+      <div className="w-full space-y-1.5">
+        <div className="flex items-start gap-1.5 rounded-btn border border-default bg-surface px-3 py-2 text-xs text-secondary">
+          <Gavel className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
+          <div>
+            <p className="font-semibold text-primary">Appeal reviewed — rejection upheld.</p>
+            {appealResponse && <p className="mt-0.5">{appealResponse}</p>}
+          </div>
+        </div>
+        {!open && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-btn border border-default bg-surface px-3 py-1.5 text-xs font-semibold text-secondary shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent hover:shadow-md"
+          >
+            <MessageCircleWarning className="h-3.5 w-3.5" aria-hidden="true" />
+            Appeal again
+          </button>
+        )}
+        {open && (
+          <AppealForm message={message} setMessage={setMessage} error={error} pending={pending} onCancel={() => { setOpen(false); setMessage(""); setError(""); }} onSubmit={submit} />
+        )}
+      </div>
+    );
+  }
+
+  // appealStatus === "none"
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-btn border border-default bg-surface px-3 py-1.5 text-xs font-semibold text-secondary shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:text-accent hover:shadow-md"
+      >
+        <MessageCircleWarning className="h-3.5 w-3.5" aria-hidden="true" />
+        Appeal this decision
+      </button>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <AppealForm message={message} setMessage={setMessage} error={error} pending={pending} onCancel={() => { setOpen(false); setMessage(""); setError(""); }} onSubmit={submit} />
+    </div>
+  );
+}
+
+function AppealForm({ message, setMessage, error, pending, onCancel, onSubmit }) {
+  return (
+    <div className="animate-fade-up rounded-card border border-default bg-surface p-3" style={{ animationDuration: "200ms" }}>
+      <label className="mb-1 block text-xs font-semibold text-primary">Why should this be reconsidered?</label>
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        rows={2}
+        maxLength={500}
+        autoFocus
+        placeholder="e.g. The screenshot does show my posted review — please take another look."
+        className={`w-full rounded-lg border bg-surface-raised px-3 py-2 text-xs text-primary outline-none transition-all duration-200 focus:ring-2 focus:ring-accent/50 ${
+          error ? "border-danger" : "border-default focus:border-accent"
+        }`}
+      />
+      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={pending}
+          className="rounded-btn bg-accent px-3 py-1.5 text-xs font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0"
+        >
+          {pending ? "Submitting…" : "Submit appeal"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-btn border border-default bg-surface-raised px-3 py-1.5 text-xs font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -113,13 +253,27 @@ export default function SubmissionHistory({ submissions }) {
                           <p className="mt-1.5 text-xs text-danger">Reason: {s.rejectionReason}</p>
                         )}
                         {s.status === "rejected" && (
-                          <Link
-                            href="/reviewer/campaigns"
-                            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
-                          >
-                            <RotateCcw className="h-3 w-3" aria-hidden="true" />
-                            Resubmit with a new screenshot
-                          </Link>
+                          <div className="mt-2.5 flex flex-wrap items-start gap-2">
+                            {/* Jumps straight to THIS campaign's card on the
+                                available-campaigns page (id="campaign-<id>",
+                                see CampaignParticipation.jsx) and briefly
+                                highlights it, instead of dropping the
+                                reviewer on a generic list they'd have to
+                                search again. */}
+                            <Link
+                              href={s.campaignId ? `/reviewer/campaigns#campaign-${s.campaignId}` : "/reviewer/campaigns"}
+                              className="inline-flex items-center gap-1.5 rounded-btn bg-danger px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 hover:shadow-md"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                              Resubmit with a new screenshot
+                            </Link>
+                            <AppealBox
+                              submissionId={s.id}
+                              appealStatus={s.appealStatus}
+                              appealMessage={s.appealMessage}
+                              appealResponse={s.appealResponse}
+                            />
+                          </div>
                         )}
                       </div>
                     </div>

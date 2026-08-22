@@ -21,12 +21,14 @@ export default async function AdminVerificationPage({ searchParams }) {
   // admin still needs to see what it decided, not just the leftover
   // pending/uncertain cases.
   const subs = await Submission.find({})
-    .select("screenshotUrl note status verifiedBy aiDecision aiConfidence aiReason rejectionReason campaign reviewer reviewedBy createdAt reviewedAt")
+    .select(
+      "screenshotUrl note status verifiedBy aiDecision aiConfidence aiReason gmbChecked gmbMatched gmbReason rejectionReason campaign reviewer reviewedBy createdAt reviewedAt appealStatus appealMessage appealedAt appealResponse rewardAmount"
+    )
     .sort({ createdAt: -1 })
     .lean();
 
   const campaigns = await Campaign.find({ _id: { $in: subs.map((s) => s.campaign) } })
-    .select("name platform targetUrl").lean();
+    .select("name platform targetUrl reviewerReward").lean();
   const reviewers = await User.find({ _id: { $in: subs.map((s) => s.reviewer) } })
     .select("name email").lean();
   const admins = await User.find({ _id: { $in: subs.map((s) => s.reviewedBy).filter(Boolean) } })
@@ -49,8 +51,25 @@ export default async function AdminVerificationPage({ searchParams }) {
       aiDecision: s.aiDecision || "",
       aiConfidence: s.aiConfidence || 0,
       aiReason: s.aiReason || "",
+      gmbChecked: s.gmbChecked || false,
+      gmbMatched: s.gmbMatched || false,
+      gmbReason: s.gmbReason || "",
       rejectionReason: s.rejectionReason || "",
+      appealStatus: s.appealStatus || "none",
+      appealMessage: s.appealMessage || "",
+      appealedDate: s.appealedAt ? new Date(s.appealedAt).toLocaleString("en-IN") : "",
+      appealResponse: s.appealResponse || "",
       reviewedByName: reviewedByAdmin ? (reviewedByAdmin.name || reviewedByAdmin.email) : "",
+      // What THIS submission would pay if approved (or DID pay, if it's
+      // already rejected and up for an "approve anyway" override) — the
+      // campaign's own reward override (api/admin/campaigns/[id]/reward) if
+      // it has one, otherwise the platform default. Never assume the global
+      // rate applies to every row.
+      reward: c?.reviewerReward ?? settings.reviewerReward,
+      // What an ALREADY-APPROVED submission was actually paid at the time —
+      // frozen on Submission.rewardAmount, so it stays historically accurate
+      // even if the campaign's reward override changes later.
+      rewardAmount: s.rewardAmount || 0,
       campaignName: c?.name ?? "Campaign",
       platform: c?.platform ?? "",
       targetUrl: c?.targetUrl ?? "",
@@ -65,12 +84,13 @@ export default async function AdminVerificationPage({ searchParams }) {
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-primary">Review verification</h1>
       <p className="mt-2 text-secondary">
-        Verify reviewer submissions. Approving credits the reviewer ₹{settings.reviewerReward} and
-        counts toward the campaign target.
+        Verify reviewer submissions. Approving credits the reviewer and counts toward the campaign
+        target — most campaigns pay the platform default (₹{settings.reviewerReward}), but a
+        campaign with its own reward override (set on the Campaigns page) pays that instead.
       </p>
 
       <div className="mt-8">
-        <VerificationQueue submissions={submissions} reward={settings.reviewerReward} initialTab={initialTab} />
+        <VerificationQueue submissions={submissions} initialTab={initialTab} />
       </div>
     </div>
   );

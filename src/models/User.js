@@ -2,26 +2,61 @@ import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema(
   {
+    // Admin-only now — reviewer/business_owner sign in by phone (below).
+    // Not `default: ""`: `sparse` only skips docs where the field is
+    // missing/null, so an empty-string default would still collide on the
+    // unique index the moment a second phone-only user was created.
     email: {
       type: String,
-      required: true,
+      required: function () {
+        return this.role === "admin";
+      },
       unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
       index: true,
     },
     emailVerified: { type: Date, default: null },
 
-    // null for OAuth-only users. select:false so it never leaks
-    // through a careless User.find() that gets serialised to JSON.
+    // null for OAuth-only and phone-only users. select:false so it never
+    // leaks through a careless User.find() that gets serialised to JSON.
     passwordHash: { type: String, default: null, select: false },
 
     name: { type: String, trim: true },
     image: { type: String },
 
-    // Optional self-service profile fields (editable by the user).
-    phone: { type: String, trim: true, default: "" },
+    // Login identity for reviewer/business_owner (phone+OTP — see
+    // src/lib/auth/phoneAuth.js). Admin has no phone. Same sparse-unique
+    // reasoning as email above — no default, so admins don't collide on "".
+    // Deliberately NOT user-editable once set (see api/{reviewer,business}
+    // /profile — changing your login number needs re-verification, not a
+    // plain profile PATCH).
+    phone: { type: String, trim: true, unique: true, sparse: true, index: true },
+    phoneVerified: { type: Date, default: null },
+
+    // Optional self-service profile field (editable by the user).
     bio: { type: String, trim: true, default: "" },
+
+    // Reviewer-only: the city they declared, mandatory at signup (see
+    // PhoneOtpForm.jsx + api/auth/signup/reviewer/complete), editable later
+    // from the profile page (components/reviewer/LocationCard.jsx) via
+    // api/reviewer/location. A manual pick from lib/data/indiaStatesCities.js
+    // — never browser geolocation. Never set for business_owner/admin.
+    // Campaigns are matched to reviewers by this field (Campaign.city, see
+    // reviewer/campaigns/page.jsx).
+    location: {
+      city: { type: String, trim: true, default: "", index: true },
+      updatedAt: { type: Date, default: null },
+    },
+
+    // Reviewer-only: self-declared "I'm 18 or older" checkbox, ticked once at
+    // signup (see PhoneOtpForm.jsx + api/auth/signup/reviewer/complete) and
+    // enforced there — signup is rejected outright unless this is true, so
+    // in practice every reviewer account has it set. Kept as a stored field
+    // (not just a one-time gate) as an audit record of the confirmation.
+    // Never set for business_owner/admin.
+    ageConfirmed: { type: Boolean, default: false },
 
     // Wallet balance in whole rupees. Mutated only server-side via the wallet
     // API — never from a client payload directly.
@@ -33,6 +68,17 @@ const UserSchema = new mongoose.Schema(
     bankAccountHolder: { type: String, trim: true, default: "" },
     bankAccountNumber: { type: String, trim: true, default: "" },
     bankIfsc: { type: String, trim: true, uppercase: true, default: "" },
+
+    // Referral program (reviewer/business_owner only — see lib/referral.js).
+    // `referralCode` is this user's OWN shareable code, generated once at
+    // signup and never reused across accounts (sparse-unique: admin has
+    // none). `referredBy` points at the user whose code THEY signed up
+    // with — set once, at creation, never editable after. `referralBonusPaid`
+    // guards the ₹-per-referral wallet credit to the referrer so it can never
+    // double-pay even under a retried/racing signup.
+    referralCode: { type: String, trim: true, uppercase: true, unique: true, sparse: true, index: true },
+    referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    referralBonusPaid: { type: Boolean, default: false },
 
     // Denormalised from Role.key — no join on every request.
     // NEVER set from a client payload. Derive server-side from the route.

@@ -1,12 +1,22 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Mail, MapPin, Phone } from "lucide-react";
 import Container from "./Container";
 import { getCities } from "../../lib/cities";
 import { getContact } from "../../lib/contact";
+import WhatsAppButton from "./WhatsAppButton";
 
 // Brand name is read from data/contact.json — the single source of truth —
 // so renaming the product only ever means editing that one file.
 const BRAND_NAME = getContact("brand.productName", "RapportLook");
+
+// Same pattern as SiteHeader's phone — a "TODO" in contact.json resolves to
+// null via getContact(), so an unfilled field just doesn't render instead of
+// showing a dead link or the literal string "TODO".
+const CONTACT_EMAIL = getContact("emails.support");
+const CONTACT_PHONE_DISPLAY = getContact("phones.sales.display");
+const CONTACT_PHONE_E164 = getContact("phones.sales.e164");
+const CONTACT_ADDRESS = getContact("addresses.registered.full");
 
 /**
  * Brand social icons. lucide-react removed its deprecated brand glyphs
@@ -61,20 +71,11 @@ function Github({ className }) {
  * scopes reviewers to feedback:submit and nothing here may contradict that. See
  * the copy note at the top of src/app/page.jsx before editing it.
  *
- * Some linked pages (pricing, about, legal) don't exist yet. They're part of the
- * planned platform, so they're linked rather than hidden — but until each page
- * ships, those hrefs 404. Build them, or comment the link out, before launch:
- * a footer full of 404s is a crawl-budget and trust cost.
+ * Every linked page exists — About, Careers, Contact, and the legal pages are
+ * real routes; Blog is a real route too but is an honest "coming soon" page
+ * (noindexed) until posts actually ship, rather than a 404.
  */
 const COLUMNS = [
-  {
-    heading: "Product",
-    links: [
-      { href: "/#features", label: "Features" },
-      { href: "/#how-it-works", label: "How it works" },
-      { href: "/#faq", label: "FAQ" },
-    ],
-  },
   {
     heading: "Company",
     links: [
@@ -87,8 +88,11 @@ const COLUMNS = [
   {
     heading: "Get started",
     links: [
-      { href: "/signup/business", label: "For businesses" },
-      { href: "/signup/reviewer", label: "For reviewers" },
+      // No standalone signup pages anymore — both route into /login with a
+      // `?role=` hint (only used if the phone turns out to be brand-new; see
+      // RoleSignupModal.jsx / PhoneOtpForm.jsx).
+      { href: "/login?role=business_owner", label: "For businesses" },
+      { href: "/login?role=reviewer", label: "For reviewers" },
       { href: "/login", label: "Log in" },
     ],
   },
@@ -106,55 +110,50 @@ const COLUMNS = [
 // section, so this strip can never drift out of sync with those pages.
 const CITIES = getCities();
 
-// Defined Social Media Configurations
-const SOCIALS = [
-  { href: "https://twitter.com/rapportlook", label: "Twitter", Icon: Twitter },
-  { href: "https://linkedin.com/company/rapportlook", label: "LinkedIn", Icon: Linkedin },
-  { href: "https://facebook.com/rapportlook", label: "Facebook", Icon: Facebook },
-  { href: "https://instagram.com/rapportlook", label: "Instagram", Icon: Instagram },
-  { href: "https://github.com/rapportlook", label: "GitHub", Icon: Github },
+// Handles/URLs live in data/contact.json (social.*) — the single source of
+// truth; a "TODO" placeholder there means the account doesn't exist yet, so
+// getContact() returns null and that icon just doesn't render (no dead links).
+const SOCIAL_DEFS = [
+  { key: "x", label: "Twitter", Icon: Twitter },
+  { key: "linkedin", label: "LinkedIn", Icon: Linkedin },
+  { key: "facebook", label: "Facebook", Icon: Facebook },
+  { key: "instagram", label: "Instagram", Icon: Instagram },
+  { key: "github", label: "GitHub", Icon: Github },
 ];
+const SOCIALS = SOCIAL_DEFS
+  .map((s) => ({ ...s, href: getContact(`social.${s.key}`) }))
+  .filter((s) => s.href);
 
 export default function SiteFooter() {
   return (
     <footer className="border-t border-default/60 bg-surface-sunken">
+      {/* Fixed-position, so it renders here (every public page already
+          includes SiteFooter) but floats over the whole viewport regardless
+          of where in the DOM it sits — no need to also thread it through
+          every page.jsx that has a SiteHeader. */}
+      <WhatsAppButton phone={CONTACT_PHONE_E164} />
+
       <Container className="py-14 sm:py-16">
         {/* Adjusted to lg:grid-cols-6 with Brand Column taking 2 spans for optimal width ratios */}
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-6 lg:gap-8">
           
-          {/* Brand & Social Column */}
+          {/* Brand Column — just the mark + description now; contact details
+              and socials moved to their own column at the far right. */}
           <div className="lg:col-span-2">
             <Link href="/" aria-label={`${BRAND_NAME} home`} className="inline-flex items-center">
-              {/* Intrinsic 1138×358; rendered at a fixed height with auto width. */}
+              {/* Intrinsic 1824×456; rendered at a fixed height with auto width. */}
               <Image
-                src="/img/logo2.png"
+                src="/img/logo4.png"
                 alt={BRAND_NAME}
-                width={1138}
-                height={358}
-                className="h-9 w-auto"
+                width={1824}
+                height={456}
+                className="h-14 w-auto"
               />
             </Link>
             <p className="mt-3 max-w-sm text-base leading-relaxed text-secondary">
               Verified customer reviews and reputation management. We reward participation, never
               positive ratings — and never buy, sell, or fake a review.
             </p>
-            
-            {/* Social Icons Row */}
-            <ul className="mt-6 flex items-center gap-3 text-muted">
-              {SOCIALS.map(({ href, label, Icon }) => (
-                <li key={label}>
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-default/40 bg-surface transition-all hover:bg-accent/10 hover:text-accent hover:border-accent/25"
-                    aria-label={label}
-                  >
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  </a>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* Navigation Link Columns */}
@@ -166,8 +165,8 @@ export default function SiteFooter() {
               <ul className="mt-4 space-y-3 text-base font-medium">
                 {col.links.map((l) => (
                   <li key={l.href}>
-                    <Link 
-                      href={l.href} 
+                    <Link
+                      href={l.href}
                       className="text-secondary transition-colors duration-150 hover:text-accent"
                     >
                       {l.label}
@@ -177,12 +176,71 @@ export default function SiteFooter() {
               </ul>
             </nav>
           ))}
+
+          {/* Contact Column — rightmost. Sourced from data/contact.json, same
+              single source of truth as the header's phone link. A "TODO"
+              field (getContact() -> null) just doesn't render, no dead
+              links. Every row explicitly sets text-secondary: globals.css
+              colors bare `<a>` tags accent-purple by default, which turned
+              the phone/email into stray purple text with no visual reason —
+              these read as plain contact info, not calls to action, so only
+              email gets a hover tint; the phone stays fully neutral. */}
+          <div className="lg:col-span-1">
+            <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-primary/80">
+              Contact
+            </h2>
+            <ul className="mt-4 space-y-3 text-sm">
+             
+              {CONTACT_EMAIL && (
+                <li className="flex items-center gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-default/40 bg-surface text-muted">
+                    <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  <a
+                    href={`mailto:${CONTACT_EMAIL}`}
+                    className="text-secondary transition-colors duration-150 hover:text-accent"
+                  >
+                    {CONTACT_EMAIL}
+                  </a>
+                </li>
+              )}
+              {CONTACT_PHONE_E164 && (
+                <li className="flex items-center gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-default/40 bg-surface text-muted">
+                    <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  {/* Deliberately no hover/accent color on this one — plain
+                      contact info, not styled as a link. */}
+                  <a href={`tel:${CONTACT_PHONE_E164}`} className="text-secondary">
+                    {CONTACT_PHONE_DISPLAY}
+                  </a>
+                </li>
+              )}
+            </ul>
+
+            {/* Social Icons Row */}
+            <ul className="mt-5 flex items-center gap-3 text-muted">
+              {SOCIALS.map(({ href, label, Icon }) => (
+                <li key={label}>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-default bg-surface shadow-sm transition-all hover:bg-accent/10 hover:text-accent hover:border-accent/25"
+                    aria-label={label}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         {/* Footer Base Layer: Split on desktop to prevent vast empty whitespace */}
         <div className="mt-14 border-t border-default/60 pt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-sm font-semibold text-muted">
           <span>&copy; {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</span>
-          <span className="text-xs uppercase tracking-wider text-muted/60">
+          <span className="text-xs uppercase tracking-wider text-secondary">
             Built for compliance and authenticity
           </span>
         </div>

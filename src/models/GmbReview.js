@@ -23,6 +23,12 @@ const GmbReviewSchema = new mongoose.Schema(
     createTime: { type: Date },
     updateTime: { type: Date },
     reply: { type: String, default: "" },
+
+    // Set when the reply above was posted by the AI auto-reply cron rather
+    // than the business owner, so the UI can label it and the cron never
+    // touches a review a human already replied to.
+    autoReplied: { type: Boolean, default: false },
+    autoRepliedAt: { type: Date },
   },
   { timestamps: true }
 );

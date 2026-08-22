@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Phone, Mail } from "lucide-react";
+import { User, Phone } from "lucide-react";
 import { Label, Input, FieldError, FormError } from "../auth/Field";
+import { toast } from "../../lib/toast";
 
 /**
- * Reviewer profile form. Email is read-only (identity, not editable here). Name,
- * phone and bio PATCH to /api/reviewer/profile, which re-checks the
- * profile:update permission and scopes the write to the session user.
+ * Reviewer/business profile form. Phone is read-only — it's this account's
+ * login identity (phone+OTP, see lib/auth/phoneAuth.js), not a plain profile
+ * field, so it can't be changed here. Name and bio PATCH to
+ * /api/{reviewer,business}/profile, which re-checks the profile:update
+ * permission and scopes the write to the session user.
  */
 export default function ProfileForm({ initial, endpoint = "/api/reviewer/profile" }) {
   const router = useRouter();
@@ -46,12 +49,18 @@ export default function ProfileForm({ initial, endpoint = "/api/reviewer/profile
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      if (data.details) setFieldErrors(data.details);
-      else setError(data.error ?? "Something went wrong. Please try again.");
+      if (data.details) {
+        setFieldErrors(data.details);
+      } else {
+        const message = data.error ?? "Something went wrong. Please try again.";
+        setError(message);
+        toast.error(message);
+      }
       return;
     }
 
     setSaved(true);
+    toast.success("Profile updated.");
     // Re-run the server component so any name shown elsewhere on the page refreshes.
     router.refresh();
   }
@@ -62,9 +71,9 @@ export default function ProfileForm({ initial, endpoint = "/api/reviewer/profile
 
       <div className="space-y-5">
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" value={initial.email} icon={Mail} disabled readOnly />
-          <p className="mt-1.5 text-xs text-muted">Your email is your login and can&apos;t be changed here.</p>
+          <Label htmlFor="phone">Phone</Label>
+          <Input id="phone" value={initial.phone ? `+91 ${initial.phone}` : ""} icon={Phone} disabled readOnly />
+          <p className="mt-1.5 text-xs text-muted">Your phone number is your login and can&apos;t be changed here.</p>
         </div>
 
         <div>
@@ -82,20 +91,6 @@ export default function ProfileForm({ initial, endpoint = "/api/reviewer/profile
         </div>
 
         <div>
-          <Label htmlFor="phone">Phone</Label>
-          <Input
-            id="phone"
-            name="phone"
-            value={values.phone}
-            onChange={set("phone")}
-            icon={Phone}
-            placeholder="+91 98765 43210"
-            error={fieldErrors.phone?.[0]}
-          />
-          <FieldError id="phone-error">{fieldErrors.phone?.[0]}</FieldError>
-        </div>
-
-        <div>
           <Label htmlFor="bio">Bio</Label>
           <textarea
             id="bio"
@@ -105,7 +100,7 @@ export default function ProfileForm({ initial, endpoint = "/api/reviewer/profile
             rows={3}
             maxLength={280}
             placeholder="A short line about yourself."
-            className="w-full rounded-btn border border-default bg-surface px-3 py-2.5 text-primary outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/50"
+            className="w-full rounded-2xl border border-default bg-surface px-3 py-2.5 text-primary outline-none transition placeholder:text-muted focus:border-accent focus:ring-2 focus:ring-accent/50"
           />
           <p className="mt-1.5 text-xs text-muted">{values.bio.length}/280</p>
         </div>

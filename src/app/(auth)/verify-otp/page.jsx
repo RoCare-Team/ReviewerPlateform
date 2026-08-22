@@ -4,6 +4,7 @@ import VerifyOtpForm from "../../../components/auth/VerifyOtpForm";
 
 export const metadata = {
   title: "Verify your email · RapportLook",
+  robots: { index: false, follow: false },
 };
 
 export default function VerifyOtpPage() {

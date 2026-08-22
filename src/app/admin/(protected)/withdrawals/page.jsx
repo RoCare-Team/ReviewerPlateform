@@ -26,6 +26,7 @@ export default async function AdminWithdrawalsPage() {
       accountNumber: r.accountNumber,
       ifsc: r.ifsc,
       rejectionReason: r.rejectionReason,
+      adminNote: r.adminNote || "",
       reviewerName: reviewer?.name ?? "",
       reviewerEmail: reviewer?.email ?? "",
       date: new Date(r.createdAt).toLocaleString("en-IN"),
@@ -37,8 +38,9 @@ export default async function AdminWithdrawalsPage() {
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-primary">Withdrawals</h1>
       <p className="mt-2 text-secondary">
-        Reviewer payout requests. Approving confirms the payout was sent manually — no gateway is
-        wired up yet. Rejecting refunds the held amount back to their wallet.
+        Reviewer payout requests. Approving fires a real payout via RazorpayX to the reviewer's bank
+        account. Rejecting — or a payout that fails to even start — refunds the held amount back to
+        their wallet.
       </p>
 
       <div className="mt-8">

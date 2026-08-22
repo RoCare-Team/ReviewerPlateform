@@ -1,12 +1,46 @@
 import Link from "next/link";
-import { Star, Reply, RefreshCw, MessageSquare } from "lucide-react";
+import { CornerDownRight, Star, RefreshCw, MessageSquare } from "lucide-react";
 import { requireRole } from "../../../../lib/auth/guards";
 import { ROLES } from "../../../../lib/auth/roles";
 import dbConnect from "../../../../lib/db";
 import GmbReview from "../../../../models/GmbReview";
 import GmbLocation from "../../../../models/GmbLocation";
 import GmbConnection from "../../../../models/GmbConnection";
+import { syncConnectionReviews } from "../../../../lib/gmb";
 import SyncReviewsButton from "../../../../components/business/SyncReviewsButton";
+import ReplyToReview from "../../../../components/business/ReplyToReview";
+import AutoReplyToggle from "../../../../components/business/AutoReplyToggle";
+
+// Auto-sync throttle — visiting the page re-fetches from Google at most this
+// often per connection, so normal navigation doesn't hammer the GMB API.
+const AUTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+
+/**
+ * Best-effort auto-sync: pulls fresh reviews for any active connection that
+ * hasn't synced in the last AUTO_SYNC_INTERVAL_MS, so the business owner sees
+ * reviews without having to click "Sync reviews" first. Never throws — a
+ * failed sync (expired token, API not allowlisted, etc.) just leaves last
+ * known data on screen; the manual button and its error message stay the
+ * fallback.
+ */
+async function autoSyncStaleConnections(userId) {
+  const connections = await GmbConnection.find({ user: userId, status: "active" }).select("+accessToken +refreshToken");
+  if (connections.length === 0) return;
+
+  const cutoff = new Date(Date.now() - AUTO_SYNC_INTERVAL_MS);
+  for (const conn of connections) {
+    const locations = await GmbLocation.find({ connection: conn._id, user: userId });
+    const stale = locations.some((l) => !l.lastSyncedAt || l.lastSyncedAt < cutoff);
+    if (!stale || locations.length === 0) continue;
+
+    try {
+      const { errors } = await syncConnectionReviews(conn, locations);
+      await GmbConnection.updateOne({ _id: conn._id }, { $set: { lastError: errors.join(" | ").slice(0, 300) } });
+    } catch {
+      // Best-effort — page still renders with whatever's already in the DB.
+    }
+  }
+}
 
 export const metadata = { title: "Reviews · RapportLook Business" };
 
@@ -24,9 +58,11 @@ export default async function BusinessReviewsPage() {
   const user = await requireRole(ROLES.BUSINESS_OWNER);
 
   await dbConnect();
+  await autoSyncStaleConnections(user.id);
+
   const [reviews, connections] = await Promise.all([
     GmbReview.find({ user: user.id }).sort({ createTime: -1 }).limit(200).lean(),
-    GmbConnection.find({ user: user.id, status: "active" }).select("_id").lean(),
+    GmbConnection.find({ user: user.id, status: "active" }).select("_id autoReplyEnabled").lean(),
   ]);
 
   // Map location id → title for a readable label per review.
@@ -35,6 +71,9 @@ export default async function BusinessReviewsPage() {
 
   const hasConnection = connections.length > 0;
   const connectionIds = connections.map((c) => String(c._id));
+  // "On" only if every active connection has it on, so the toggle never
+  // silently misrepresents a mixed state as fully enabled.
+  const autoReplyEnabled = hasConnection && connections.every((c) => c.autoReplyEnabled);
 
   return (
     <div>
@@ -43,7 +82,12 @@ export default async function BusinessReviewsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-primary">Reviews</h1>
           <p className="mt-2 text-secondary">Reviews fetched from your connected Google Business Profile.</p>
         </div>
-        {hasConnection && <SyncReviewsButton connectionIds={connectionIds} />}
+        {hasConnection && (
+          <div className="flex flex-wrap items-center gap-3">
+            <AutoReplyToggle enabled={autoReplyEnabled} />
+            <SyncReviewsButton connectionIds={connectionIds} />
+          </div>
+        )}
       </div>
 
       {!hasConnection ? (
@@ -90,20 +134,22 @@ export default async function BusinessReviewsPage() {
               {v.comment && <p className="mt-3 text-sm leading-relaxed text-secondary">{v.comment}</p>}
 
               {v.reply ? (
-                <div className="mt-3 rounded-btn border border-default bg-surface-sunken p-3">
-                  <p className="text-xs font-semibold text-muted">Your reply</p>
-                  <p className="mt-1 text-sm text-secondary">{v.reply}</p>
+                <div className="mt-3.5 ml-3 flex gap-2.5 border-l-2 border-accent/30 rounded-l-sm bg-surface-sunken py-3 pl-3.5 pr-4">
+                  <CornerDownRight className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-primary">
+                      Your reply
+                      {v.autoReplied && (
+                        <span className="ml-2 rounded-full bg-accent-subtle px-2 py-0.5 text-[10px] font-semibold text-accent">
+                          AI auto-reply
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-secondary">{v.reply}</p>
+                  </div>
                 </div>
               ) : (
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1.5 rounded-btn border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken"
-                  >
-                    <Reply className="h-4 w-4" aria-hidden="true" />
-                    Reply
-                  </button>
-                </div>
+                <ReplyToReview reviewId={String(v._id)} />
               )}
             </li>
           ))}

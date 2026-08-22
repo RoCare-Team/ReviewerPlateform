@@ -1,14 +1,19 @@
 "use client";
 
-import { Wallet, CheckCircle2, Clock, XCircle, FileCheck2 } from "lucide-react";
+import { Wallet, CheckCircle2, Clock, XCircle, FileCheck2, Megaphone } from "lucide-react";
 import DonutChart from "../charts/DonutChart";
 import StatCard from "../shared/StatCard";
 
-export default function OverviewStats({ walletBalance, approved, pending, rejected, formattedWallet }) {
+export default function OverviewStats({ walletBalance, approved, pending, rejected, formattedWallet, availableCount }) {
   const total = approved + pending + rejected;
   const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
 
   const STATS = [
+    // First tile, same stat-card look as the rest — replaces the old
+    // separate "Available campaigns" banner that used to sit below all of
+    // this. Same live count as /reviewer/campaigns itself (see
+    // lib/reviewerCampaigns.js), just surfaced right at the top now.
+    { label: "Available campaigns", value: String(availableCount), Icon: Megaphone, tone: "text-accent", href: "/reviewer/campaigns" },
     { label: "Wallet balance", value: formattedWallet, Icon: Wallet, tone: "text-accent" },
     { label: "Approved reviews", value: String(approved), Icon: CheckCircle2, tone: "text-verified", href: "/reviewer/feedback" },
     { label: "Pending reviews", value: String(pending), Icon: Clock, tone: "text-pending", href: "/reviewer/feedback" },
@@ -17,7 +22,7 @@ export default function OverviewStats({ walletBalance, approved, pending, reject
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         {STATS.map((s) => (
           <StatCard key={s.label} {...s} />
         ))}

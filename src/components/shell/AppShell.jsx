@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import {
+  Activity,
   Building2,
   Coins,
   CreditCard,
@@ -10,6 +12,7 @@ import {
   Megaphone,
   Menu,
   MessageSquare,
+  Newspaper,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -53,9 +56,11 @@ const ICONS = {
   users: Users,
   organisations: Building2,
   moderation: ShieldCheck,
+  blog: Newspaper,
   payments: CreditCard,
   trust: ShieldAlert,
   withdraw: Landmark,
+  cron: Activity,
 };
 
 function NavLink({ item, active, onNavigate, collapsed }) {
@@ -171,7 +176,10 @@ export default function AppShell({
     ?? nav.find((i) => pathname.startsWith(i.href + "/"))?.label
     ?? "";
 
-  const initial = (user.name || user.email || "?").charAt(0).toUpperCase();
+  // Reviewer/business identify by phone, admin by email — whichever this
+  // session actually has.
+  const identifier = user.phone || user.email || "";
+  const initial = (user.name || identifier || "?").charAt(0).toUpperCase();
 
   const wallet = WALLET_VARIANT[walletVariant] ?? WALLET_VARIANT.wallet;
 
@@ -200,16 +208,13 @@ export default function AppShell({
           {/* Brand mark always goes to the public homepage, not the dashboard
               root — a logo click is "take me to the site", same as every
               marketing header, not "take me to my overview page". Hidden
-              when collapsed so the rail only shows the expand toggle. */}
+              when collapsed so the rail only shows the expand toggle. Just
+              the logo — deliberately no role text (Business/Reviewer/Admin)
+              alongside it, the sidebar shouldn't editorialize who's logged in. */}
           {!isCollapsed && (
-            <>
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-sm font-bold text-on-brand">
-                {brand.charAt(0)}
-              </span>
-              <Link href="/" className="text-base font-bold tracking-tight text-primary">
-                {brand}
-              </Link>
-            </>
+            <Link href="/" aria-label={`${brand} home`} className="flex items-center">
+              <Image src="/img/logo4.png" alt={brand} width={1824} height={456} className="h-8 w-auto" />
+            </Link>
           )}
           {!isCollapsed && badge && (
             <span className="rounded bg-danger-subtle px-1.5 py-0.5 text-xs font-semibold text-danger">
@@ -241,7 +246,7 @@ export default function AppShell({
 
         <nav
           aria-label="Sidebar"
-          className={`flex flex-1 flex-col gap-1.5 pt-4 ${isCollapsed ? "px-2" : "px-3"}`}
+          className={`flex flex-1 flex-col gap-1.5 pb-4 pt-4 ${isCollapsed ? "px-2" : "px-3"}`}
         >
           {nav.map((item) => (
             <NavLink
@@ -254,7 +259,7 @@ export default function AppShell({
           ))}
         </nav>
 
-        <div className={`border-t border-default p-3 ${isCollapsed ? "px-2" : ""}`}>
+        <div className={`border-t border-default p-3 pt-4 ${isCollapsed ? "px-2" : ""}`}>
           <div
             className={`flex items-center gap-2.5 rounded-xl px-2 py-2 ${
               isCollapsed ? "justify-center" : ""
@@ -262,14 +267,14 @@ export default function AppShell({
           >
             <span
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-subtle text-xs font-bold text-accent"
-              title={isCollapsed ? (user.name || user.email) : undefined}
+              title={isCollapsed ? (user.name || identifier) : undefined}
             >
               {initial}
             </span>
             {!isCollapsed && (
               <div className="min-w-0">
                 {user.name && <p className="truncate text-sm font-semibold text-primary">{user.name}</p>}
-                <p className="truncate text-xs text-muted" title={user.email}>{user.email}</p>
+                <p className="truncate text-xs text-muted" title={identifier}>{identifier}</p>
               </div>
             )}
           </div>
@@ -283,10 +288,12 @@ export default function AppShell({
 
   return (
     <div className="min-h-dvh lg:flex lg:h-dvh lg:overflow-hidden">
-      {/* Desktop rail — fixed full height; its own content scrolls if needed.
-          Width animates between full (w-60) and icons-only (w-[4.5rem]). */}
+      {/* Desktop rail — pinned via `sticky` + `self-start` so it never moves
+          with page scroll regardless of how tall the main content gets; its
+          own content scrolls independently if the nav list ever outgrows the
+          viewport. Width animates between full (w-60) and icons-only (w-18). */}
       <aside
-        className={`hidden shrink-0 overflow-y-auto border-r border-default bg-surface-raised transition-all duration-200 lg:flex lg:h-dvh lg:flex-col ${
+        className={`hidden shrink-0 overflow-y-auto overflow-x-hidden border-r border-default bg-surface-raised transition-all duration-200 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:max-h-dvh lg:flex-col lg:self-start ${
           collapsed ? "lg:w-18" : "lg:w-60"
         }`}
       >
@@ -303,13 +310,13 @@ export default function AppShell({
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-20 bg-surface-inverse/40"
           />
-          <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-default bg-surface-raised">
+          <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col overflow-y-auto border-r border-default bg-surface-raised">
             {renderSidebar(true)}
           </aside>
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col lg:h-dvh lg:overflow-y-auto">
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden lg:h-dvh lg:overflow-y-auto">
         {/* Top bar — shown on every size. Mobile also uses it to open the drawer. */}
         <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-default bg-surface-raised/95 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
           <button
@@ -323,8 +330,8 @@ export default function AppShell({
           </button>
 
           {/* Mobile: brand, linked home same as the sidebar mark. Desktop: current page title. */}
-          <Link href="/" className="font-semibold tracking-tight text-primary lg:hidden">
-            {brand}
+          <Link href="/" aria-label={`${brand} home`} className="lg:hidden">
+            <Image src="/img/logo4.png" alt={brand} width={1824} height={456} className="h-7 w-auto" />
           </Link>
           <span className="hidden text-sm font-semibold text-primary lg:inline">{currentLabel}</span>
           {badge && (
@@ -364,7 +371,7 @@ export default function AppShell({
                 {initial}
               </span>
               <span className="hidden max-w-[10rem] truncate font-semibold text-primary sm:inline">
-                {user.name || user.email}
+                {user.name || identifier}
               </span>
               <ChevronDown className="h-4 w-4 text-muted" aria-hidden="true" />
             </button>
@@ -383,7 +390,7 @@ export default function AppShell({
                 >
                   <div className="border-b border-default px-4 py-3">
                     {user.name && <p className="truncate text-sm font-bold text-primary">{user.name}</p>}
-                    <p className="truncate text-xs text-muted">{user.email}</p>
+                    <p className="truncate text-xs text-muted">{identifier}</p>
                   </div>
                   {profileHref && (
                     <Link

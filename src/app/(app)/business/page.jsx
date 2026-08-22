@@ -170,35 +170,28 @@ export default async function BusinessOverviewPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-primary">
-        Welcome back{user.name ? `, ${user.name}` : ""}
-      </h1>
-      <p className="mt-2 text-secondary">
-        Your review collection at a glance
-        {campaignViews.length > 0 ? " — pick a campaign to scope the numbers to it" : ""}.
-      </p>
-
-      {/* 1. Stats on top — account-wide by default, per-campaign on click. */}
-      <div className="mt-8">
-        <CampaignStats overall={overall} campaigns={campaignViews} />
-      </div>
-
-      {/* 2. Google Business Profile — reflects real DB connection state */}
-      <div className="mt-8 rounded-card border border-accent-border bg-accent-subtle p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-default bg-surface shadow-sm">
-              <Image src="/img/google.png" alt="Google" width={28} height={28} className="h-7 w-7 object-contain" />
+      {/* 1. Google Business Profile — reflects real DB connection state. Up
+          top: whether GMB is connected governs everything below it (reviews,
+          campaign targeting), so it needs to be seen first. */}
+      <div className="rounded-card border border-accent-border bg-accent-subtle p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-default bg-surface shadow-sm sm:h-12 sm:w-12">
+              <Image src="/img/google.png" alt="Google" width={28} height={28} className="h-6 w-6 object-contain sm:h-7 sm:w-7" />
             </span>
-            <div>
+            <div className="min-w-0">
               {gmbConnected ? (
                 <>
-                  <h2 className="inline-flex items-center gap-1.5 text-base font-bold text-primary">
-                    <CheckCircle2 className="h-4 w-4 text-verified" aria-hidden="true" />
-                    Google Business Profile connected
-                  </h2>
-                  <p className="mt-0.5 inline-flex flex-wrap items-center gap-x-3 text-sm text-secondary">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-sm font-bold text-primary sm:text-base">Google Business Profile</h2>
+                    <span className="inline-flex items-center gap-1 rounded-full bg-verified-subtle px-2 py-0.5 text-xs font-semibold text-verified">
+                      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                      Connected
+                    </span>
+                  </div>
+                  <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-secondary sm:text-sm">
                     <span>{gmbConnections} account{gmbConnections > 1 ? "s" : ""}</span>
+                    <span className="text-muted" aria-hidden="true">·</span>
                     <span className="inline-flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
                       {gmbLocations} location{gmbLocations === 1 ? "" : "s"}
@@ -207,8 +200,8 @@ export default async function BusinessOverviewPage() {
                 </>
               ) : (
                 <>
-                  <h2 className="text-base font-bold text-primary">Connect your Google Business Profile</h2>
-                  <p className="mt-0.5 text-sm text-secondary">
+                  <h2 className="text-sm font-bold text-primary sm:text-base">Connect your Google Business Profile</h2>
+                  <p className="mt-1 text-xs text-secondary sm:text-sm">
                     Link your GMB account to automatically fetch and view your Google reviews.
                   </p>
                 </>
@@ -219,7 +212,7 @@ export default async function BusinessOverviewPage() {
             {gmbConnected ? (
               <Link
                 href="/business/connections"
-                className="inline-flex items-center gap-2 rounded-btn border border-strong bg-surface px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-btn border border-strong bg-surface px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken sm:w-auto"
               >
                 Manage connections
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -229,7 +222,7 @@ export default async function BusinessOverviewPage() {
               // eslint-disable-next-line @next/next/no-html-link-for-pages
               <a
                 href="/api/business/gmb/connect"
-                className="inline-flex items-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover sm:w-auto"
               >
                 <RefreshCw className="h-4 w-4" aria-hidden="true" />
                 Connect Google Business Profile
@@ -237,6 +230,11 @@ export default async function BusinessOverviewPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* 2. Stats — account-wide by default, per-campaign on click. */}
+      <div className="mt-8">
+        <CampaignStats overall={overall} campaigns={campaignViews} />
       </div>
     </div>
   );

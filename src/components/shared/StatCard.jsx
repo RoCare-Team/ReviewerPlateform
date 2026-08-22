@@ -50,7 +50,7 @@ export default function StatCard({ label, value, Icon, tone = "text-accent", sub
       </div>
 
       <p className="relative mt-3 truncate text-xs font-medium text-secondary">{label}</p>
-      <p className="nums relative mt-0.5 text-2xl font-extrabold leading-none tracking-tight text-primary">{value}</p>
+      <p className="nums relative mt-0.5 text-2xl font-bold leading-none tracking-tight text-primary">{value}</p>
       {sub && <p className="relative mt-1.5 truncate text-[11px] text-muted">{sub}</p>}
     </Wrapper>
   );

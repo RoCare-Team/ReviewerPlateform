@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { LogIn } from "lucide-react";
 import SearchInput from "./SearchInput";
+import DeleteUserButton from "./DeleteUserButton";
+import { toast } from "../../lib/toast";
 
 /**
  * Users table for /admin/users. Rows arrive serialized from the server; this
@@ -18,12 +21,39 @@ const STATUS_STYLE = { active: "pill-verified", pending: "pill-pending", suspend
 
 export default function UsersTable({ rows }) {
   const [query, setQuery] = useState("");
+  const [impersonating, setImpersonating] = useState(null); // user id currently logging in as
+
+  // "Login as" — admin support tool, see lib/auth/impersonation.js. Only ever
+  // offered for business/reviewer rows (never admin — the API rejects that
+  // target anyway, but the button shouldn't even be there to invite the try),
+  // and only for active accounts (suspended/pending has nothing useful to view).
+  //
+  // Opens in a NEW tab rather than navigating this one: the session cookie is
+  // shared by the whole browser (it isn't tab-scoped — no browser API for
+  // that), so this tab still flips to the impersonated account the moment it
+  // next navigates or refreshes. Opening a new tab just means the admin
+  // panel stays exactly where it is on screen until that happens, instead of
+  // being yanked away immediately.
+  async function loginAs(u) {
+    setImpersonating(u.id);
+    const res = await fetch(`/api/admin/impersonate/${u.id}`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setImpersonating(null);
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't log in as this user.");
+      return;
+    }
+    window.open(data.redirect ?? "/", "_blank", "noopener,noreferrer");
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return rows;
+    // Reviewer/business_owner sign in by phone (roles.json) and often have no
+    // email at all — `.name`/`.email` must not be assumed present, or typing
+    // a search crashes the whole page on the first phone-only row.
     return rows.filter(
-      (u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+      (u) => (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q)
     );
   }, [rows, query]);
 
@@ -58,6 +88,7 @@ export default function UsersTable({ rows }) {
                   <th className="px-5 py-3 font-semibold">Wallet</th>
                   <th className="px-5 py-3 font-semibold">Joined</th>
                   <th className="px-5 py-3 font-semibold">Last login</th>
+                  <th className="px-5 py-3 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-default">
@@ -95,6 +126,24 @@ export default function UsersTable({ rows }) {
                     <td className="nums px-5 py-3.5 font-semibold text-primary">{u.walletDisplay}</td>
                     <td className="px-5 py-3.5 text-muted">{u.joined}</td>
                     <td className="px-5 py-3.5 text-muted">{u.lastLogin}</td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2">
+                        {u.role !== "admin" && u.status === "active" && (
+                          <button
+                            type="button"
+                            onClick={() => loginAs(u)}
+                            disabled={impersonating === u.id}
+                            className="inline-flex items-center gap-1.5 rounded-btn border border-accent/40 bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:bg-accent hover:text-on-brand disabled:opacity-60"
+                          >
+                            <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
+                            {impersonating === u.id ? "Logging in…" : "Login as"}
+                          </button>
+                        )}
+                        {u.role !== "admin" && (
+                          <DeleteUserButton userId={u.id} userName={u.name} walletBalance={u.walletBalance} />
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -126,6 +175,22 @@ export default function UsersTable({ rows }) {
                   </span>
                   <span className="nums font-semibold text-primary">{u.walletDisplay}</span>
                 </div>
+                {u.role !== "admin" && (
+                  <div className="mt-3 flex items-center gap-2">
+                    {u.status === "active" && (
+                      <button
+                        type="button"
+                        onClick={() => loginAs(u)}
+                        disabled={impersonating === u.id}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-btn border border-accent/40 bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:bg-accent hover:text-on-brand disabled:opacity-60"
+                      >
+                        <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
+                        {impersonating === u.id ? "Logging in…" : "Login as"}
+                      </button>
+                    )}
+                    <DeleteUserButton userId={u.id} userName={u.name} walletBalance={u.walletBalance} />
+                  </div>
+                )}
               </li>
             ))}
           </ul>

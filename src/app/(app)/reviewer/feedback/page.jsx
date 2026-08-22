@@ -29,6 +29,7 @@ export default async function ReviewerFeedbackPage() {
     const c = cMap.get(String(s.campaign));
     return {
       id: String(s._id),
+      campaignId: String(s.campaign),
       campaignName: c?.name ?? "Campaign",
       platform: PLATFORM_LABEL[c?.platform] ?? c?.platform ?? "",
       screenshotUrl: s.screenshotUrl,
@@ -36,6 +37,9 @@ export default async function ReviewerFeedbackPage() {
       status: s.status,
       rejectionReason: s.rejectionReason,
       rewardAmount: s.rewardAmount,
+      appealStatus: s.appealStatus || "none",
+      appealMessage: s.appealMessage || "",
+      appealResponse: s.appealResponse || "",
       createdAt: s.createdAt.toISOString(),
     };
   });

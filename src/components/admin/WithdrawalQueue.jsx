@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Banknote, Check, CreditCard, Hash, Inbox, X } from "lucide-react";
+import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = {
   approved: "pill-verified",
@@ -53,7 +54,21 @@ export default function WithdrawalQueue({ requests }) {
     setBusy(null);
     setRejecting(null);
     setReason("");
-    if (res.ok) router.refresh();
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error ?? "Couldn't update the request.");
+      // A failed "approve" can still have changed the request's status server-
+      // side — an automatic-payout failure auto-rejects and refunds it rather
+      // than leaving it stuck (see api/admin/withdrawals/[id]). Refresh even
+      // on failure, or this row keeps showing as "Pending" here after it's
+      // already been settled, and the next click just 404s confusingly.
+      router.refresh();
+      return;
+    }
+
+    toast.success(action === "approve" ? "Marked as paid." : "Request rejected and refunded.");
+    router.refresh();
   }
 
   return (
@@ -109,7 +124,7 @@ export default function WithdrawalQueue({ requests }) {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="nums text-lg font-extrabold text-primary">{inr(r.amount)}</p>
+                      <p className="nums text-lg font-bold text-primary">{inr(r.amount)}</p>
                       <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[r.status] ?? "pill-accent"}`}>
                         {r.status}
                       </span>
@@ -146,6 +161,11 @@ export default function WithdrawalQueue({ requests }) {
 
                 {r.status === "rejected" && r.rejectionReason && (
                   <p className="mt-3 text-xs text-danger">Rejected: {r.rejectionReason}</p>
+                )}
+                {r.status === "rejected" && r.adminNote && (
+                  <p className="mt-1 text-xs text-muted" title="Admin-only — never shown to the reviewer">
+                    {r.adminNote}
+                  </p>
                 )}
                 {r.status === "approved" && (
                   <p className="mt-3 text-xs font-semibold text-verified">

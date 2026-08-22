@@ -27,11 +27,11 @@ import StatCard from "../../../components/shared/StatCard";
 
 export const metadata = { title: "Admin · RapportLook", robots: { index: false } };
 
-function Section({ title, children }) {
+function Section({ title, children, first = false }) {
   return (
-    <section className="mt-8">
+    <section className={first ? "" : "mt-8"}>
       <h2 className="text-sm font-bold uppercase tracking-wide text-muted">{title}</h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
+      <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">{children}</div>
     </section>
   );
 }
@@ -92,21 +92,21 @@ export default async function AdminOverviewPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        
-        {subsPending > 0 && (
-          <Link
-            href="/admin/verification"
-            className="inline-flex items-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover"
-          >
-            <FileCheck2 className="h-4 w-4" aria-hidden="true" />
-            {subsPending} pending verification{subsPending > 1 ? "s" : ""}
-            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        )}
-      </div>
+      {/* Only takes up space when there's actually something pending — an
+          empty wrapper here (even with no visible content) was adding a
+          blank beat above "People" on every load. */}
+      {subsPending > 0 && (
+        <Link
+          href="/admin/verification"
+          className="inline-flex items-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover"
+        >
+          <FileCheck2 className="h-4 w-4" aria-hidden="true" />
+          {subsPending} pending verification{subsPending > 1 ? "s" : ""}
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+      )}
 
-      <Section title="People">
+      <Section title="People" first={subsPending === 0}>
         <StatCard label="Businesses" value={businesses} Icon={Building2} href="/admin/organisations" />
         <StatCard label="Reviewers" value={reviewers} Icon={UserRound} tone="text-verified" href="/admin/users?role=reviewer" />
         <StatCard label="Admins" value={admins} Icon={Users} tone="text-pending" href="/admin/users?role=admin" />

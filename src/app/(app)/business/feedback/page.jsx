@@ -72,12 +72,6 @@ export default async function BusinessFeedbackPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-primary">Reviewer submissions</h1>
-      <p className="mt-2 text-secondary">
-        Pick a campaign to see only the reviews submitted to it, with the screenshot proof and its
-        verification status.
-      </p>
-
       <SubmissionFeed campaigns={campaignViews} />
     </div>
   );

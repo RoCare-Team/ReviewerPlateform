@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import OtpInput from "./OtpInput";
 import { FormError, SubmitButton } from "./Field";
+import { toast } from "../../lib/toast";
 
 const COOLDOWN_SECONDS = 60;
 
@@ -46,10 +47,14 @@ export default function VerifyOtpForm() {
       // sign-in + redirect below, so the button never looks idle while the
       // dashboard is still loading behind it.
       setPending(false);
-      setError(data.error ?? "That code isn't valid.");
+      const message = data.error ?? "That code isn't valid.";
+      setError(message);
+      toast.error(message);
       if (data.code === "TOO_MANY_ATTEMPTS") setCode("");
       return;
     }
+
+    toast.success("Email verified.");
 
     // Verification just proved this person owns the account — sign them straight
     // in with the one-shot token instead of making them retype a password they
@@ -85,7 +90,9 @@ export default function VerifyOtpForm() {
 
     // Deliberately unconditional: the endpoint answers identically whether or
     // not the address exists, so the UI must not imply it learned anything.
-    setNotice("If an account exists, we've sent a new code.");
+    const message = "If an account exists, we've sent a new code.";
+    setNotice(message);
+    toast.success(message);
   }
 
   if (!email) {

@@ -4,15 +4,16 @@ import AuthAside from "../../components/auth/AuthAside";
 
 // Public. No session required — these ARE the pages you use to get one.
 // Already-authenticated users are bounced to their home by src/middleware.js.
-// Login/signup/reset forms carry no search intent and are noindexed.
-export const metadata = {
-  robots: { index: false, follow: false },
-};
-
+//
+// /signup, /signup/business and /signup/reviewer no longer exist as pages —
+// /login (see PhoneOtpForm.jsx) is the single entry point for both an
+// existing account and a brand-new one; next.config.mjs 301-redirects the
+// old URLs there. Each remaining page here (login, forgot/reset password,
+// verify-otp, auth-error) sets its own noindex in its own page.jsx.
 export default function AuthLayout({ children }) {
   return (
     <div className="grid h-dvh overflow-hidden lg:grid-cols-2">
-      {/* Left: branded content panel (desktop only), copy varies by route */}
+      {/* Left: branded content panel (desktop only) */}
       <AuthAside />
 
       {/* Right: form area — scrolls internally only if the form is taller than
@@ -25,7 +26,7 @@ export default function AuthLayout({ children }) {
             aria-label="RapportLook home"
             className="mb-8 inline-flex items-center lg:hidden"
           >
-            <Image src="/img/logo.png" alt="RapportLook" width={1138} height={358} className="h-9 w-auto" />
+            <Image src="/img/logo4.png" alt="RapportLook" width={1824} height={456} className="h-9 w-auto" />
           </Link>
           {children}
         </div>

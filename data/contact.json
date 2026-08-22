@@ -22,7 +22,7 @@
     "grievance": "TODO — grievance@rapportlook.com",
     "legal": "TODO — legal@rapportlook.com",
     "security": "TODO — security@rapportlook.com",
-    "careers": "TODO — careers@rapportlook.com",
+    "careers": "info@rapportlook.com",
     "affiliates": "TODO — affiliates@rapportlook.com",
     "press": "TODO — press@rapportlook.com",
     "noreply": "info@rapportlook.com"
@@ -35,20 +35,20 @@
       "_note": "Business & Enterprise entitlement only. Do not render on pages visible to Starter/Growth."
     },
     "sales": {
-      "e164": "TODO — +91XXXXXXXXXX",
-      "display": "TODO — +91 XXXXX XXXXX"
+      "e164": "+919355024711",
+      "display": "+91 93550 24711"
     }
   },
 
   "addresses": {
     "registered": {
-      "line1": "TODO",
-      "line2": "TODO",
-      "city": "TODO",
-      "state": "TODO",
+      "line1": "8th Floor, Unit No. 831",
+      "line2": "JMD Megapolis",
+      "city": "Gurugram",
+      "state": "Haryana",
       "postalCode": "TODO",
       "country": "India",
-      "full": "TODO — single-line rendering for footer, invoice, and GBP listing"
+      "full": "8th Floor, Unit No. 831, JMD Megapolis, Gurugram, Haryana, India"
     },
     "operations": {
       "sameAs": "registered"
@@ -77,11 +77,11 @@
   },
 
   "social": {
-    "linkedin": "TODO",
+    "linkedin": "https://www.linkedin.com/company/inforapportlook/home/",
     "x": "TODO",
     "youtube": "TODO",
-    "instagram": "TODO",
-    "facebook": "TODO"
+    "instagram": "https://www.instagram.com/rapportlook_official/",
+    "facebook": "https://www.facebook.com/rapportlookofficial/"
   },
 
   "platforms": {
@@ -132,7 +132,7 @@
   },
 
   "support": {
-    "hours": "TODO — e.g. Mon–Fri 10:00–19:00 IST",
+    "hours": "Mon–Sat 9:00 AM–7:00 PM IST",
     "timezone": "Asia/Kolkata",
     "channels": ["email", "in-app chat", "phone (Business & Enterprise only)"],
     "sla": {

@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Link from "next/link";
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Coins,
   FileCheck2,
@@ -10,6 +13,7 @@ import {
   MapPin,
   Megaphone,
   MessageSquare,
+  Plus,
   Target,
   Wallet,
   XCircle,
@@ -65,7 +69,27 @@ function ChartsRow({ approved, pending, rejected, budget, budgetUsed }) {
   const hasSubs = (approved ?? 0) + (pending ?? 0) + (rejected ?? 0) > 0;
   const hasBudget = (budget ?? 0) > 0;
 
-  if (!hasSubs && !hasBudget) return null;
+  // Used to render nothing at all here — a 0/0 donut is meaningless, but a
+  // silently blank stretch of page reads as broken, not "nothing to show
+  // yet". An explicit empty state at least explains why.
+  if (!hasSubs && !hasBudget) {
+    return (
+      <div className="mt-5 rounded-card border border-dashed border-default bg-surface-raised p-8 text-center">
+        <FileCheck2 className="mx-auto h-6 w-6 text-muted" aria-hidden="true" />
+        <p className="mt-2 text-sm font-semibold text-primary">No activity yet</p>
+        <p className="mt-1 text-sm text-secondary">
+          Charts show up here once a campaign has spent budget or collected a submission.
+        </p>
+        <Link
+          href="/business/campaigns"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md"
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Create campaign
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -143,9 +167,14 @@ export default function CampaignStats({ overall, campaigns }) {
   // null = "All campaigns". Storing the id (not the object) keeps the selection
   // valid if the parent re-renders with refreshed campaign data.
   const [selectedId, setSelectedId] = useState(null);
+  const chipsRef = useRef(null);
 
   const selected = campaigns.find((c) => c.id === selectedId) ?? null;
   const view = selected ?? overall;
+
+  const scrollChips = (direction) => {
+    chipsRef.current?.scrollBy({ left: direction * 200, behavior: "smooth" });
+  };
 
   return (
     <section aria-label="Overview statistics">
@@ -165,45 +194,68 @@ export default function CampaignStats({ overall, campaigns }) {
           </div>
 
           {/* Chip row doubles as the filter control. Scrolls sideways rather
-              than wrapping into a tall block when there are many campaigns. */}
-          <div
-            role="tablist"
-            aria-label="Filter stats by campaign"
-            className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1"
-          >
+              than wrapping into a tall block when there are many campaigns.
+              The native scrollbar is hidden; the arrow buttons drive scrolling
+              instead so the control reads as a carousel, not a webpage scrollbar. */}
+          <div className="mt-3 flex items-center gap-1">
             <button
               type="button"
-              role="tab"
-              aria-selected={selected === null}
-              onClick={() => setSelectedId(null)}
-              className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                selected === null
-                  ? "border-transparent bg-accent text-on-brand shadow-sm"
-                  : "border-default bg-surface text-secondary hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary"
-              }`}
+              onClick={() => scrollChips(-1)}
+              aria-label="Scroll campaigns left"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-default bg-surface text-secondary transition-colors hover:border-accent/40 hover:text-primary"
             >
-              All campaigns
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             </button>
 
-            {campaigns.map((c) => {
-              const isActive = c.id === selectedId;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => setSelectedId(c.id)}
-                  className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                    isActive
-                      ? "border-transparent bg-accent text-on-brand shadow-sm"
-                      : "border-default bg-surface text-secondary hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary"
-                  }`}
-                >
-                  {c.name}
-                </button>
-              );
-            })}
+            <div
+              ref={chipsRef}
+              role="tablist"
+              aria-label="Filter stats by campaign"
+              className="scrollbar-none flex flex-1 gap-2 overflow-x-auto scroll-smooth px-1 pb-1"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={selected === null}
+                onClick={() => setSelectedId(null)}
+                className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                  selected === null
+                    ? "border-transparent bg-accent text-on-brand shadow-sm"
+                    : "border-default bg-surface text-secondary hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary"
+                }`}
+              >
+                All campaigns
+              </button>
+
+              {campaigns.map((c) => {
+                const isActive = c.id === selectedId;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setSelectedId(c.id)}
+                    className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                      isActive
+                        ? "border-transparent bg-accent text-on-brand shadow-sm"
+                        : "border-default bg-surface text-secondary hover:-translate-y-0.5 hover:border-accent/40 hover:text-primary"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => scrollChips(1)}
+              aria-label="Scroll campaigns right"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-default bg-surface text-secondary transition-colors hover:border-accent/40 hover:text-primary"
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
         </div>
       )}

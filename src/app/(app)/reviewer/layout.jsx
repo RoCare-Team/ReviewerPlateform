@@ -1,4 +1,5 @@
 import AppShell from "../../../components/shell/AppShell";
+import ImpersonationBanner from "../../../components/shell/ImpersonationBanner";
 import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
 import { getContact } from "../../../lib/contact";
@@ -26,22 +27,30 @@ export default async function ReviewerLayout({ children }) {
   const user = await requireRole(ROLES.REVIEWER);
 
   await dbConnect();
-  const me = await User.findById(user.id).select("walletBalance").lean();
+  const me = await User.findById(user.id).select("walletBalance location").lean();
+
+  // No post-login location gate anymore — city is captured once, mandatorily,
+  // at signup (see PhoneOtpForm.jsx + api/auth/signup/reviewer/complete),
+  // never via browser geolocation. A reviewer always has one by the time
+  // they can sign in at all.
 
   return (
-    <AppShell
-      brand={BRAND_NAME}
-      nav={NAV}
-      user={{ name: user.name, email: user.email }}
-      profileHref="/reviewer/profile"
-      // Same wallet field the business shell shows, framed as coins EARNED —
-      // a reviewer accrues this from verified work, they don't fund from it.
-      // Links to Withdraw, where that balance can actually be cashed out.
-      walletBalance={me?.walletBalance ?? 0}
-      walletVariant="coins"
-      walletHref="/reviewer/withdraw"
-    >
-      {children}
-    </AppShell>
+    <>
+      {user.impersonatedBy && <ImpersonationBanner adminEmail={user.impersonatedByEmail} />}
+      <AppShell
+        brand={BRAND_NAME}
+        nav={NAV}
+        user={{ name: user.name, phone: user.phone }}
+        profileHref="/reviewer/profile"
+        // Same wallet field the business shell shows, framed as coins EARNED —
+        // a reviewer accrues this from verified work, they don't fund from it.
+        // Links to Withdraw, where that balance can actually be cashed out.
+        walletBalance={me?.walletBalance ?? 0}
+        walletVariant="coins"
+        walletHref="/reviewer/withdraw"
+      >
+        {children}
+      </AppShell>
+    </>
   );
 }

@@ -3,15 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Building2,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   IndianRupee,
   Link2,
+  MapPin,
   Megaphone,
   Pause,
   Play,
   Target,
 } from "lucide-react";
+import EditCampaignModal from "../models/EditCampaignModal";
+import { SetupBadges, CampaignDetails } from "./CampaignSetupDetails";
+import { toast } from "../../lib/toast";
 
 const STATUS_STYLES = { active: "pill-verified", paused: "pill-pending", draft: "pill-accent", completed: "pill-accent" };
 const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
@@ -39,16 +45,19 @@ function Stat({ Icon, label, value }) {
  * campaign to "paused" server-side — it stops showing on the reviewer
  * dashboard and can no longer accept new submissions immediately.
  */
-export default function CampaignCard({ campaign }) {
+export default function CampaignCard({ campaign, locations = [], walletBalance = 0 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
+  const [expanded, setExpanded] = useState(false);
+
   const c = campaign;
   const pct = c.targetReviews ? Math.min(100, Math.round((c.collected / c.targetReviews) * 100)) : 0;
   const canToggle = c.status === "active" || c.status === "paused";
   const action = c.status === "active" ? "pause" : "activate";
+  const hasSetup = c.reviewDrafts.length > 0 || c.reviewImages.length > 0;
 
   async function toggle() {
     setPending(true);
@@ -61,15 +70,18 @@ export default function CampaignCard({ campaign }) {
     setPending(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Couldn't update the campaign.");
+      const message = data.error ?? "Couldn't update the campaign.";
+      setError(message);
+      toast.error(message);
       return;
     }
+    toast.success(action === "pause" ? "Campaign closed." : "Campaign reopened.");
     setConfirming(false);
     router.refresh();
   }
 
   return (
-    <div className="group flex h-full flex-col rounded-card border border-default bg-surface-raised p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/30 hover:shadow-lg">
+    <div className="group flex h-full min-w-0 flex-col rounded-card border border-default bg-surface-raised p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/30 hover:shadow-lg sm:p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-subtle text-accent transition-transform duration-300 group-hover:scale-110">
@@ -87,11 +99,48 @@ export default function CampaignCard({ campaign }) {
                 </span>
               )}
             </p>
+            {(c.locationTitle || c.cities?.length > 0) && (
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-secondary">
+                {c.locationTitle && (
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-1" title={c.locationTitle}>
+                    <Building2 className="h-3 w-3 shrink-0 text-muted" aria-hidden="true" />
+                    <span className="min-w-0 truncate">
+                      {c.locationTitle}
+                      {c.businessCategory && <span className="text-muted"> · {c.businessCategory}</span>}
+                    </span>
+                  </span>
+                )}
+                {c.cities?.length > 0 && (
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-1" title={c.cities.join(", ")}>
+                    <MapPin className="h-3 w-3 shrink-0 text-muted" aria-hidden="true" />
+                    <span className="min-w-0 truncate">
+                      {c.cities.length === 1 ? c.cities[0] : `${c.cities[0]} +${c.cities.length - 1} more`}
+                    </span>
+                  </span>
+                )}
+              </p>
+            )}
+            <SetupBadges campaign={c} />
+            {hasSetup && (
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-accent transition-colors duration-150 hover:underline"
+              >
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                {expanded ? "Hide details" : "View details"}
+              </button>
+            )}
           </div>
         </div>
-        <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[c.status]}`}>
-          {c.status}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[c.status]}`}>
+            {c.status}
+          </span>
+          {c.status !== "completed" && (
+            <EditCampaignModal campaign={c} locations={locations} walletBalance={walletBalance} />
+          )}
+        </div>
       </div>
 
       {c.notes && <p className="mt-3 text-sm leading-relaxed text-secondary">{c.notes}</p>}
@@ -122,11 +171,17 @@ export default function CampaignCard({ campaign }) {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-2.5">
+      <div className="mt-5 grid grid-cols-2 gap-2.5 min-[420px]:grid-cols-3">
         <Stat Icon={IndianRupee} label="Budget" value={inr(c.budget)} />
         <Stat Icon={CheckCircle2} label="Rate" value={inr(c.ratePerReview)} />
         <Stat Icon={Target} label="Target" value={c.targetReviews} />
       </div>
+
+      {expanded && (
+        <div className="animate-fade-up mt-5 border-t border-default pt-4" style={{ animationDuration: "150ms" }}>
+          <CampaignDetails campaign={c} />
+        </div>
+      )}
 
       {canToggle && (
         <div className="mt-5 border-t border-default pt-4">

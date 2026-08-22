@@ -1,23 +1,143 @@
-import { Award } from "lucide-react";
+import {
+  Award,
+  Briefcase,
+  ExternalLink,
+  Gift,
+  LayoutDashboard,
+  Megaphone,
+  PenLine,
+  Search,
+  ShieldCheck,
+  Star,
+  Upload,
+  Users,
+  Wallet,
+} from "lucide-react";
 import Container from "./Container";
 import Reveal from "./Reveal";
 
 /**
- * "How it profits" — the review submission workflow, shown as an ordered,
- * numbered card grid. Kept to the seven steps in the brief. Business value
- * and reviewer value both land here, so it doubles as the "how it works"
- * section.
+ * "How it works" — a graphical horizontal flow per track (business, then
+ * reviewer) instead of a text list: icon nodes in circles, connected by
+ * arrows, so the journey reads as a pipeline at a glance before anyone
+ * reads a word. Each track scrolls sideways on narrow screens rather than
+ * wrapping, so the pipeline shape never breaks.
  */
-const STEPS = [
-  { n: 1, title: "Pick a campaign", body: "Reviewers browse active campaigns and choose one that fits a product or service they've genuinely used." },
-  { n: 2, title: "Open the review link", body: "One click takes them to the real listing on Google, Play Store, Trustpilot or wherever the campaign runs." },
-  { n: 3, title: "Write an honest review", body: "They submit their own review externally — their words, their rating. Nothing is scripted or pre-written." },
-  { n: 4, title: "Upload proof", body: "A screenshot of the posted review is uploaded as evidence of participation." },
-  { n: 5, title: "AI verification", body: "The screenshot is validated by AI for authenticity — catching edits, reuse and mismatches." },
-  { n: 6, title: "Admin approval", body: "A human reviewer approves or rejects, so automation never has the final say on a reward." },
+const TRACKS = [
+  {
+    key: "business",
+    label: "For businesses",
+    TrackIcon: Briefcase,
+    tone: "accent",
+    blurb: "Launch a campaign, fund it, and let genuine customers do the reviewing — every one of them checked before it counts.",
+    steps: [
+      { n: 1, Icon: Megaphone, title: "Create a campaign", body: "Pick the platform, the reward per review, and how many you need." },
+      { n: 2, Icon: Wallet, title: "Fund your wallet", body: "Top up once via Razorpay — rewards pay out as reviews get approved." },
+      { n: 3, Icon: Users, title: "Reviewers pick it up", body: "Goes live to reviewers who've actually used products like yours." },
+      { n: 4, Icon: ShieldCheck, title: "AI + admin verification", body: "Every submission is checked by AI, then confirmed by a human." },
+      { n: 5, Icon: Star, title: "Reviews go live", body: "Approved reviews land on your real Google/Play Store/Trustpilot profile." },
+      { n: 6, Icon: LayoutDashboard, title: "Track it all", body: "Spend, performance and every review, in one dashboard.", isFinal: true },
+    ],
+  },
+  {
+    key: "reviewer",
+    label: "For reviewers",
+    TrackIcon: Star,
+    tone: "verified",
+    blurb: "Browse campaigns for products you've genuinely used, leave an honest review, and get rewarded once it's verified.",
+    steps: [
+      { n: 1, Icon: Search, title: "Pick a campaign", body: "Browse active campaigns for something you've genuinely used." },
+      { n: 2, Icon: ExternalLink, title: "Open the review link", body: "One click to the real listing on Google, Play Store or Trustpilot." },
+      { n: 3, Icon: PenLine, title: "Write an honest review", body: "Your own words, your rating — nothing scripted or pre-written." },
+      { n: 4, Icon: Upload, title: "Upload proof", body: "A screenshot of the posted review as evidence of participation." },
+      { n: 5, Icon: ShieldCheck, title: "AI verification", body: "The screenshot is validated for authenticity — no edits, no reuse." },
+      { n: 6, Icon: Gift, title: "Points credited", body: "Once confirmed, reward points land in your account.", isFinal: true },
+    ],
+  },
 ];
 
-const FINAL_STEP = { n: 7, title: "Points credited", body: "Once approved, reward points are credited for the verified participation." };
+/** Straight connector between two nodes, with an arrowhead riding its
+ *  midpoint — draws itself in on scroll via the Reveal wrapper on each node. */
+function Connector({ tone }) {
+  const stroke = tone === "accent" ? "bg-accent/25" : "bg-verified/25";
+  const arrow = tone === "accent" ? "border-accent/40 text-accent" : "border-verified/40 text-verified";
+  return (
+    <div className="relative flex h-16 w-10 shrink-0 items-center sm:w-14" aria-hidden="true">
+      <span className={`h-0.5 w-full ${stroke}`} />
+      <span
+        className={`absolute left-1/2 top-1/2 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 rotate-45 items-center justify-center rounded-sm border-r-2 border-t-2 bg-surface-sunken ${arrow}`}
+      />
+    </div>
+  );
+}
+
+function FlowNode({ step, tone }) {
+  const { Icon, n, title, body, isFinal } = step;
+  const solid = tone === "accent" ? "bg-accent text-on-brand shadow-lg shadow-accent/30" : "bg-verified text-on-brand shadow-lg shadow-verified/30";
+  const outline =
+    tone === "accent"
+      ? "border-accent/30 bg-surface-raised text-accent group-hover:border-accent group-hover:bg-accent-subtle"
+      : "border-verified/30 bg-surface-raised text-verified group-hover:border-verified group-hover:bg-verified-subtle";
+  const badge = tone === "accent" ? "bg-accent text-on-brand" : "bg-verified text-on-brand";
+
+  return (
+    <div className="group flex w-32 shrink-0 flex-col items-center text-center sm:w-36">
+      <div className="relative">
+        <div
+          className={`flex h-16 w-16 items-center justify-center rounded-2xl border-2 transition-all duration-300 group-hover:-translate-y-1 sm:h-18 sm:w-18 ${
+            isFinal ? solid : `${outline} border`
+          }`}
+        >
+          <Icon className="h-7 w-7 sm:h-8 sm:w-8" aria-hidden="true" />
+        </div>
+        <span
+          className={`nums absolute -right-1.5 -top-1.5 flex h-5.5 w-5.5 items-center justify-center rounded-full text-[11px] font-bold ring-2 ring-surface-sunken ${
+            isFinal ? "bg-primary text-on-brand" : badge
+          }`}
+        >
+          {isFinal ? <Award className="h-3 w-3" aria-hidden="true" /> : n}
+        </span>
+      </div>
+      <p className="mt-3 text-xs font-bold leading-snug text-primary sm:text-sm">{title}</p>
+      <p className="mt-1 text-[11px] leading-snug text-muted sm:text-xs">{body}</p>
+    </div>
+  );
+}
+
+function FlowRow({ track }) {
+  const { TrackIcon, tone, label, blurb, steps } = track;
+  const chipTone = tone === "accent" ? "bg-accent-subtle text-accent" : "bg-verified-subtle text-verified";
+
+  return (
+    <div>
+      <Reveal className="flex items-start gap-3">
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${chipTone}`}>
+          <TrackIcon className="h-4.5 w-4.5" aria-hidden="true" />
+        </span>
+        <div>
+          <p className={`text-xs font-bold uppercase tracking-wide ${tone === "accent" ? "text-accent" : "text-verified"}`}>
+            {label}
+          </p>
+          <p className="mt-0.5 max-w-xl text-sm leading-relaxed text-secondary">{blurb}</p>
+        </div>
+      </Reveal>
+
+      {/* The pipeline itself — icon nodes joined by arrow connectors, scrolls
+          sideways on narrow screens instead of wrapping so the flow shape
+          (the whole point of drawing it this way) never breaks. */}
+      <div className="scrollbar-none mt-6 overflow-x-auto pb-2 pt-3">
+        <div className="flex w-max items-start px-1 pr-4 sm:pr-6">
+          {steps.map((step, i) => (
+            <Reveal key={step.n} delay={i * 90} className="flex items-start">
+              <FlowNode step={step} tone={tone} />
+              {i < steps.length - 1 && <Connector tone={tone} />}
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function HowItProfits() {
   // scroll-mt: the header is sticky and floats over the top of the page, so a
@@ -43,44 +163,11 @@ export default function HowItProfits() {
           </p>
         </Reveal>
 
-        <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {STEPS.map((s, i) => (
-            <Reveal as="li" key={s.n} delay={(i % 3) * 90} className="h-full">
-              <div className="group relative flex h-full flex-col overflow-hidden rounded-card border border-default bg-surface-raised p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-lg">
-                {/* Top rail — fills in on hover, a quieter progress cue than a
-                    giant background numeral. */}
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0 bg-accent transition-transform duration-300 group-hover:scale-x-100"
-                />
-
-                <div className="flex items-center justify-between">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-subtle text-sm font-bold text-accent transition-all duration-300 group-hover:bg-accent group-hover:text-on-brand">
-                    {s.n}
-                  </span>
-                  <span className="nums text-xs font-semibold text-muted">Step {s.n} of 7</span>
-                </div>
-
-                <h3 className="mt-4 text-sm font-bold text-primary">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-secondary">{s.body}</p>
-              </div>
-            </Reveal>
-          ))}
-        </ol>
-
-        {/* Payoff — full-width and visually distinct, since this is the
-            outcome the six steps above have been building to. */}
-        <Reveal delay={STEPS.length * 90} className="mt-4">
-          <div className="flex flex-col items-center gap-4 rounded-card border border-accent-border bg-accent-subtle p-6 text-center shadow-sm sm:flex-row sm:text-left">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-accent text-on-brand">
-              <Award className="h-5.5 w-5.5" aria-hidden="true" />
-            </span>
-            <div>
-              <h3 className="text-sm font-bold text-primary">{FINAL_STEP.title}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-secondary">{FINAL_STEP.body}</p>
-            </div>
-          </div>
-        </Reveal>
+        <div className="mt-10 space-y-10 rounded-3xl border border-default bg-surface p-6 shadow-sm sm:p-8">
+          <FlowRow track={TRACKS[0]} />
+          <div className="border-t border-default" />
+          <FlowRow track={TRACKS[1]} />
+        </div>
       </Container>
     </section>
   );

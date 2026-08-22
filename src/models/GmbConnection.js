@@ -32,6 +32,11 @@ const GmbConnectionSchema = new mongoose.Schema(
       index: true,
     },
     lastError: { type: String, default: "" },
+
+    // When on, the AI auto-reply cron (src/app/api/cron/gmb-auto-reply) posts
+    // a generated reply to any new review on this connection's locations that
+    // has no reply yet. Off by default — replying is opt-in per connection.
+    autoReplyEnabled: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

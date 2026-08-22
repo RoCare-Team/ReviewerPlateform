@@ -7,7 +7,7 @@ import Campaign from "../../../../models/Campaign";
 import GmbLocation from "../../../../models/GmbLocation";
 import NewCampaignModal from "../../../../components/models/NewCampaignModal";
 import CampaignsTable from "../../../../components/business/CampaignsTable";
-import { inr } from "../../../../lib/campaigns";
+import { inr, campaignCities, deriveCityFromAddress, deriveLocationLabel } from "../../../../lib/campaigns";
 import { getSettings } from "../../../../lib/settings";
 
 export const metadata = { title: "Campaigns · RapportLook Business" };
@@ -19,19 +19,30 @@ export default async function BusinessCampaignsPage() {
   const [me, campaigns, locs, settings] = await Promise.all([
     User.findById(user.id).select("walletBalance").lean(),
     Campaign.find({ user: user.id }).sort({ createdAt: -1 }).lean(),
-    GmbLocation.find({ user: user.id }).select("title locationName reviewUrl").lean(),
+    GmbLocation.find({ user: user.id }).select("title locationName reviewUrl address category").lean(),
     getSettings(),
   ]);
 
   const locations = locs.map((l) => ({
     id: String(l._id),
     title: l.title || l.locationName,
+    // Pure city — what campaign.city / reviewer city-matching actually uses.
+    // See lib/campaigns.js#deriveCityFromAddress.
+    city: deriveCityFromAddress(l.address),
+    // "Locality, City" — display only, for the location dropdowns (New/Edit
+    // campaign). Two locations in the same city are indistinguishable by
+    // `city` alone; this is what tells them apart. See
+    // lib/campaigns.js#deriveLocationLabel.
+    areaLabel: deriveLocationLabel(l.address),
     reviewUrl: l.reviewUrl || "",
+    category: l.category || "",
   }));
+
+  const locationTitleById = new Map(locations.map((l) => [l.id, l.title]));
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-primary">Campaigns</h1>
           <p className="mt-2 text-secondary">Fund a campaign from your wallet — {inr(settings.reviewRate)} per verified review.</p>
@@ -54,12 +65,39 @@ export default async function BusinessCampaignsPage() {
             status: c.status,
             notes: c.notes,
             targetUrl: c.targetUrl,
+            city: c.city,
+            cities: campaignCities(c),
+            location: c.location ? String(c.location) : "",
+            // Prefer the campaign's own snapshot (survives the GMB location
+            // being renamed/disconnected later) — falls back to a live
+            // lookup only for campaigns created before this was captured.
+            locationTitle: c.businessName || (c.location ? locationTitleById.get(String(c.location)) || "" : ""),
+            businessCategory: c.businessCategory || "",
             collected: c.collected ?? 0,
             targetReviews: c.targetReviews,
             budget: c.budget,
             ratePerReview: c.ratePerReview,
             createdAt: c.createdAt ? c.createdAt.toISOString() : null,
+            // Surfaces what's actually configured on the campaign — the
+            // review-draft/image pools set up in NewCampaignModal don't show
+            // anywhere else, so the table would otherwise look identical
+            // whether or not the owner bothered adding them. Full lists (not
+            // just counts) so the expandable details panel can show the
+            // actual keyword/review/image content — see CampaignsTable.jsx.
+            reviewDrafts: (c.reviewDrafts ?? []).map((d) => ({
+              text: d.text,
+              keyword: d.keyword || "",
+              assigned: Boolean(d.assignedTo),
+            })),
+            reviewImages: (c.reviewImages ?? []).map((im) => ({
+              url: im.url,
+              assigned: Boolean(im.assignedTo),
+            })),
+            pacingLimit: c.pacingLimit ?? null,
+            pacingWindowHours: c.pacingWindowHours ?? null,
           }))}
+          locations={locations}
+          walletBalance={me?.walletBalance ?? 0}
         />
       )}
     </div>

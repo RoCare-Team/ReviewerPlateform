@@ -16,7 +16,7 @@ export default async function AdminBusinessesPage() {
   await dbConnect();
 
   const businesses = await User.find({ role: "business_owner" })
-    .select("name email walletBalance status createdAt")
+    .select("name email phone walletBalance status createdAt")
     .sort({ createdAt: -1 })
     .lean();
 
@@ -63,6 +63,7 @@ export default async function AdminBusinessesPage() {
       id: k,
       name: b.name || "—",
       email: b.email,
+      phone: b.phone ? `+91 ${b.phone}` : "—",
       status: b.status,
       walletDisplay: inr(b.walletBalance ?? 0),
       spendDisplay: inr(c.spend),

@@ -6,12 +6,18 @@ import { apiRequirePermission } from "../../../../lib/auth/guards";
 /**
  * Business-owner self-service profile update. Guarded by profile:update (see
  * data/roles.json). The id comes from the session, never the body — a user can
- * only edit their own record. Role/email/status are not editable here.
+ * only edit their own record. Role/status are not editable here.
+ *
+ * `phone` is accepted in the body (so the existing client form doesn't 400)
+ * but never applied — it's this role's LOGIN identity now (phone+OTP, see
+ * lib/auth/phoneAuth.js), so changing it here would swap someone's login
+ * number with no re-verification. That needs its own re-verify-by-OTP flow,
+ * which doesn't exist yet.
  */
 const schema = z
   .object({
     name: z.string().trim().min(1, "Name is required").max(80),
-    phone: z.string().trim().max(20).optional().default(""),
+    phone: z.string().trim().max(20).optional(),
     bio: z.string().trim().max(280).optional().default(""),
   })
   .strict();
@@ -32,9 +38,9 @@ export async function PATCH(request) {
   await dbConnect();
   const updated = await User.findByIdAndUpdate(
     user.id,
-    { $set: parsed.data },
+    { $set: { name: parsed.data.name, bio: parsed.data.bio } },
     { returnDocument: "after", runValidators: true }
-  ).select("name phone bio email");
+  ).select("name phone bio");
 
   if (!updated) return Response.json({ error: "Account not found" }, { status: 404 });
 
@@ -44,7 +50,6 @@ export async function PATCH(request) {
       name: updated.name ?? "",
       phone: updated.phone ?? "",
       bio: updated.bio ?? "",
-      email: updated.email,
     },
   });
 }

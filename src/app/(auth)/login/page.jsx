@@ -1,36 +1,28 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import AuthCard from "../../../components/auth/AuthCard";
-import LoginForm from "../../../components/auth/LoginForm";
-import GoogleButton from "../../../components/auth/GoogleButton";
+import PhoneOtpForm from "../../../components/auth/PhoneOtpForm";
 
 export const metadata = {
   title: "Sign in · RapportLook",
+  robots: { index: false, follow: false },
 };
 
-// Shared by reviewers and business owners. Admin has its own at /admin/login.
+// Shared by reviewers and business owners, and the ONLY entry point for
+// either — there's no separate /signup page anymore. Verify a phone that
+// already has an account and you're straight in; verify a brand-new one and
+// PhoneOtpForm asks for a role + name right here before creating it. Admin
+// has its own at /admin/login.
 export default async function LoginPage({ searchParams }) {
   // Next 16: searchParams is a Promise. Sync access was removed, not deprecated.
   const params = await searchParams;
 
   const notice =
     params?.e === "inactive"
-      ? "Your account isn't active yet. Verify your email to continue."
+      ? "Your account isn't active yet."
       : null;
 
   return (
-    <AuthCard
-      title="Sign in"
-      subtitle="Welcome back to RapportLook."
-      footer={
-        <>
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-accent hover:underline">
-            Sign up
-          </Link>
-        </>
-      }
-    >
+    <AuthCard title="Sign in" subtitle="Welcome back — or get started, if you're new here.">
       {notice ? (
         <div className="mb-4 rounded-btn border border-pending bg-pending-subtle px-3 py-2 text-sm text-primary">
           {notice}
@@ -38,17 +30,8 @@ export default async function LoginPage({ searchParams }) {
       ) : null}
 
       <Suspense fallback={null}>
-        <LoginForm scope="user" />
+        <PhoneOtpForm mode="login" />
       </Suspense>
-
-      <div className="my-6 flex items-center gap-3">
-        <span className="h-px flex-1 bg-default" />
-        <span className="text-xs font-semibold tracking-wide text-muted">OR</span>
-        <span className="h-px flex-1 bg-default" />
-      </div>
-
-      {/* Identity only. Not the GBP connection — that lives in the business app. */}
-      <GoogleButton callbackUrl="/post-login" />
     </AuthCard>
   );
 }

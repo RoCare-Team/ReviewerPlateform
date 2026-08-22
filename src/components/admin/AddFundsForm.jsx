@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Check, Loader2, Plus, Wallet, X } from "lucide-react";
+import { toast } from "../../lib/toast";
 
 /**
  * Admin control to credit a business owner's wallet, in a modal dialog.
@@ -73,13 +74,15 @@ export default function AddFundsForm({ businessId, businessName, walletDisplay }
     setPending(false);
 
     if (!res.ok) {
-      setError(data.error ?? "Could not add funds. Try again.");
+      const message = data.error ?? "Could not add funds. Try again.";
+      setError(message);
+      toast.error(message);
       return;
     }
 
-    setDone(
-      `Added. New balance ₹${Number(data.balance ?? 0).toLocaleString("en-IN")}`
-    );
+    const doneMsg = `Added. New balance ₹${Number(data.balance ?? 0).toLocaleString("en-IN")}`;
+    setDone(doneMsg);
+    toast.success(doneMsg);
     setAmount("");
     setNote("");
 

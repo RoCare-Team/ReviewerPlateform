@@ -89,9 +89,10 @@ export default function Home() {
         <LogoMarquee />
         <Services />
         <Stats />
-        <PopularServices />
         <HowItProfits />
         {/* <Pricing /> */}
+        <PopularServices />
+
         <Testimonials />
         <Faq />
       </main>

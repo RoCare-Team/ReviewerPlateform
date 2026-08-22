@@ -4,9 +4,9 @@ import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
 import dbConnect from "../../../lib/db";
 import User from "../../../models/User";
-import Campaign from "../../../models/Campaign";
 import Submission from "../../../models/Submission";
 import { getSettings, inr } from "../../../lib/settings";
+import { getAvailableCampaignsForReviewer } from "../../../lib/reviewerCampaigns";
 import OverviewStats from "../../../components/reviewer/OverviewStats";
 
 export const metadata = { title: "Your dashboard · RapportLook" };
@@ -17,37 +17,64 @@ export default async function ReviewerHomePage() {
   await dbConnect();
   const settings = await getSettings();
 
-  const [me, mySubs] = await Promise.all([
+  const [me, mySubs, available] = await Promise.all([
     User.findById(user.id).select("walletBalance").lean(),
     Submission.find({ reviewer: user.id }).select("campaign status").lean(),
+    // Same city/pacing/claimed-slots rules as /reviewer/campaigns — this used
+    // to be its own shortcut filter (collected-only, no city, no pacing) so
+    // the count here could say "4" while the actual list showed fewer/none.
+    getAvailableCampaignsForReviewer(user.id),
   ]);
 
   const approved = mySubs.filter((s) => s.status === "approved").length;
   const pending = mySubs.filter((s) => s.status === "pending").length;
   const rejected = mySubs.filter((s) => s.status === "rejected").length;
-
-  // Same "is it actually available" rule as /reviewer/campaigns: a rejected
-  // submission doesn't take a campaign off this count — it's still open for
-  // a resubmission.
-  const statusByCampaign = new Map(mySubs.map((s) => [String(s.campaign), s.status]));
-  const openCampaigns = await Campaign.find({ status: "active" }).select("collected targetReviews").lean();
-  const availableCount = openCampaigns.filter((c) => {
-    if ((c.collected ?? 0) >= c.targetReviews) return false;
-    const status = statusByCampaign.get(String(c._id));
-    return !status || status === "rejected";
-  }).length;
+  const availableCount = available.length;
 
   return (
     <div>
       <h1 className="text-2xl font-bold tracking-tight text-primary">
         Hi{user.name ? `, ${user.name}` : ""}
       </h1>
-      <p className="mt-2 text-secondary">
+      <p className="mt-2 hidden text-secondary sm:block">
         Earn {inr(settings.reviewerReward)} for every verified review. Rewards are for verified
         participation, never for positive ratings.
       </p>
 
-      {/* Overview: stat tiles + submission status breakdown */}
+      {/* Special CTA — the stat tile below still has the same number, but
+          this is the one thing on the page that actually wants a click:
+          a bold, standalone button instead of blending in as just another
+          tile. Only bothers rendering when there's actually something to
+          claim. */}
+      {availableCount > 0 && (
+        <Link
+          href="/reviewer/campaigns"
+          className="group relative mt-6 flex items-center gap-4 overflow-hidden rounded-card bg-accent p-5 text-on-brand shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-125"
+          />
+          <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 transition-transform duration-300 group-hover:scale-110">
+            <Megaphone className="h-6 w-6" aria-hidden="true" />
+          </span>
+          <div className="relative min-w-0 flex-1">
+            <p className="text-base font-bold">
+              {availableCount} campaign{availableCount === 1 ? "" : "s"} waiting for you
+            </p>
+            <p className="mt-0.5 text-sm text-on-brand/85">Book a slot now and start earning.</p>
+          </div>
+          <ArrowRight
+            className="relative h-5 w-5 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+            aria-hidden="true"
+          />
+        </Link>
+      )}
+
+      {/* Overview: stat tiles (Available campaigns leads, top-left) +
+          submission status breakdown. Used to be a separate banner further
+          down the page — now it's just the first tile here, same as every
+          other number on this page. */}
       <div className="mt-8">
         <OverviewStats
           walletBalance={me?.walletBalance ?? 0}
@@ -55,32 +82,9 @@ export default async function ReviewerHomePage() {
           approved={approved}
           pending={pending}
           rejected={rejected}
+          availableCount={availableCount}
         />
       </div>
-
-      {/* Available campaigns — its own dedicated page now, this is just the entry point */}
-      <Link
-        href="/reviewer/campaigns"
-        className="group mt-10 flex items-center justify-between gap-4 rounded-card border border-accent-border bg-accent-subtle p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
-      >
-        <div className="flex items-center gap-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent text-on-brand transition-transform duration-300 group-hover:scale-110">
-            <Megaphone className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <div>
-            <h2 className="text-base font-bold text-primary">Available campaigns</h2>
-            <p className="text-sm text-secondary">
-              {availableCount > 0
-                ? `${availableCount} campaign${availableCount === 1 ? "" : "s"} you can join right now.`
-                : "No campaigns available right now — check back soon."}
-            </p>
-          </div>
-        </div>
-        <ArrowRight
-          className="h-5 w-5 shrink-0 text-accent transition-transform duration-300 group-hover:translate-x-1"
-          aria-hidden="true"
-        />
-      </Link>
     </div>
   );
 }

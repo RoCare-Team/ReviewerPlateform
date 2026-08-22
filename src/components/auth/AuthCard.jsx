@@ -2,7 +2,7 @@ export default function AuthCard({ title, subtitle, children, footer }) {
   return (
     <div className="w-full max-w-md">
       <div className="rounded-2xl border border-default bg-surface-raised p-8 shadow-lg sm:p-10">
-        <h1 className="text-2xl font-extrabold tracking-tight text-primary sm:text-[1.75rem]">
+        <h1 className="text-2xl font-bold tracking-tight text-primary sm:text-[1.75rem]">
           {title}
         </h1>
         {subtitle ? <p className="mt-2 text-sm leading-relaxed text-secondary">{subtitle}</p> : null}

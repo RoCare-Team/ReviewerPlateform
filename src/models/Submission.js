@@ -28,6 +28,15 @@ const SubmissionSchema = new mongoose.Schema(
     aiConfidence: { type: Number, default: 0 }, // 0..1
     aiReason: { type: String, default: "" },
 
+    // Step 2: cross-check against the business's connected Google Business
+    // Profile (only runs when the campaign is linked to a GmbLocation).
+    // gmbChecked=false means the check didn't run at all (no linked location,
+    // or the business's Google account isn't connected) — not a failed check.
+    gmbChecked: { type: Boolean, default: false },
+    gmbMatched: { type: Boolean, default: false },
+    gmbReviewId: { type: String, default: "" },
+    gmbReason: { type: String, default: "" },
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
@@ -38,6 +47,20 @@ const SubmissionSchema = new mongoose.Schema(
     rejectionReason: { type: String, default: "" },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     reviewedAt: { type: Date, default: null },
+
+    // A reviewer's dispute of a final rejection — separate from resubmitting
+    // with a new screenshot (that's still available too, and better when
+    // there's genuinely new proof). An appeal is for "the same screenshot
+    // was right, please have a human look again" — no new upload involved.
+    // "pending" surfaces it to admins (VerificationQueue); "resolved" once
+    // an admin has acted on it, either by approving anyway (see
+    // api/admin/submissions/[id]) or by explicitly dismissing the appeal
+    // with a response the reviewer can see.
+    appealStatus: { type: String, enum: ["none", "pending", "resolved"], default: "none", index: true },
+    appealMessage: { type: String, trim: true, default: "" },
+    appealedAt: { type: Date, default: null },
+    appealResponse: { type: String, trim: true, default: "" },
+    appealResolvedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
