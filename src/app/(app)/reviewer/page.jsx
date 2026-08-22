@@ -49,23 +49,23 @@ export default async function ReviewerHomePage() {
       {availableCount > 0 && (
         <Link
           href="/reviewer/campaigns"
-          className="group relative mt-6 flex items-center gap-4 overflow-hidden rounded-card bg-accent p-5 text-on-brand shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+          className="group relative mt-6 flex items-center gap-3 overflow-hidden rounded-card bg-accent p-4 text-on-brand shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl sm:gap-4 sm:p-5"
         >
           <div
             aria-hidden="true"
             className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 transition-transform duration-500 group-hover:scale-125"
           />
-          <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 transition-transform duration-300 group-hover:scale-110">
-            <Megaphone className="h-6 w-6" aria-hidden="true" />
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 transition-transform duration-300 group-hover:scale-110 sm:h-12 sm:w-12 sm:rounded-2xl">
+            <Megaphone className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
           </span>
           <div className="relative min-w-0 flex-1">
-            <p className="text-base font-bold">
+            <p className="text-sm font-bold leading-snug sm:text-base">
               {availableCount} campaign{availableCount === 1 ? "" : "s"} waiting for you
             </p>
-            <p className="mt-0.5 text-sm text-on-brand/85">Book a slot now and start earning.</p>
+            <p className="mt-0.5 text-xs text-on-brand/85 sm:text-sm">Book a slot now and start earning.</p>
           </div>
           <ArrowRight
-            className="relative h-5 w-5 shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+            className="relative h-4 w-4 shrink-0 transition-transform duration-300 group-hover:translate-x-1 sm:h-5 sm:w-5"
             aria-hidden="true"
           />
         </Link>

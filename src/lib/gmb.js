@@ -103,6 +103,31 @@ export async function exchangeCodeForTokens(code) {
   return res.json(); // { access_token, refresh_token, expires_in, scope, id_token }
 }
 
+/**
+ * Exchange a native Google Sign-In SDK "server auth code" (Android/iOS —
+ * GoogleSignInOptions.requestServerAuthCode / GIDSignIn serverClientID) for
+ * tokens. Same token endpoint and client credentials as the web flow, but
+ * NO redirect_uri: the mobile SDK never redirects anywhere, so Google
+ * rejects the exchange if one is sent (must match what was used to obtain
+ * the code, which for the offline-access mobile flow is none). Used by
+ * api/business/gmb/mobile/connect — keep exchangeCodeForTokens() (above)
+ * for the web OAuth redirect flow only.
+ */
+export async function exchangeServerAuthCodeForTokens(serverAuthCode) {
+  const res = await fetch(TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      code: serverAuthCode,
+      client_id: process.env.GMB_CLIENT_ID,
+      client_secret: process.env.GMB_CLIENT_SECRET,
+      grant_type: "authorization_code",
+    }),
+  });
+  if (!res.ok) throw new Error(`Token exchange failed: ${res.status} ${await res.text()}`);
+  return res.json(); // { access_token, refresh_token, expires_in, scope, id_token }
+}
+
 export async function refreshAccessToken(refreshToken) {
   const res = await fetch(TOKEN_ENDPOINT, {
     method: "POST",
