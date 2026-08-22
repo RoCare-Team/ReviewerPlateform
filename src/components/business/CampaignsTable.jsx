@@ -128,7 +128,12 @@ export default function CampaignsTable({ campaigns, locations = [], walletBalanc
                           </span>
                         </p>
                       )}
-                      {!c.locationTitle && !(c.cities?.length > 0) && <span className="text-xs text-muted">—</span>}
+                      {!(c.cities?.length > 0) && (
+                        <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted">
+                          <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          All India
+                        </p>
+                      )}
                     </td>
 
                     <td className="px-5 py-4">

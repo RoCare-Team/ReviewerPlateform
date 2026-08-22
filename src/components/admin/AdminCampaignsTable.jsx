@@ -84,6 +84,7 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
           <thead className="border-b border-default bg-surface-sunken text-left text-xs uppercase tracking-wide text-muted">
             <tr>
               <th className="px-5 py-3 font-semibold">Campaign</th>
+              <th className="px-5 py-3 font-semibold">Location</th>
               <th className="px-5 py-3 font-semibold">Owner</th>
               <th className="px-5 py-3 font-semibold">Status</th>
               <th className="px-5 py-3 font-semibold">Budget</th>
@@ -127,6 +128,16 @@ export default function AdminCampaignsTable({ campaigns, globalReward }) {
                       {c.notes && <p className="mt-1 truncate text-xs text-secondary" title={c.notes}>{c.notes}</p>}
                     </div>
                   </div>
+                </td>
+
+                <td className="max-w-40 px-5 py-4">
+                  {c.cities?.length > 0 ? (
+                    <p className="truncate text-secondary" title={c.cities.join(", ")}>
+                      {c.cities.length === 1 ? c.cities[0] : `${c.cities[0]} +${c.cities.length - 1} more`}
+                    </p>
+                  ) : (
+                    <span className="text-xs text-muted">—</span>
+                  )}
                 </td>
 
                 <td className="max-w-40 px-5 py-4">
