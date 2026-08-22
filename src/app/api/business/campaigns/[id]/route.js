@@ -26,12 +26,25 @@ import { canonicalizeCity } from "../../../../../lib/campaigns";
  *    campaign creation debits it (see api/business/campaigns/route.js). A
  *    reduction can never drop targetReviews below what's already been
  *    `collected`, and an increase can never exceed the wallet balance.
+ *    `reviewDrafts`, if sent, REPLACES the campaign's UNASSIGNED
+ *    review-draft pool only — any entry already claimed by a reviewer
+ *    (assignedTo set) is left exactly as-is, never touched by this route.
+ *    Same optional-field shape as creation (EditCampaignModal.jsx), letting
+ *    the owner add a first batch of AI-drafted reviews to a campaign that
+ *    never had any, not just edit ones that already exist.
  *    Deliberately still NOT editable: ratePerReview (admin-controlled),
  *    platform (reviewer-side matching differs per platform), reviewerReward
  *    (admin-only), status (has its own action above), and collected/claimed
  *    (driven by reviewer activity). Blocked entirely once "completed".
  */
 const toggleSchema = z.object({ action: z.enum(["pause", "activate"]) }).strict();
+// Same shape as api/business/campaigns/route.js's reviewDraftSchema — kept
+// as its own copy rather than a shared import since the two routes' schemas
+// are otherwise independent and this is small.
+const reviewDraftSchema = z.union([
+  z.string().trim().min(1).max(1000),
+  z.object({ text: z.string().trim().min(1).max(1000), keyword: z.string().trim().max(100).optional().default("") }),
+]);
 const editSchema = z
   .object({
     action: z.literal("edit"),
@@ -43,9 +56,17 @@ const editSchema = z
     cities: z.array(z.string().trim().min(1).max(120)).max(20).optional().default([]),
     reviews: z.number().int().min(1).max(1_000_000),
     locationId: z.string().trim().optional().default(""),
+    // Optional — omitted entirely means "leave the draft pool as-is" (see
+    // editCampaign() below); sent as `[]` explicitly clears the unassigned
+    // pool down to nothing.
+    reviewDrafts: z.array(reviewDraftSchema).max(200).optional(),
   })
   .strict();
 const schema = z.union([toggleSchema, editSchema]);
+
+function normalizeDrafts(drafts) {
+  return (drafts ?? []).map((d) => (typeof d === "string" ? { text: d, keyword: "" } : d));
+}
 
 export async function PATCH(request, { params }) {
   const { user, response } = await apiRequirePermission("campaign:update");
@@ -84,7 +105,7 @@ export async function PATCH(request, { params }) {
 }
 
 async function editCampaign(id, user, data) {
-  const { name, notes, targetUrl, cities, reviews, locationId } = data;
+  const { name, notes, targetUrl, cities, reviews, locationId, reviewDrafts } = data;
 
   const existing = await Campaign.findOne({ _id: id, user: user.id, status: { $ne: "completed" } });
   if (!existing) {
@@ -148,6 +169,18 @@ async function editCampaign(id, user, data) {
   existing.city = "";
   existing.targetReviews = reviews;
   existing.budget = newBudget;
+
+  // Omitted entirely → leave the pool untouched. Sent (even as `[]`) →
+  // replace the UNASSIGNED portion only; anything already assigned to a
+  // reviewer's live claim stays exactly where it is, unedited and
+  // unremoved — see this route's docblock and EditCampaignModal.jsx's
+  // initialKeywords().
+  if (reviewDrafts !== undefined) {
+    const assigned = existing.reviewDrafts.filter((d) => d.assignedTo);
+    const fresh = normalizeDrafts(reviewDrafts).map((d) => ({ ...d, assignedTo: null, assignedAt: null }));
+    existing.reviewDrafts = [...assigned, ...fresh];
+  }
+
   if (locationDoc) {
     existing.location = locationDoc._id;
     // Re-snapshot — see models/Campaign.js's businessName/businessCategory.

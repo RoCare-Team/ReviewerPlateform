@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Globe2, IndianRupee, Link2, MapPinned, Pencil, Star, Tag, Target, Wallet, X } from "lucide-react";
+import { Check, CheckCircle2, Globe2, IndianRupee, Link2, MapPinned, Pencil, Sparkles, Star, Tag, Target, Trash2, Wallet, X } from "lucide-react";
 import { Label, Input, FormError } from "../auth/Field";
 import CityMultiSelect from "../business/CityMultiSelect";
 import { inr, campaignCities } from "../../lib/campaigns";
@@ -57,14 +57,143 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
 
   const [values, setValues] = useState(initialValues);
   const [pending, setPending] = useState(false);
+
+  // Reviews for reviewers to copy — same AI keyword→review pipeline as
+  // NewCampaignModal's single-campaign mode, just seeded from whatever this
+  // campaign already has instead of starting empty. `campaign.reviewDrafts`
+  // (see business/campaigns/page.jsx) already carries `assigned` per entry —
+  // an assigned one is already in a reviewer's hands mid-claim, so it's left
+  // out of this editable list entirely and never touched by saving here
+  // (see the server route's editCampaign()). Note the field-name swap:
+  // Campaign.reviewDrafts stores { text: <the review>, keyword: <the search
+  // phrase> }, while this list (matching NewCampaignModal's own shape) uses
+  // { text: <the search phrase>, review: <the review text> }.
+  function initialKeywords() {
+    return (campaign.reviewDrafts ?? [])
+      .filter((d) => !d.assigned)
+      .map((d) => ({ text: d.keyword || "", review: d.text, selected: true }));
+  }
+  const assignedDraftCount = (campaign.reviewDrafts ?? []).filter((d) => d.assigned).length;
+
+  const [keywords, setKeywords] = useState(initialKeywords);
+  const [keywordsPending, setKeywordsPending] = useState(false);
+  const [draftsPending, setDraftsPending] = useState(false);
+  const [regeneratingOne, setRegeneratingOne] = useState({});
+  const [editingKeyword, setEditingKeyword] = useState({});
   const [error, setError] = useState("");
 
   const reviewsNum = Number(values.reviews) || 0;
   const newBudget = reviewsNum * rate;
   const overBudget = reviewsNum > maxReviews;
 
+  // Steers the AI toward business-relevant local-search phrasing — same
+  // lookup NewCampaignModal does off the currently-selected location.
+  const suggestCategory = locations.find((l) => l.id === values.locationId)?.category || "";
+
   function set(key) {
     return (e) => setValues((v) => ({ ...v, [key]: e.target.value }));
+  }
+
+  // Step 1 — keywords only, same two-step flow as NewCampaignModal (see its
+  // docblock on suggestKeywords for why review text is a separate click).
+  async function suggestKeywords() {
+    if (reviewsNum < 1) {
+      toast.error("Set the target review count first.");
+      return;
+    }
+    setKeywordsPending(true);
+    const res = await fetch("/api/business/campaigns/suggest-keywords", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: values.name.trim(), category: suggestCategory, count: Math.min(reviewsNum, 50) }),
+    });
+    setKeywordsPending(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't generate keywords.");
+      return;
+    }
+    const kw = data.keywords.map((text) => ({ text, selected: true }));
+    setKeywords(kw);
+  }
+
+  function toggleKeyword(i) {
+    setKeywords((list) => list.map((k, idx) => (idx === i ? { ...k, selected: !k.selected } : k)));
+  }
+
+  function updateKeyword(i, text) {
+    setKeywords((list) => list.map((k, idx) => (idx === i ? { ...k, text } : k)));
+  }
+
+  function removeKeyword(i) {
+    setKeywords((list) => list.filter((_, idx) => idx !== i));
+  }
+
+  function updateKeywordReview(i, text) {
+    setKeywords((list) => list.map((k, idx) => (idx === i ? { ...k, review: text } : k)));
+  }
+
+  async function generateReviewsFromKeywords(fromList) {
+    const source = fromList ?? keywords;
+    const chosen = source.filter((k) => k.selected && k.text.trim());
+    if (chosen.length === 0) {
+      toast.error("Select at least one keyword first.");
+      return;
+    }
+    setDraftsPending(true);
+    const res = await fetch("/api/business/campaigns/suggest-reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: values.name.trim(),
+        platform: campaign.platform,
+        notes: values.notes.trim(),
+        category: suggestCategory,
+        keywords: chosen.map((k) => k.text.trim()),
+      }),
+    });
+    setDraftsPending(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't generate reviews.");
+      return;
+    }
+    if (!Array.isArray(data.reviews) || data.reviews.length === 0) {
+      toast.error("The AI didn't return any reviews — try again.");
+      return;
+    }
+    if (data.reviews.length < chosen.length) {
+      toast.error(`Only ${data.reviews.length} of ${chosen.length} reviews came back — regenerate the rest individually.`);
+    }
+    const reviewByText = new Map(chosen.map((k, i) => [k.text.trim(), data.reviews[i] ?? ""]));
+    setKeywords((list) => list.map((k) => (reviewByText.has(k.text.trim()) ? { ...k, review: reviewByText.get(k.text.trim()) } : k)));
+  }
+
+  async function regenerateOneReview(i) {
+    const k = keywords[i];
+    if (!k?.text.trim()) {
+      toast.error("Add keyword text first.");
+      return;
+    }
+    setRegeneratingOne((p) => ({ ...p, [i]: true }));
+    const res = await fetch("/api/business/campaigns/suggest-reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: values.name.trim(),
+        platform: campaign.platform,
+        notes: values.notes.trim(),
+        category: suggestCategory,
+        keywords: [k.text.trim()],
+      }),
+    });
+    setRegeneratingOne((p) => ({ ...p, [i]: false }));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(data.error ?? "Couldn't regenerate that review.");
+      return;
+    }
+    updateKeywordReview(i, data.reviews[0] ?? "");
   }
 
   function setReviews(e) {
@@ -104,6 +233,7 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
     // Reset to the campaign's current values each time it's opened, in case
     // a previous edit (or another tab) changed them since this component mounted.
     setValues(initialValues());
+    setKeywords(initialKeywords());
     setError("");
     setOpen(true);
   }
@@ -153,6 +283,13 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
         cities: values.cityMode === "all_india" ? [] : values.cities,
         reviews: Math.floor(reviewsNum),
         locationId: values.locationId || "",
+        // The UNASSIGNED pool only — already-assigned drafts (a reviewer's
+        // mid-claim) are left untouched server-side regardless of what's
+        // sent here. See initialKeywords()'s docblock and editCampaign()'s
+        // handling of this field.
+        reviewDrafts: keywords
+          .filter((k) => k.selected && k.review?.trim())
+          .map((k) => ({ text: k.review.trim(), keyword: k.text?.trim() || undefined })),
       }),
     });
     setPending(false);
@@ -341,6 +478,155 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
                       {inr(campaign.ratePerReview)}/review
                     </span>
                   </p>
+                </div>
+
+                {/* Reviews for reviewers to copy — same AI keyword→review
+                    flow as NewCampaignModal. Editable here too, and works
+                    the same whether the campaign already has some, or none
+                    at all yet (nothing stops adding a fresh batch now). */}
+                <div className="rounded-card border border-default bg-surface p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-primary">Reviews for reviewers to copy (optional)</p>
+                      <p className="mt-0.5 text-xs text-muted">
+                        Two steps: generate {reviewsNum || "N"} search-phrase keywords first, review/edit them, then click
+                        &quot;Generate reviews&quot; below to write the actual review text for each one.
+                        {assignedDraftCount > 0 && (
+                          <>
+                            {" "}
+                            {assignedDraftCount} already assigned to a reviewer — those stay untouched.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={suggestKeywords}
+                      disabled={keywordsPending || draftsPending || reviewsNum < 1}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-btn border border-accent bg-accent-subtle px-3 py-1.5 text-xs font-semibold text-accent transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                      {keywordsPending ? "Finding keywords…" : draftsPending ? "Writing reviews…" : keywords.length > 0 ? "Regenerate" : "Suggest with AI"}
+                    </button>
+                  </div>
+
+                  {keywords.length > 0 && (
+                    <>
+                      <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
+                        <span className="inline-flex items-center gap-1"><span className="font-semibold text-primary">✓</span> tick = include this review</span>
+                        <span className="inline-flex items-center gap-1"><Pencil className="h-3 w-3" aria-hidden="true" /> = edit the search phrase</span>
+                        <span className="inline-flex items-center gap-1"><Sparkles className="h-3 w-3" aria-hidden="true" /> = rewrite just this one</span>
+                        <span className="inline-flex items-center gap-1"><Trash2 className="h-3 w-3" aria-hidden="true" /> = discard this one</span>
+                      </p>
+                      <ul className="mt-2 space-y-2">
+                        {keywords.map((k, i) => {
+                          const busy = regeneratingOne[i];
+                          return (
+                            <li key={i} className="rounded-xl border border-default bg-surface-sunken p-2">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={k.selected}
+                                  onChange={() => toggleKeyword(i)}
+                                  className="h-4 w-4 shrink-0 rounded border-default accent-accent"
+                                  aria-label={`Include review #${i + 1}`}
+                                  title="Untick to leave this one out of the campaign"
+                                />
+                                <div className="w-full flex-1">
+                                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted">
+                                    Search phrase
+                                  </span>
+                                  <input
+                                    type="text"
+                                    value={k.text}
+                                    onChange={(e) => updateKeyword(i, e.target.value)}
+                                    readOnly={!editingKeyword[i]}
+                                    maxLength={100}
+                                    title="What the reviewer searched for — the review below is written around this phrase"
+                                    className={`mt-0.5 w-full rounded-btn border border-default px-2.5 py-1.5 text-xs outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50 ${
+                                      editingKeyword[i] ? "bg-surface" : "cursor-default bg-surface-sunken"
+                                    } ${k.selected ? "text-primary" : "text-muted line-through"}`}
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingKeyword((prev) => ({ ...prev, [i]: !prev[i] }))}
+                                  aria-label={editingKeyword[i] ? "Save this search phrase" : "Edit this search phrase"}
+                                  title={editingKeyword[i] ? "Save this search phrase" : "Edit this search phrase"}
+                                  className={`shrink-0 self-end rounded-full p-1.5 transition-all duration-200 ${
+                                    editingKeyword[i]
+                                      ? "bg-verified text-white hover:opacity-90"
+                                      : "text-muted hover:bg-accent-subtle hover:text-accent"
+                                  }`}
+                                >
+                                  {editingKeyword[i] ? (
+                                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                                  ) : (
+                                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeKeyword(i)}
+                                  aria-label="Discard this review"
+                                  title="Discard this review"
+                                  className="shrink-0 self-end rounded-full p-1.5 text-muted transition-all duration-200 hover:bg-danger-subtle hover:text-danger"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                </button>
+                              </div>
+
+                              {k.review !== undefined && (
+                                <div className="mt-1.5 flex items-start gap-2 border-t border-default pt-1.5">
+                                  <div className="w-full flex-1">
+                                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted">
+                                      Review text — reviewers copy this
+                                    </span>
+                                    <textarea
+                                      rows={2}
+                                      value={k.review}
+                                      onChange={(e) => updateKeywordReview(i, e.target.value)}
+                                      maxLength={1000}
+                                      className="mt-0.5 w-full resize-none rounded-xl border border-default bg-surface px-3 py-2 text-xs text-primary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => regenerateOneReview(i)}
+                                    disabled={busy}
+                                    aria-label="Regenerate this review"
+                                    title="Rewrite just this review — leaves every other review untouched"
+                                    className="shrink-0 self-end rounded-full border border-accent bg-accent-subtle p-1.5 text-accent transition-all duration-200 hover:bg-accent hover:text-on-brand disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    <Sparkles className={`h-3.5 w-3.5 ${busy ? "animate-pulse" : ""}`} aria-hidden="true" />
+                                  </button>
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      <button
+                        type="button"
+                        onClick={() => generateReviewsFromKeywords()}
+                        disabled={draftsPending || keywords.filter((k) => k.selected).length === 0}
+                        title={
+                          keywords.some((k) => k.review !== undefined)
+                            ? "Rewrites every ticked review above at once — an unticked one is skipped and kept as-is"
+                            : "Writes a full review for each ticked keyword above"
+                        }
+                        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-btn bg-accent px-3 py-2 text-xs font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                        {draftsPending
+                          ? "Writing reviews…"
+                          : keywords.some((k) => k.review !== undefined)
+                            ? `Rewrite all ${keywords.filter((k) => k.selected).length} ticked reviews`
+                            : `Generate ${keywords.filter((k) => k.selected).length} review${keywords.filter((k) => k.selected).length === 1 ? "" : "s"}`}
+                      </button>
+                    </>
+                  )}
                 </div>
 
                 <div>
