@@ -5,7 +5,7 @@ import GmbLocation from "../../../../../../models/GmbLocation";
 import { apiRequirePermission } from "../../../../../../lib/auth/guards";
 import {
   isConfigured,
-  exchangeServerAuthCodeForTokens,
+  exchangeAuthCodeForTokens,
   getUserInfo,
   listAccounts,
   listLocations,
@@ -17,16 +17,16 @@ import {
  * browser redirect through Google's consent screen back to a fixed
  * redirect_uri; a phone app has no such redirect — its native Google
  * Sign-In SDK (Android GoogleSignInOptions.requestServerAuthCode /
- * iOS GIDSignIn serverClientID) gets a one-time "server auth code" and
- * hands it to the app, which POSTs it here as plain JSON. Everything after
- * the token exchange (store connection, pull accounts/locations) is
- * identical to the web callback — kept in sync manually since one is a
- * redirect handler and the other a JSON API and they can't share a route.
+ * iOS GIDSignIn serverClientID) gets a one-time auth code and hands it to
+ * the app, which POSTs it here as plain JSON. Everything after the token
+ * exchange (store connection, pull accounts/locations) is identical to the
+ * web callback — kept in sync manually since one is a redirect handler and
+ * the other a JSON API and they can't share a route.
  *
- * Body: { serverAuthCode }
+ * Body: { authCode }
  * Response: { ok, connectionId, googleEmail, locations: [...] }
  */
-const schema = z.object({ serverAuthCode: z.string().min(1) }).strict();
+const schema = z.object({ authCode: z.string().min(1) }).strict();
 
 export async function POST(request) {
   const { user, response } = await apiRequirePermission("connection:google:manage");
@@ -45,7 +45,7 @@ export async function POST(request) {
   let tokens;
   let info;
   try {
-    tokens = await exchangeServerAuthCodeForTokens(parsed.data.serverAuthCode);
+    tokens = await exchangeAuthCodeForTokens(parsed.data.authCode);
     info = await getUserInfo(tokens.access_token);
   } catch (e) {
     return Response.json({ error: String(e.message).slice(0, 200) }, { status: 400 });

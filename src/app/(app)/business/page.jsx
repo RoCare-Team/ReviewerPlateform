@@ -183,8 +183,8 @@ export default async function BusinessOverviewPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Google Business Profile */}
         <div className="rounded-card border border-accent-border bg-accent-subtle p-4 shadow-sm sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3 sm:flex-1 sm:gap-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-default bg-surface shadow-sm sm:h-12 sm:w-12">
                 <Image src="/img/google.png" alt="Google" width={28} height={28} className="h-6 w-6 object-contain sm:h-7 sm:w-7" />
               </span>
@@ -217,11 +217,11 @@ export default async function BusinessOverviewPage() {
                 )}
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex items-center gap-2 sm:shrink-0">
               {gmbConnected ? (
                 <Link
                   href="/business/connections"
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-btn border border-strong bg-surface px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-btn border border-strong bg-surface px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken sm:w-auto sm:shrink-0"
                 >
                   Manage connections
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -231,7 +231,7 @@ export default async function BusinessOverviewPage() {
                 // eslint-disable-next-line @next/next/no-html-link-for-pages
                 <a
                   href="/api/business/gmb/connect"
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover sm:w-auto sm:shrink-0"
                 >
                   <RefreshCw className="h-4 w-4" aria-hidden="true" />
                   Connect Google Business Profile
@@ -243,8 +243,8 @@ export default async function BusinessOverviewPage() {
 
         {/* Play Store */}
         <div className="rounded-card border border-accent-border bg-accent-subtle p-4 shadow-sm sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3 sm:flex-1 sm:gap-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-default bg-surface shadow-sm sm:h-12 sm:w-12">
                 <Image src="/google-play.png" alt="Play Store" width={28} height={28} className="h-6 w-6 object-contain sm:h-7 sm:w-7" />
               </span>
@@ -277,11 +277,11 @@ export default async function BusinessOverviewPage() {
                 )}
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex items-center gap-2 sm:shrink-0">
               {psConnected ? (
                 <Link
                   href="/business/connections"
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-btn border border-strong bg-surface px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-btn border border-strong bg-surface px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken sm:w-auto sm:shrink-0"
                 >
                   Manage connections
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -291,7 +291,7 @@ export default async function BusinessOverviewPage() {
                 // eslint-disable-next-line @next/next/no-html-link-for-pages
                 <a
                   href="/api/business/playstore/connect"
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover sm:w-auto sm:shrink-0"
                 >
                   <RefreshCw className="h-4 w-4" aria-hidden="true" />
                   Connect Play Store
