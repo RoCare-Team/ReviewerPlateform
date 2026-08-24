@@ -1,0 +1,53 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { RefreshCw } from "lucide-react";
+import { toast } from "../../lib/toast";
+
+/**
+ * Triggers a live fetch of reviews from the Play Store for every connected
+ * account, then refreshes the page. Mirrors SyncReviewsButton.jsx (GMB) but
+ * calls /api/business/playstore/sync (one call per connection).
+ */
+export default function PlayStoreSyncButton({ connectionIds }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  async function syncAll() {
+    setBusy(true);
+    let synced = 0;
+    const errors = [];
+
+    for (const id of connectionIds) {
+      const res = await fetch("/api/business/playstore/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId: id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) errors.push(data.error ?? "Sync failed");
+      else {
+        synced += data.synced ?? 0;
+        if (data.errors?.length) errors.push(...data.errors);
+      }
+    }
+
+    setBusy(false);
+    if (errors.length) toast.error(`Synced ${synced} review(s). ${errors.length} issue(s): ${errors[0]}`);
+    else toast.success(`Synced ${synced} review(s).`);
+    router.refresh();
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={syncAll}
+      disabled={busy}
+      className="inline-flex items-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover disabled:opacity-60"
+    >
+      <RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} aria-hidden="true" />
+      {busy ? "Syncing…" : "Sync reviews"}
+    </button>
+  );
+}

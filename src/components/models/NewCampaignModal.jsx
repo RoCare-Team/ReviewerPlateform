@@ -14,6 +14,7 @@ import {
   MessageSquareText,
   Pencil,
   Plus,
+  Smartphone,
   Sparkles,
   Star,
   Tag,
@@ -62,7 +63,7 @@ function formatPacingGap(count, days) {
  * wallet debit. Any other platform, or no connected locations at all, falls
  * back to the original single review-URL / single-count form.
  */
-export default function NewCampaignModal({ walletBalance, locations = [], rate = 100 }) {
+export default function NewCampaignModal({ walletBalance, locations = [], playStoreApps = [], rate = 100 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   // "All India" vs "Preferred city" — a campaign defaults to open-to-everyone
@@ -79,6 +80,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     reviews: "",
     notes: "",
     locationId: "",
+    playStoreAppId: "",
     targetUrl: "",
     cities: [],
     cityMode: "all_india",
@@ -172,6 +174,11 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     values.platform === "google" &&
     Boolean(selectedLocation?.reviewUrl) &&
     values.targetUrl === selectedLocation.reviewUrl;
+  const selectedPsApp = playStoreApps.find((a) => a.id === values.playStoreAppId);
+  const autoFilledPsUrl =
+    values.platform === "playstore" &&
+    Boolean(selectedPsApp?.reviewUrl) &&
+    values.targetUrl === selectedPsApp.reviewUrl;
 
   const rowsTotal = rows.reduce((sum, r) => sum + (Number(r.reviews) || 0) * rate, 0);
   const rowsOverBudget = rowsTotal > walletBalance;
@@ -200,6 +207,13 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         // any other platform, or a location with no saved link, leaves the
         // field as-is so the owner can paste one manually.
         if (key === "platform" || key === "locationId") {
+          // The location picker only shows for Google — switching to any
+          // other platform must drop a stale locationId, or submit would
+          // silently tag a Trustpilot/Capterra/etc. campaign with a GMB
+          // location that isn't even shown on screen anymore.
+          if (key === "platform" && next.platform !== "google") {
+            next.locationId = "";
+          }
           const loc = locations.find((l) => l.id === next.locationId);
           if (next.platform === "google" && loc?.reviewUrl) {
             next.targetUrl = loc.reviewUrl;
@@ -212,6 +226,20 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
           const citiesUntouched = next.cities.length === 0 || (next.cities.length === 1 && next.cities[0] === prevLoc?.city);
           if (key === "locationId" && citiesUntouched && loc?.city) {
             next.cities = [loc.city];
+          }
+        }
+
+        // Play Store: no per-app "write a review" link like GMB's
+        // newReviewUri — the app's own Play Store page is what's synced (see
+        // page.jsx), so picking a tracked app auto-fills THAT as the review
+        // URL. Switching away from Play Store drops the stale selection.
+        if (key === "platform" || key === "playStoreAppId") {
+          if (key === "platform" && next.platform !== "playstore") {
+            next.playStoreAppId = "";
+          }
+          const app = playStoreApps.find((a) => a.id === next.playStoreAppId);
+          if (next.platform === "playstore" && app?.reviewUrl) {
+            next.targetUrl = app.reviewUrl;
           }
         }
 
@@ -725,6 +753,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
         cities: values.cityMode === "all_india" ? [] : values.cities,
         allIndia: values.cityMode === "all_india",
         locationId: values.locationId || undefined,
+        playStoreAppId: values.playStoreAppId || undefined,
         reviewDrafts: keywords
           .filter((k) => k.selected && k.review?.trim())
           .map((k) => ({ text: k.review.trim(), keyword: k.text?.trim() || undefined })),
@@ -756,7 +785,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
     }
 
     toast.success(multiMode && body.locations.length > 1 ? `${body.locations.length} campaigns created.` : "Campaign created.");
-    setValues({ name: "", platform: "google", reviews: "", notes: "", locationId: "", targetUrl: "", cities: [], cityMode: "all_india" });
+    setValues({ name: "", platform: "google", reviews: "", notes: "", locationId: "", playStoreAppId: "", targetUrl: "", cities: [], cityMode: "all_india" });
     setRows(
       locations.length > 0
         ? [
@@ -1369,7 +1398,10 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                   </div>
                 ) : (
                   <>
-                    {locations.length > 0 && (
+                    {/* Location picker is GMB-specific — these are synced Google
+                        Business Profile locations with their own review link,
+                        meaningless for any other platform. */}
+                    {locations.length > 0 && values.platform === "google" && (
                       <div>
                         <Label htmlFor="c-loc">Location (optional)</Label>
                         <div className="group relative">
@@ -1383,6 +1415,34 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                               <option key={l.id} value={l.id}>
                                 {l.title}
                                 {l.areaLabel ? ` — ${l.areaLabel}` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* App picker is Play Store-specific — mirrors the Google
+                        location picker above, but for tracked androidpublisher
+                        apps (see api/business/playstore). */}
+                    {playStoreApps.length > 0 && values.platform === "playstore" && (
+                      <div>
+                        <Label htmlFor="c-ps-app">App</Label>
+                        <div className="group relative">
+                          <Smartphone
+                            className="pointer-events-none absolute left-3 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-muted transition-colors duration-200 group-focus-within:text-accent"
+                            aria-hidden="true"
+                          />
+                          <select
+                            id="c-ps-app"
+                            value={values.playStoreAppId}
+                            onChange={set("playStoreAppId")}
+                            className={selectClass}
+                          >
+                            <option value="">Choose an app…</option>
+                            {playStoreApps.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.label}
                               </option>
                             ))}
                           </select>
@@ -1405,6 +1465,11 @@ export default function NewCampaignModal({ walletBalance, locations = [], rate =
                         <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-verified">
                           <Sparkles className="h-3 w-3" aria-hidden="true" />
                           Auto-filled from your connected Google location — edit it if this isn&apos;t right.
+                        </p>
+                      ) : autoFilledPsUrl ? (
+                        <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-verified">
+                          <Sparkles className="h-3 w-3" aria-hidden="true" />
+                          Auto-filled from your connected Play Store app — edit it if this isn&apos;t right.
                         </p>
                       ) : (
                         <p className="mt-1.5 text-xs text-muted">The link where reviewers should leave their review (e.g. your Google review link).</p>

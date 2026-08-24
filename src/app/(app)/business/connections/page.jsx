@@ -6,6 +6,12 @@ import GmbConnection from "../../../../models/GmbConnection";
 import GmbLocation from "../../../../models/GmbLocation";
 import { isConfigured } from "../../../../lib/gmb";
 import GmbConnections from "../../../../components/business/GmbConnections";
+import PlayStoreConnection from "../../../../models/PlayStoreConnection";
+import PlayStoreApp from "../../../../models/PlayStoreApp";
+import PlayStoreReview from "../../../../models/PlayStoreReview";
+import { isConfigured as playStoreConfigured } from "../../../../lib/playstore";
+import PlayStoreConnections from "../../../../components/business/PlayStoreConnections";
+import ReviewsTabs from "../../../../components/business/ReviewsTabs";
 
 export const metadata = { title: "Connections · RapportLook Business" };
 
@@ -14,6 +20,14 @@ const STATUS_MESSAGES = {
   denied: { tone: "error", text: "You cancelled the Google connection." },
   invalid_state: { tone: "error", text: "The connection request expired. Please try again." },
   not_configured: { tone: "error", text: "GMB is not configured on the server (missing client id/secret)." },
+  error: { tone: "error", text: "Couldn't complete the connection. Please try again." },
+};
+
+const PLAYSTORE_STATUS_MESSAGES = {
+  connected: { tone: "ok", text: "Play Store account connected." },
+  denied: { tone: "error", text: "You cancelled the Google connection." },
+  invalid_state: { tone: "error", text: "The connection request expired. Please try again." },
+  not_configured: { tone: "error", text: "Play Store is not configured on the server (missing client id/secret)." },
   error: { tone: "error", text: "Couldn't complete the connection. Please try again." },
 };
 
@@ -27,6 +41,7 @@ export default async function BusinessConnectionsPage({ searchParams }) {
   const user = await requireRole(ROLES.BUSINESS_OWNER);
   const params = await searchParams;
   const notice = STATUS_MESSAGES[params?.gmb] ?? null;
+  const playStoreNotice = PLAYSTORE_STATUS_MESSAGES[params?.playstore] ?? null;
 
   await dbConnect();
   const conns = await GmbConnection.find({ user: user.id }).sort({ createdAt: -1 }).lean();
@@ -51,12 +66,46 @@ export default async function BusinessConnectionsPage({ searchParams }) {
       })),
   }));
 
-  return (
+  const psConns = await PlayStoreConnection.find({ user: user.id }).sort({ createdAt: -1 }).lean();
+  const psApps = await PlayStoreApp.find({ connection: { $in: psConns.map((c) => c._id) } }).lean();
+  const psReviews = await PlayStoreReview.find({ app: { $in: psApps.map((a) => a._id) } })
+    .sort({ lastModified: -1 })
+    .limit(300)
+    .lean();
+
+  const playStoreConnections = psConns.map((c) => ({
+    id: String(c._id),
+    googleEmail: c.googleEmail,
+    status: c.status || "active",
+    lastError: c.lastError || "",
+    apps: psApps
+      .filter((a) => String(a.connection) === String(c._id))
+      .map((a) => ({
+        id: String(a._id),
+        packageName: a.packageName,
+        label: a.label,
+        reviewCount: a.reviewCount ?? 0,
+        averageRating: a.averageRating ?? 0,
+        lastSyncedAt: a.lastSyncedAt ? new Date(a.lastSyncedAt).toLocaleString("en-IN") : null,
+        reviews: psReviews
+          .filter((r) => String(r.app) === String(a._id))
+          .slice(0, 10)
+          .map((r) => ({
+            id: String(r._id),
+            authorName: r.authorName,
+            starRating: r.starRating ?? 0,
+            text: r.text,
+            appVersionName: r.appVersionName,
+            reply: r.reply,
+          })),
+      })),
+  }));
+
+  const gmbContent = (
     <div>
-      <h1 className="text-2xl font-bold tracking-tight text-primary">Connections</h1>
-      <p className="mt-2 text-secondary">
-        Connect your Google Business Profile to fetch and sync reviews. You can connect multiple
-        Google accounts, each with multiple locations.
+      <p className="text-secondary">
+        Connect your Google Business Profile to fetch and sync reviews. You can connect multiple Google accounts,
+        each with multiple locations.
       </p>
 
       {notice && (
@@ -78,12 +127,56 @@ export default async function BusinessConnectionsPage({ searchParams }) {
         </div>
       )}
 
-      {/* Google Business Profile */}
-      <div className="mt-8">
-        <h2 className="text-lg font-bold text-primary">Google Business Profile</h2>
-        <div className="mt-4">
-          <GmbConnections connections={connections} />
+      <div className="mt-6">
+        <GmbConnections connections={connections} />
+      </div>
+    </div>
+  );
+
+  const playStoreContent = (
+    <div>
+      <p className="text-secondary">
+        Connect the Google account that owns your app(s) in Play Console, then add each app&apos;s package name to
+        fetch and reply to its reviews.
+      </p>
+
+      {playStoreNotice && (
+        <div
+          className={`mt-6 rounded-btn border px-3 py-2 text-sm ${
+            playStoreNotice.tone === "ok"
+              ? "border-verified bg-verified-subtle text-verified"
+              : "border-danger bg-danger-subtle text-danger"
+          }`}
+        >
+          {playStoreNotice.text}
+          {params?.msg ? ` — ${params.msg}` : ""}
         </div>
+      )}
+
+      {!playStoreConfigured() && (
+        <div className="mt-6 rounded-btn border border-pending bg-pending-subtle px-3 py-2 text-sm text-primary">
+          Set <code>PLAYSTORE_CLIENT_ID</code> and <code>PLAYSTORE_CLIENT_SECRET</code> in <code>.env.local</code> to
+          enable the connection.
+        </div>
+      )}
+
+      <div className="mt-6">
+        <PlayStoreConnections connections={playStoreConnections} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold tracking-tight text-primary">Connections</h1>
+
+      <div className="mt-6">
+        <ReviewsTabs
+          tabs={[
+            { key: "gmb", label: "Google Business Profile", icon: "MapPin", count: connections.length, content: gmbContent },
+            { key: "playstore", label: "Play Store", icon: "Smartphone", count: playStoreConnections.length, content: playStoreContent },
+          ]}
+        />
       </div>
 
       {/* Coming soon */}

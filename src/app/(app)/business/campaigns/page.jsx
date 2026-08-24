@@ -5,6 +5,7 @@ import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import Campaign from "../../../../models/Campaign";
 import GmbLocation from "../../../../models/GmbLocation";
+import PlayStoreApp from "../../../../models/PlayStoreApp";
 import NewCampaignModal from "../../../../components/models/NewCampaignModal";
 import CampaignsTable from "../../../../components/business/CampaignsTable";
 import { inr, campaignCities, deriveCityFromAddress, deriveLocationLabel } from "../../../../lib/campaigns";
@@ -16,12 +17,23 @@ export default async function BusinessCampaignsPage() {
   const user = await requireRole(ROLES.BUSINESS_OWNER);
 
   await dbConnect();
-  const [me, campaigns, locs, settings] = await Promise.all([
+  const [me, campaigns, locs, psApps, settings] = await Promise.all([
     User.findById(user.id).select("walletBalance").lean(),
     Campaign.find({ user: user.id }).sort({ createdAt: -1 }).lean(),
     GmbLocation.find({ user: user.id }).select("title locationName reviewUrl address category").lean(),
+    PlayStoreApp.find({ user: user.id }).select("label packageName").lean(),
     getSettings(),
   ]);
+
+  // Play Store has no per-app "write a review" link like GMB's newReviewUri —
+  // the app's own Play Store page is the closest equivalent (the reviewer
+  // taps "Write a review" from there), so that's what auto-fills.
+  const playStoreApps = psApps.map((a) => ({
+    id: String(a._id),
+    label: a.label || a.packageName,
+    packageName: a.packageName,
+    reviewUrl: `https://play.google.com/store/apps/details?id=${encodeURIComponent(a.packageName)}`,
+  }));
 
   const locations = locs.map((l) => ({
     id: String(l._id),
@@ -47,7 +59,12 @@ export default async function BusinessCampaignsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-primary">Campaigns</h1>
           <p className="mt-2 text-secondary">Fund a campaign from your wallet — {inr(settings.reviewRate)} per verified review.</p>
         </div>
-        <NewCampaignModal walletBalance={me?.walletBalance ?? 0} locations={locations} rate={settings.reviewRate} />
+        <NewCampaignModal
+          walletBalance={me?.walletBalance ?? 0}
+          locations={locations}
+          playStoreApps={playStoreApps}
+          rate={settings.reviewRate}
+        />
       </div>
 
       {campaigns.length === 0 ? (
