@@ -91,3 +91,57 @@ export async function payReferralBonus(newUser) {
     balanceAfter: referrer.walletBalance,
   });
 }
+
+/**
+ * The referral code this user should be shown, generating one on first read
+ * for accounts created before the program existed.
+ *
+ * The same lazy backfill the web profile pages do inline (reviewer/profile,
+ * business/settings) — pulled out here so the REST profile routes the mobile
+ * app reads can't hand back an empty card for an account the website would
+ * have quietly fixed up.
+ *
+ * Returns "" only if the write genuinely couldn't land, never a code that
+ * isn't actually stored — a shared link has to resolve to a real account.
+ */
+export async function ensureReferralCode(userId, existing) {
+  if (existing) return existing;
+
+  const code = await generateUniqueReferralCode();
+  const updated = await User.findOneAndUpdate(
+    { _id: userId, $or: [{ referralCode: { $exists: false } }, { referralCode: null }] },
+    { $set: { referralCode: code } },
+    { returnDocument: "after" }
+  ).select("referralCode");
+  if (updated?.referralCode) return updated.referralCode;
+
+  // Lost the race to a concurrent read — use whatever actually got stored.
+  const fresh = await User.findById(userId).select("referralCode").lean();
+  return fresh?.referralCode ?? "";
+}
+
+/**
+ * Everything the "Invite & earn" card needs, in one call — what the web
+ * assembles from three separate reads inside its server components.
+ *
+ * `referralLink` is built server-side rather than by the client so the app
+ * never has to know (or hardcode) the deployment's own domain; it points at
+ * the same web signup route the website's shared links use, so a link shared
+ * from the app and one shared from the browser are identical.
+ */
+export async function getReferralSummary(userId, existingCode, { signupPath = "/login" } = {}) {
+  const [referralCode, referredCount, settings] = await Promise.all([
+    ensureReferralCode(userId, existingCode),
+    User.countDocuments({ referredBy: userId }),
+    getSettings(),
+  ]);
+
+  const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+
+  return {
+    referralCode,
+    referredCount,
+    referralReward: settings.referralReward,
+    referralLink: referralCode ? `${appUrl}${signupPath}?ref=${referralCode}` : "",
+  };
+}

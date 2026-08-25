@@ -2,6 +2,7 @@ import { z } from "zod";
 import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
+import { getReferralSummary } from "../../../../lib/referral";
 
 /**
  * Business-owner self-service profile update. Guarded by profile:update (see
@@ -70,6 +71,8 @@ export async function GET() {
     .lean();
   if (!doc) return Response.json({ error: "Account not found" }, { status: 404 });
 
+  const referral = await getReferralSummary(user.id, doc.referralCode);
+
   return Response.json({
     profile: {
       id: String(doc._id),
@@ -80,7 +83,10 @@ export async function GET() {
       role: doc.role,
       status: doc.status,
       walletBalance: doc.walletBalance ?? 0,
-      referralCode: doc.referralCode ?? "",
+      referralCode: referral.referralCode,
+      referredCount: referral.referredCount,
+      referralReward: referral.referralReward,
+      referralLink: referral.referralLink,
       createdAt: doc.createdAt,
     },
   });

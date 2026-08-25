@@ -125,5 +125,22 @@ export async function POST(request) {
     balanceAfter: debited.walletBalance,
   });
 
-  return Response.json({ ok: true, id: String(reqDoc._id), balance: debited.walletBalance });
+  // `request` mirrors the row shape GET returns above, so a mobile client can
+  // drop the new request straight into its list. The web form reads neither —
+  // it calls router.refresh() — so both stay correct.
+  return Response.json({
+    ok: true,
+    id: String(reqDoc._id),
+    balance: debited.walletBalance,
+    request: {
+      id: String(reqDoc._id),
+      amount: reqDoc.amount,
+      status: reqDoc.status,
+      accountNumber: reqDoc.accountNumber,
+      ifsc: reqDoc.ifsc,
+      rejectionReason: reqDoc.rejectionReason ?? "",
+      createdAt: reqDoc.createdAt,
+      reviewedAt: reqDoc.reviewedAt,
+    },
+  });
 }

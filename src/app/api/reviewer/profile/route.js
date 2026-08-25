@@ -2,6 +2,7 @@ import { z } from "zod";
 import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
+import { getReferralSummary } from "../../../../lib/referral";
 
 /**
  * Self-service profile update. Guarded by the profile:update permission (see
@@ -78,6 +79,10 @@ export async function GET() {
 
   if (!doc) return Response.json({ error: "Account not found" }, { status: 404 });
 
+  // Same "Invite & earn" payload the website's profile page renders, including
+  // the lazy code backfill for accounts older than the referral program.
+  const referral = await getReferralSummary(user.id, doc.referralCode);
+
   return Response.json({
     profile: {
       id: String(doc._id),
@@ -89,7 +94,10 @@ export async function GET() {
       status: doc.status,
       walletBalance: doc.walletBalance ?? 0,
       location: { city: doc.location?.city ?? "" },
-      referralCode: doc.referralCode ?? "",
+      referralCode: referral.referralCode,
+      referredCount: referral.referredCount,
+      referralReward: referral.referralReward,
+      referralLink: referral.referralLink,
       bankAccountHolder: doc.bankAccountHolder ?? "",
       bankAccountNumber: doc.bankAccountNumber ?? "",
       bankIfsc: doc.bankIfsc ?? "",
