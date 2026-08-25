@@ -3,6 +3,7 @@ import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 import { ROLES } from "../../../../lib/auth/roles";
+import { canonicalizeCity } from "../../../../lib/campaigns";
 
 /**
  * Updates a reviewer's declared city — reviewer-only, a business_owner's
@@ -41,11 +42,19 @@ export async function POST(request) {
     return Response.json({ error: parsed.error.issues[0]?.message ?? "Invalid city" }, { status: 400 });
   }
 
+  // Stored canonicalized, exactly as api/business/campaigns does for
+  // Campaign.cities — a reviewer picking "Gurgaon" and a campaign targeting
+  // "Gurugram" have to string-match in campaignOpenToCity(), and that
+  // comparison is case-insensitive but NOT alias-aware. Canonicalizing on
+  // both write paths is what keeps a renamed city from silently hiding every
+  // campaign in it.
+  const city = canonicalizeCity(parsed.data.city);
+
   await dbConnect();
   await User.updateOne(
     { _id: user.id },
-    { $set: { location: { city: parsed.data.city, updatedAt: new Date() } } }
+    { $set: { location: { city, updatedAt: new Date() } } }
   );
 
-  return Response.json({ ok: true, city: parsed.data.city });
+  return Response.json({ ok: true, city });
 }

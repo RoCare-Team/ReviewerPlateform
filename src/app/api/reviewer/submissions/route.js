@@ -247,3 +247,61 @@ export async function POST(request) {
       : "Submitted for review. You'll be paid once it's verified.";
   return Response.json({ ok: true, status: "pending", reason });
 }
+
+/**
+ * This reviewer's own submission history, newest first — what the mobile
+ * "My Submissions" screen reads. The website's own page renders the same data
+ * by querying Mongo directly in a server component, which a native client
+ * can't do.
+ *
+ * Scoped to `reviewer: user.id` — the id comes from the session, never the
+ * request, so a reviewer can only ever read their own submissions.
+ *
+ * The campaign is joined in and flattened so the app gets a display-ready row
+ * without a second round-trip per submission.
+ */
+export async function GET() {
+  const { user, response } = await apiRequirePermission("feedback:submit");
+  if (response) return response;
+
+  await dbConnect();
+
+  const submissions = await Submission.find({ reviewer: user.id })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const campaigns = await Campaign.find({
+    _id: { $in: submissions.map((s) => s.campaign) },
+  })
+    .select("name platform businessName businessCategory city cities")
+    .lean();
+
+  const byId = new Map(campaigns.map((c) => [String(c._id), c]));
+
+  return Response.json({
+    submissions: submissions.map((s) => {
+      const campaign = byId.get(String(s.campaign));
+      return {
+        id: String(s._id),
+        campaignId: String(s.campaign),
+        campaignName: campaign?.name ?? "Campaign",
+        platform: campaign?.platform ?? "google",
+        businessName: campaign?.businessName ?? "",
+        businessCategory: campaign?.businessCategory ?? "",
+        city: campaign?.cities?.[0] ?? campaign?.city ?? "",
+        status: s.status,
+        rewardAmount: s.rewardAmount ?? 0,
+        screenshotUrl: s.screenshotUrl ?? "",
+        note: s.note ?? "",
+        // Never leak the internal AI/GMB diagnostics to the reviewer — only
+        // the decision and the human-readable reason they're entitled to.
+        rejectionReason: s.rejectionReason ?? "",
+        appealStatus: s.appealStatus ?? "none",
+        appealMessage: s.appealMessage ?? "",
+        appealResponse: s.appealResponse ?? "",
+        submittedAt: s.createdAt,
+        reviewedAt: s.reviewedAt,
+      };
+    }),
+  });
+}

@@ -53,3 +53,48 @@ export async function PATCH(request) {
     },
   });
 }
+
+/**
+ * The signed-in reviewer's own profile — what the app loads right after
+ * signing in, for the wallet balance, declared city and saved bank details
+ * that /api/auth/session doesn't carry.
+ *
+ * The id comes from the session, never the request, so this can only ever
+ * return the caller's own record. `passwordHash` and `totpSecret` are
+ * `select: false` on the model and are not requested here either.
+ */
+export async function GET() {
+  const { user, response } = await apiRequirePermission("profile:update");
+  if (response) return response;
+
+  await dbConnect();
+
+  const doc = await User.findById(user.id)
+    .select(
+      "name phone bio image role status walletBalance location referralCode " +
+        "bankAccountHolder bankAccountNumber bankIfsc ageConfirmed createdAt"
+    )
+    .lean();
+
+  if (!doc) return Response.json({ error: "Account not found" }, { status: 404 });
+
+  return Response.json({
+    profile: {
+      id: String(doc._id),
+      name: doc.name ?? "",
+      phone: doc.phone ?? "",
+      bio: doc.bio ?? "",
+      image: doc.image ?? "",
+      role: doc.role,
+      status: doc.status,
+      walletBalance: doc.walletBalance ?? 0,
+      location: { city: doc.location?.city ?? "" },
+      referralCode: doc.referralCode ?? "",
+      bankAccountHolder: doc.bankAccountHolder ?? "",
+      bankAccountNumber: doc.bankAccountNumber ?? "",
+      bankIfsc: doc.bankIfsc ?? "",
+      ageConfirmed: doc.ageConfirmed ?? false,
+      createdAt: doc.createdAt,
+    },
+  });
+}

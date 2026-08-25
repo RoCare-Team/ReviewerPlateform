@@ -53,3 +53,35 @@ export async function PATCH(request) {
     },
   });
 }
+
+/**
+ * The signed-in business owner's own profile — the mirror of
+ * GET /api/reviewer/profile, minus the reviewer-only city/bank/age fields.
+ *
+ * The id comes from the session, never the request.
+ */
+export async function GET() {
+  const { user, response } = await apiRequirePermission("profile:update");
+  if (response) return response;
+
+  await dbConnect();
+  const doc = await User.findById(user.id)
+    .select("name phone bio image role status walletBalance referralCode createdAt")
+    .lean();
+  if (!doc) return Response.json({ error: "Account not found" }, { status: 404 });
+
+  return Response.json({
+    profile: {
+      id: String(doc._id),
+      name: doc.name ?? "",
+      phone: doc.phone ?? "",
+      bio: doc.bio ?? "",
+      image: doc.image ?? "",
+      role: doc.role,
+      status: doc.status,
+      walletBalance: doc.walletBalance ?? 0,
+      referralCode: doc.referralCode ?? "",
+      createdAt: doc.createdAt,
+    },
+  });
+}
