@@ -24,12 +24,19 @@ const CampaignSchema = new mongoose.Schema(
       default: "google",
     },
     location: { type: mongoose.Schema.Types.ObjectId, ref: "GmbLocation", default: null },
-    // Snapshotted from the linked GmbLocation at creation time (title/category
-    // synced from Google — see models/GmbLocation.js). Copied rather than
-    // read live through `location` so a campaign's own record of "which
-    // business, what kind" survives the owner disconnecting/renaming that
-    // GMB location later — reviewers and admin see what it actually was when
-    // they claimed/reviewed it, not whatever it's called now.
+    // Same idea as `location` above, but for a Play Store campaign linked to
+    // a tracked PlayStoreApp (see models/PlayStoreApp.js) instead of a GMB
+    // location — mutually exclusive with `location` in practice (a campaign
+    // is either platform:"google" with a location, or platform:"playstore"
+    // with a playStoreApp, never both).
+    playStoreApp: { type: mongoose.Schema.Types.ObjectId, ref: "PlayStoreApp", default: null },
+    // Snapshotted from the linked GmbLocation (title/category, synced from
+    // Google) OR the linked PlayStoreApp (label only — categoryless) at
+    // creation time. Copied rather than read live through `location`/
+    // `playStoreApp` so a campaign's own record of "which business/app, what
+    // kind" survives the owner disconnecting/renaming/removing it later —
+    // reviewers and admin see what it actually was when they claimed/
+    // reviewed it, not whatever it's called now.
     businessName: { type: String, trim: true, default: "" },
     businessCategory: { type: String, trim: true, default: "" },
     // LEGACY single-city field — still populated for batch (multi-location)

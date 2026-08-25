@@ -51,7 +51,8 @@
       "team:*",
       "profile:read",
       "profile:update",
-      "connection:google:manage"
+      "connection:google:manage",
+      "connection:playstore:manage"
     ],
     "admin": ["*"]
   }

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import Image from "next/image";
 import Link from "next/link";
-import { Star, MapPin, CheckCircle2, ArrowRight, Plus, RefreshCw } from "lucide-react";
+import { Star, MapPin, CheckCircle2, ArrowRight, Plus, RefreshCw, Smartphone } from "lucide-react";
 import { requireRole } from "../../../lib/auth/guards";
 import { ROLES } from "../../../lib/auth/roles";
 import dbConnect from "../../../lib/db";
@@ -9,6 +9,8 @@ import User from "../../../models/User";
 import GmbConnection from "../../../models/GmbConnection";
 import GmbLocation from "../../../models/GmbLocation";
 import GmbReview from "../../../models/GmbReview";
+import PlayStoreConnection from "../../../models/PlayStoreConnection";
+import PlayStoreApp from "../../../models/PlayStoreApp";
 import Campaign from "../../../models/Campaign";
 import Submission from "../../../models/Submission";
 import CampaignStats from "../../../components/business/CampaignStats";
@@ -33,6 +35,8 @@ export default async function BusinessOverviewPage() {
   const [
     gmbConnections,
     gmbLocations,
+    psConnections,
+    psApps,
     me,
     reviewCount,
     campaigns,
@@ -43,6 +47,8 @@ export default async function BusinessOverviewPage() {
   ] = await Promise.all([
     GmbConnection.countDocuments({ user: user.id, status: "active" }),
     GmbLocation.countDocuments({ user: user.id }),
+    PlayStoreConnection.countDocuments({ user: user.id, status: "active" }),
+    PlayStoreApp.countDocuments({ user: user.id }),
     User.findById(user.id).select("walletBalance").lean(),
     GmbReview.countDocuments({ user: user.id }),
     Campaign.find({ user: user.id })
@@ -71,6 +77,7 @@ export default async function BusinessOverviewPage() {
   ]);
 
   const gmbConnected = gmbConnections > 0;
+  const psConnected = psConnections > 0;
   const activeCampaigns = campaigns.filter((c) => c.status === "active").length;
   const spend = campaigns.reduce((s, c) => s + (c.budget ?? 0), 0);
   const target = campaigns.reduce((s, c) => s + (c.targetReviews ?? 0), 0);
@@ -170,64 +177,127 @@ export default async function BusinessOverviewPage() {
 
   return (
     <div>
-      {/* 1. Google Business Profile — reflects real DB connection state. Up
-          top: whether GMB is connected governs everything below it (reviews,
-          campaign targeting), so it needs to be seen first. */}
-      <div className="rounded-card border border-accent-border bg-accent-subtle p-4 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-default bg-surface shadow-sm sm:h-12 sm:w-12">
-              <Image src="/img/google.png" alt="Google" width={28} height={28} className="h-6 w-6 object-contain sm:h-7 sm:w-7" />
-            </span>
-            <div className="min-w-0">
+      {/* 1. Connection cards — reflect real DB connection state. Up top:
+          whether these are connected governs everything below (reviews,
+          campaign targeting), so they need to be seen first. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Google Business Profile */}
+        <div className="rounded-card border border-accent-border bg-accent-subtle p-4 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3 sm:flex-1 sm:gap-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-default bg-surface shadow-sm sm:h-12 sm:w-12">
+                <Image src="/img/google.png" alt="Google" width={28} height={28} className="h-6 w-6 object-contain sm:h-7 sm:w-7" />
+              </span>
+              <div className="min-w-0">
+                {gmbConnected ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-sm font-bold text-primary sm:text-base">Google Business Profile</h2>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-verified-subtle px-2 py-0.5 text-xs font-semibold text-verified">
+                        <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                        Connected
+                      </span>
+                    </div>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-secondary sm:text-sm">
+                      <span>{gmbConnections} account{gmbConnections > 1 ? "s" : ""}</span>
+                      <span className="text-muted" aria-hidden="true">·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                        {gmbLocations} location{gmbLocations === 1 ? "" : "s"}
+                      </span>
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-sm font-bold text-primary sm:text-base">Connect your Google Business Profile</h2>
+                    <p className="mt-1 text-xs text-secondary sm:text-sm">
+                      Link your GMB account to automatically fetch and view your Google reviews.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 sm:shrink-0">
               {gmbConnected ? (
-                <>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-sm font-bold text-primary sm:text-base">Google Business Profile</h2>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-verified-subtle px-2 py-0.5 text-xs font-semibold text-verified">
-                      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                      Connected
-                    </span>
-                  </div>
-                  <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-secondary sm:text-sm">
-                    <span>{gmbConnections} account{gmbConnections > 1 ? "s" : ""}</span>
-                    <span className="text-muted" aria-hidden="true">·</span>
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                      {gmbLocations} location{gmbLocations === 1 ? "" : "s"}
-                    </span>
-                  </p>
-                </>
+                <Link
+                  href="/business/connections"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-btn border border-strong bg-surface px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken sm:w-auto sm:shrink-0"
+                >
+                  Manage connections
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
               ) : (
-                <>
-                  <h2 className="text-sm font-bold text-primary sm:text-base">Connect your Google Business Profile</h2>
-                  <p className="mt-1 text-xs text-secondary sm:text-sm">
-                    Link your GMB account to automatically fetch and view your Google reviews.
-                  </p>
-                </>
+                // Full-page navigation — OAuth-start route, not a page.
+                // eslint-disable-next-line @next/next/no-html-link-for-pages
+                <a
+                  href="/api/business/gmb/connect"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover sm:w-auto sm:shrink-0"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  Connect Google Business Profile
+                </a>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {gmbConnected ? (
-              <Link
-                href="/business/connections"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-btn border border-strong bg-surface px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken sm:w-auto"
-              >
-                Manage connections
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Link>
-            ) : (
-              // Full-page navigation — OAuth-start route, not a page.
-              // eslint-disable-next-line @next/next/no-html-link-for-pages
-              <a
-                href="/api/business/gmb/connect"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover sm:w-auto"
-              >
-                <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                Connect Google Business Profile
-              </a>
-            )}
+        </div>
+
+        {/* Play Store */}
+        <div className="rounded-card border border-accent-border bg-accent-subtle p-4 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3 sm:flex-1 sm:gap-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-default bg-surface shadow-sm sm:h-12 sm:w-12">
+                <Image src="/google-play.png" alt="Play Store" width={28} height={28} className="h-6 w-6 object-contain sm:h-7 sm:w-7" />
+              </span>
+              <div className="min-w-0">
+                {psConnected ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-sm font-bold text-primary sm:text-base">Play Store</h2>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-verified-subtle px-2 py-0.5 text-xs font-semibold text-verified">
+                        <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                        Connected
+                      </span>
+                    </div>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-secondary sm:text-sm">
+                      <span>{psConnections} account{psConnections > 1 ? "s" : ""}</span>
+                      <span className="text-muted" aria-hidden="true">·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
+                        {psApps} app{psApps === 1 ? "" : "s"}
+                      </span>
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-sm font-bold text-primary sm:text-base">Connect Google Play Console</h2>
+                    <p className="mt-1 text-xs text-secondary sm:text-sm">
+                      Link the Google account that owns your app(s) to fetch and reply to Play Store reviews.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 sm:shrink-0">
+              {psConnected ? (
+                <Link
+                  href="/business/connections"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-btn border border-strong bg-surface px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-surface-sunken sm:w-auto sm:shrink-0"
+                >
+                  Manage connections
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              ) : (
+                // Full-page navigation — OAuth-start route, not a page.
+                // eslint-disable-next-line @next/next/no-html-link-for-pages
+                <a
+                  href="/api/business/playstore/connect"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition hover:bg-accent-hover sm:w-auto sm:shrink-0"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  Connect Play Store
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>

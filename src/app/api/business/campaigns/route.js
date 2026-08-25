@@ -3,6 +3,7 @@ import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import Campaign from "../../../../models/Campaign";
 import GmbLocation from "../../../../models/GmbLocation";
+import PlayStoreApp from "../../../../models/PlayStoreApp";
 import WalletTransaction from "../../../../models/WalletTransaction";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
 import { approxReviews, canonicalizeCity, deriveCityFromAddress } from "../../../../lib/campaigns";
@@ -90,6 +91,10 @@ const createSchema = z
     notes: z.string().trim().max(500).optional().default(""),
     targetUrl: z.string().trim().max(500).optional().default(""),
     locationId: z.string().optional(),
+    // Play Store equivalent of locationId — a tracked PlayStoreApp (see
+    // models/PlayStoreApp.js). Single-campaign mode only; there's no batch
+    // (multi-app) mode for Play Store the way there is for Google locations.
+    playStoreAppId: z.string().optional(),
     locations: z.array(locationItemSchema).min(1).max(25).optional(),
     // Optional pool of AI-drafted (or owner-written) review texts, single-
     // campaign mode only — see models/Campaign.js reviewDrafts.
@@ -147,6 +152,7 @@ export async function POST(request) {
     notes,
     targetUrl,
     locationId,
+    playStoreAppId,
     locations,
     reviewDrafts,
     reviewImages,
@@ -195,12 +201,17 @@ export async function POST(request) {
     balanceAfter: debited.walletBalance,
   });
 
-  // Snapshot the business name/category off the linked GMB location, if any
-  // — see models/Campaign.js's businessName/businessCategory for why this is
-  // copied rather than read live through `location` later.
+  // Snapshot the business name/category off the linked GMB location, or the
+  // app label off the linked Play Store app, if either is set — see
+  // models/Campaign.js's businessName/businessCategory for why this is
+  // copied rather than read live through `location`/`playStoreApp` later.
   const linkedLocation = locationId
     ? await GmbLocation.findOne({ _id: locationId, user: user.id }).select("title category")
     : null;
+  const linkedPsApp =
+    !linkedLocation && platform === "playstore" && playStoreAppId
+      ? await PlayStoreApp.findOne({ _id: playStoreAppId, user: user.id }).select("label packageName")
+      : null;
 
   const campaign = await Campaign.create({
     user: user.id,
@@ -212,8 +223,9 @@ export async function POST(request) {
     notes,
     targetUrl,
     cities: trimmedCities,
-    location: locationId || null,
-    businessName: linkedLocation?.title || "",
+    location: linkedLocation ? locationId : null,
+    playStoreApp: linkedPsApp ? playStoreAppId : null,
+    businessName: linkedLocation?.title || linkedPsApp?.label || linkedPsApp?.packageName || "",
     businessCategory: linkedLocation?.category || "",
     status: "active",
     reviewDrafts: normalizeDrafts(reviewDrafts).map((d) => ({ ...d, assignedTo: null, assignedAt: null })),

@@ -8,11 +8,18 @@ import mongoose from "mongoose";
  * the review link (and therefore the real Google review) is only revealed
  * once a slot is actually reserved.
  *
- * `expiresAt` carries a TTL index so Mongo auto-deletes an abandoned claim
- * (reviewer opened the link but never submitted) — the background TTL sweep
- * runs roughly once a minute, so release is "within ~60s of expiring", not
- * exact. See src/lib/claims.js for the reservation logic and
- * Campaign.claimed, the counter this keeps in sync.
+ * `expiresAt` is deliberately NOT a native Mongo TTL index — it used to be,
+ * but that let Mongo's own background sweep (runs independently, roughly
+ * once a minute) delete an expired claim's document a beat before
+ * lib/claims.js#releaseExpiredClaims() got to it. That function is the ONLY
+ * place Campaign.claimed gets decremented for an expired claim; if Mongo
+ * deletes the doc first, releaseExpiredClaims() finds nothing left to act
+ * on and the slot it was holding leaks — `claimed` stays permanently too
+ * high, silently blocking a real open slot from ever being reclaimed. Now
+ * expiry is ONLY ever applied by that function (called before every claim
+ * attempt, on every reviewer campaigns-list page load, and by the
+ * release-expired-claims cron — see vercel.json) so the delete and the
+ * counter decrement always happen together, atomically, never racing.
  */
 export const CLAIM_TTL_MINUTES = 30;
 
@@ -45,7 +52,9 @@ const ClaimSchema = new mongoose.Schema(
 // One live claim per reviewer per campaign — re-opening the link renews the
 // same claim (see lib/claims.js) instead of creating a second one.
 ClaimSchema.index({ campaign: 1, reviewer: 1 }, { unique: true });
-// TTL: document is removed once `expiresAt` is in the past.
-ClaimSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// Plain (non-TTL) index — still speeds up releaseExpiredClaims()'s
+// `expiresAt: { $lte: now }` query, just without Mongo auto-deleting on its
+// own. See this file's docblock for why that auto-delete was removed.
+ClaimSchema.index({ expiresAt: 1 });
 
 export default mongoose.models.Claim || mongoose.model("Claim", ClaimSchema);
