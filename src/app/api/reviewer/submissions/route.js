@@ -9,8 +9,8 @@ import { verifyScreenshot, AI_CONFIDENCE_THRESHOLD } from "../../../../lib/aiVer
 import { verifyAgainstGmb } from "../../../../lib/gmbVerification";
 import { approveSubmission, rejectSubmission } from "../../../../lib/verification";
 import { releaseClaim } from "../../../../lib/claims";
-import { checkReviewerDailyLimit, REVIEWER_DAILY_SUBMISSION_LIMIT } from "../../../../lib/pacing";
-import { getSettings } from "../../../../lib/settings";
+import { checkReviewerDailyLimit, checkReviewerCooldown, REVIEWER_DAILY_SUBMISSION_LIMIT } from "../../../../lib/pacing";
+import { formatWait, getSettings } from "../../../../lib/settings";
 
 /**
  * Reviewer submits their participation in a campaign with a screenshot proof.
@@ -109,6 +109,27 @@ export async function POST(request) {
   if (blocked) {
     return Response.json(
       { error: `You've reached today's limit of ${REVIEWER_DAILY_SUBMISSION_LIMIT} reviews. Try again tomorrow.` },
+      { status: 400 }
+    );
+  }
+
+  // Platform-wide cooldown between submissions — the reviewer has to leave
+  // AppSettings.reviewerCooldownHours (admin-editable at /admin/pricing,
+  // default 4h, 0 = off) between one submission and the next, across every
+  // campaign. See lib/pacing.js#checkReviewerCooldown. THE authoritative
+  // check: the claim route checks too, but a slot reserved before the gap
+  // elapsed would otherwise let a submission land early.
+  //
+  // Settings are loaded once here and reused for the reward below, so a
+  // single submission never reads the singleton twice.
+  const settings = await getSettings();
+  const cooldown = await checkReviewerCooldown(user.id, settings.reviewerCooldownHours);
+  if (cooldown.blocked) {
+    return Response.json(
+      {
+        error: `You can submit your next review in ${formatWait(cooldown.msLeft)}. Reviews have to be spaced at least ${cooldown.cooldownHours} hour${cooldown.cooldownHours === 1 ? "" : "s"} apart.`,
+        nextAvailableAt: cooldown.nextAvailableAt.toISOString(),
+      },
       { status: 400 }
     );
   }
@@ -221,7 +242,6 @@ export async function POST(request) {
   const gmbBlocksApproval = gmb.checked && !gmb.matched;
 
   if (aiApproved && !gmbBlocksApproval) {
-    const settings = await getSettings();
     // settings.reviewerReward is only the FALLBACK — approveSubmission pays
     // this campaign's own reviewerReward override instead when the admin has
     // set one, and hands back whichever amount actually got paid.

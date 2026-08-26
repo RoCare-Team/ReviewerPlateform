@@ -14,6 +14,7 @@ export const PRICING_DEFAULTS = {
   minTopup: 50,
   referralReward: 25,
   currency: "INR",
+  reviewerCooldownHours: 4,
 };
 
 export async function getSettings() {
@@ -30,6 +31,11 @@ export async function getSettings() {
     minTopup: doc?.minTopup ?? PRICING_DEFAULTS.minTopup,
     referralReward: doc?.referralReward ?? PRICING_DEFAULTS.referralReward,
     currency: doc?.currency ?? PRICING_DEFAULTS.currency,
+    // Not a price — the platform-wide gap a reviewer must leave between
+    // submissions. Lives here because this is the one settings singleton the
+    // whole app (and the mobile client, via /api/settings) already reads.
+    // `?? ` on purpose, not `||`: 0 is a valid value meaning "no cooldown".
+    reviewerCooldownHours: doc?.reviewerCooldownHours ?? PRICING_DEFAULTS.reviewerCooldownHours,
   };
 }
 
@@ -47,7 +53,24 @@ export async function updateSettings(patch) {
     minTopup: doc.minTopup,
     referralReward: doc.referralReward,
     currency: doc.currency,
+    reviewerCooldownHours: doc.reviewerCooldownHours ?? PRICING_DEFAULTS.reviewerCooldownHours,
   };
+}
+
+/**
+ * "4 hours" / "45 minutes" / "1 hour 30 minutes" — how long is left before a
+ * blocked reviewer may submit again, in words they can act on. Rounds up to
+ * the next whole minute so a countdown never reads "0 minutes" while still
+ * being blocked.
+ */
+export function formatWait(ms) {
+  const totalMinutes = Math.max(1, Math.ceil(Number(ms || 0) / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const parts = [];
+  if (hours) parts.push(`${hours} hour${hours === 1 ? "" : "s"}`);
+  if (minutes) parts.push(`${minutes} minute${minutes === 1 ? "" : "s"}`);
+  return parts.join(" ");
 }
 
 export function inr(n) {

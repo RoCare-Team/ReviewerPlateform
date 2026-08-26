@@ -3,7 +3,8 @@ import Submission from "../../../../../../models/Submission";
 import Claim from "../../../../../../models/Claim";
 import { apiRequirePermission } from "../../../../../../lib/auth/guards";
 import { claimSlot, releaseClaim } from "../../../../../../lib/claims";
-import { checkReviewerDailyLimit, REVIEWER_DAILY_SUBMISSION_LIMIT } from "../../../../../../lib/pacing";
+import { checkReviewerDailyLimit, checkReviewerCooldown, REVIEWER_DAILY_SUBMISSION_LIMIT } from "../../../../../../lib/pacing";
+import { formatWait } from "../../../../../../lib/settings";
 
 /**
  * Reserve a review slot on a campaign and hand back the review link — the
@@ -37,6 +38,22 @@ export async function POST(request, { params }) {
   if (blocked) {
     return Response.json(
       { error: `You've reached today's limit of ${REVIEWER_DAILY_SUBMISSION_LIMIT} reviews. Try again tomorrow.` },
+      { status: 400 }
+    );
+  }
+
+  // Platform-wide cooldown between submissions (AppSettings.reviewerCooldownHours,
+  // admin-editable, default 4h) — see lib/pacing.js#checkReviewerCooldown.
+  // Checked here for the same reason as the daily cap: there's no point
+  // revealing the link and burning a slot on a review that submissions/route.js
+  // is going to refuse anyway. That route re-checks at actual submit time.
+  const cooldown = await checkReviewerCooldown(user.id);
+  if (cooldown.blocked) {
+    return Response.json(
+      {
+        error: `You can start your next review in ${formatWait(cooldown.msLeft)}. Reviews have to be spaced at least ${cooldown.cooldownHours} hour${cooldown.cooldownHours === 1 ? "" : "s"} apart.`,
+        nextAvailableAt: cooldown.nextAvailableAt.toISOString(),
+      },
       { status: 400 }
     );
   }

@@ -15,7 +15,13 @@ function inr(n) {
  * (EditCampaignModal etc.) for visual consistency, sized down since this has
  * no form — just information.
  */
-export default function CampaignDetailsModal({ campaign, onClose, onBook, claiming }) {
+/**
+ * `blockedReason` — set when booking is locked for a reason that isn't "a
+ * request is in flight" (today: the platform-wide reviewer cooldown). It both
+ * disables the button and becomes its label, so the modal never says
+ * "Booking…" for something that isn't being booked.
+ */
+export default function CampaignDetailsModal({ campaign, onClose, onBook, claiming, blockedReason = "" }) {
   const pct = campaign.target ? Math.min(100, Math.round((campaign.collected / campaign.target) * 100)) : 0;
 
   // Portaled straight to <body> — rendered in place, this sits inside a card
@@ -135,11 +141,12 @@ export default function CampaignDetailsModal({ campaign, onClose, onBook, claimi
           <button
             type="button"
             onClick={onBook}
-            disabled={claiming}
+            disabled={claiming || Boolean(blockedReason)}
+            title={blockedReason || undefined}
             className="flex w-full items-center justify-center gap-2 rounded-btn bg-accent px-5 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:w-auto"
           >
             <Ticket className="h-4 w-4" aria-hidden="true" />
-            {claiming ? "Booking…" : campaign.previouslyRejected ? "Resubmit" : "Book slot"}
+            {blockedReason ? "On cooldown" : claiming ? "Booking…" : campaign.previouslyRejected ? "Resubmit" : "Book slot"}
           </button>
         </div>
       </div>

@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CheckCircle2, Clipboard, ClipboardCheck, Clock, Download, ExternalLink, MapPin, Megaphone, RotateCcw, Ticket, Upload, Star, X, XCircle } from "lucide-react";
+import { Building2, CheckCircle2, Clipboard, ClipboardCheck, Clock, Download, ExternalLink, MapPin, Megaphone, RotateCcw, Ticket, Timer, Upload, Star, X, XCircle } from "lucide-react";
 import { toast } from "../../lib/toast";
 import CampaignDetailsModal from "./CampaignDetailsModal";
+import { useCooldownCountdown } from "./ReviewerCooldownNotice";
 
 /**
  * Available-campaign cards for reviewers. The review link is never sent down
@@ -60,7 +61,13 @@ function useCountdown(expiresAt, onExpire) {
   return { totalSeconds, label: `${mm}:${ss}` };
 }
 
-function Card({ campaign }) {
+function Card({ campaign, cooldown }) {
+  // Platform-wide gap between submissions (admin-set, see lib/pacing.js). The
+  // server refuses both the claim and the submission while it's running; this
+  // just stops the reviewer wasting a tap to find that out. A card whose slot
+  // is ALREADY booked isn't locked — they're mid-flow on a slot they reserved
+  // before the cooldown started, and the submit call is the real gate anyway.
+  const cooldownBlocked = Boolean(cooldown?.blocked);
   const reward = campaign.reward;
   const router = useRouter();
   // Resume an already-live claim on mount instead of always starting from
@@ -96,6 +103,10 @@ function Card({ campaign }) {
     setDownloaded(false);
     router.refresh();
   });
+  // Live remainder of the platform cooldown, shared with the page-level
+  // notice so both tick together. Refreshes on zero, which re-enables the
+  // book button from the server rather than from a guess on the client.
+  const cooldownLeft = useCooldownCountdown(cooldown?.nextAvailableAt, () => router.refresh());
 
   // `openLink`: false for the very first "reserve a slot" click — the
   // reviewer should SEE the copy-review/download-image panel first, not get
@@ -418,21 +429,29 @@ function Card({ campaign }) {
             <button
               type="button"
               onClick={() => claimAndOpen(false)}
-              disabled={claiming}
+              disabled={claiming || cooldownBlocked}
+              title={cooldownBlocked ? `You can start your next review in ${cooldown.waitLabel}.` : undefined}
               className="flex min-w-0 items-center justify-center gap-2 rounded-btn bg-accent px-4 py-2.5 text-sm font-semibold text-on-brand shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 sm:flex-1"
             >
-              <Ticket className="h-4 w-4 shrink-0" aria-hidden="true" />
-              {claiming ? "Booking…" : campaign.previouslyRejected ? "Resubmit" : "Book slot"}
+              {cooldownBlocked ? <Timer className="h-4 w-4 shrink-0" aria-hidden="true" /> : <Ticket className="h-4 w-4 shrink-0" aria-hidden="true" />}
+              {cooldownBlocked ? "On cooldown" : claiming ? "Booking…" : campaign.previouslyRejected ? "Resubmit" : "Book slot"}
             </button>
           </div>
           <p className="mt-2 text-center text-[11px] leading-snug text-muted">
-            Reserves your spot &amp; preps your review text/photo — opens automatically once you&apos;re set.
+            {cooldownBlocked
+              ? `Your next review unlocks in ${cooldownLeft ?? cooldown.waitLabel} — reviews have to be ${cooldown.hours} hour${cooldown.hours === 1 ? "" : "s"} apart.`
+              : "Reserves your spot & preps your review text/photo — opens automatically once you’re set."}
           </p>
 
           {showInfo && (
             <CampaignDetailsModal
               campaign={campaign}
               claiming={claiming}
+              blockedReason={
+                cooldownBlocked
+                  ? `You can start your next review in ${cooldownLeft ?? cooldown.waitLabel}.`
+                  : ""
+              }
               onClose={() => setShowInfo(false)}
               onBook={async () => {
                 setShowInfo(false);
@@ -603,7 +622,7 @@ function useHashHighlight() {
   return highlightId;
 }
 
-export default function CampaignParticipation({ campaigns }) {
+export default function CampaignParticipation({ campaigns, cooldown }) {
   const highlightId = useHashHighlight();
 
   if (campaigns.length === 0) {
@@ -628,7 +647,7 @@ export default function CampaignParticipation({ campaigns }) {
           }`}
           style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}
         >
-          <Card campaign={c} />
+          <Card campaign={c} cooldown={cooldown} />
         </div>
       ))}
     </div>

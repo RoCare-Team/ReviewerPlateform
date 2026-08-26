@@ -3,9 +3,9 @@ import Campaign from "../models/Campaign";
 import Submission from "../models/Submission";
 import User from "../models/User";
 import Claim from "../models/Claim";
-import { getSettings } from "./settings";
+import { formatWait, getSettings } from "./settings";
 import { releaseExpiredClaims } from "./claims";
-import { checkPacing } from "./pacing";
+import { checkPacing, checkReviewerCooldown } from "./pacing";
 import { campaignCities, campaignOpenToCity } from "./campaigns";
 
 /**
@@ -114,4 +114,29 @@ export async function getAvailableCampaignsForReviewer(userId) {
     });
 
   return available;
+}
+
+/**
+ * Serializable cooldown state for the reviewer UI — "can this reviewer start
+ * another review right now, and if not, when?".
+ *
+ * Deliberately NOT folded into getAvailableCampaignsForReviewer(): a reviewer
+ * on cooldown should still SEE the campaigns waiting for them (with the wait
+ * spelled out), not watch the list mysteriously empty out and refill four
+ * hours later. The campaign filter answers "which campaigns", this answers
+ * "when can I act" — two different questions, so two different calls.
+ *
+ * `waitLabel` is rendered on the server so the notice reads correctly on the
+ * very first paint; the client then counts `nextAvailableAt` down live.
+ */
+export async function getReviewerCooldownState(userId) {
+  await dbConnect();
+  const { reviewerCooldownHours } = await getSettings();
+  const state = await checkReviewerCooldown(userId, reviewerCooldownHours);
+  return {
+    hours: state.cooldownHours,
+    blocked: state.blocked,
+    nextAvailableAt: state.nextAvailableAt ? state.nextAvailableAt.toISOString() : null,
+    waitLabel: state.blocked ? formatWait(state.msLeft) : "",
+  };
 }

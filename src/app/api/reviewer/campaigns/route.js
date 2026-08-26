@@ -1,5 +1,5 @@
 import { apiRequirePermission } from "../../../../lib/auth/guards";
-import { getAvailableCampaignsForReviewer } from "../../../../lib/reviewerCampaigns";
+import { getAvailableCampaignsForReviewer, getReviewerCooldownState } from "../../../../lib/reviewerCampaigns";
 
 /**
  * The campaigns this reviewer can actually join right now.
@@ -17,11 +17,19 @@ import { getAvailableCampaignsForReviewer } from "../../../../lib/reviewerCampai
  *
  * The review link is deliberately NOT in this payload — it is only revealed by
  * POST /api/reviewer/campaigns/[id]/claim, once a slot is actually reserved.
+ *
+ * `cooldown` rides along so the app can grey out its own "Book slot" button
+ * and show the wait, instead of finding out only when the claim call comes
+ * back 400. The campaigns themselves are still listed during a cooldown —
+ * the reviewer can see what's waiting, just not start it yet.
  */
 export async function GET() {
   const { user, response } = await apiRequirePermission("feedback:submit");
   if (response) return response;
 
-  const campaigns = await getAvailableCampaignsForReviewer(user.id);
-  return Response.json({ campaigns });
+  const [campaigns, cooldown] = await Promise.all([
+    getAvailableCampaignsForReviewer(user.id),
+    getReviewerCooldownState(user.id),
+  ]);
+  return Response.json({ campaigns, cooldown });
 }

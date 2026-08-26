@@ -1,5 +1,6 @@
 import Claim from "../models/Claim";
 import Submission from "../models/Submission";
+import { getSettings } from "./settings";
 
 /**
  * Optional per-campaign "drip" pacing (Campaign.pacingLimit / pacingWindowHours)
@@ -96,4 +97,41 @@ export async function reviewerSubmissionsToday(reviewerId) {
 export async function checkReviewerDailyLimit(reviewerId) {
   const count = await reviewerSubmissionsToday(reviewerId);
   return { blocked: count >= REVIEWER_DAILY_SUBMISSION_LIMIT, count };
+}
+
+/**
+ * Platform-wide reviewer COOLDOWN — the minimum gap a reviewer must leave
+ * between two submissions, across every campaign combined.
+ *
+ * Sits alongside the daily cap above but answers a different question: the cap
+ * is "how many in a day", this is "how close together". Two reviews in one day
+ * are fine; two reviews five minutes apart are the burst pattern Google's
+ * fake-engagement detection flags on the reviewer's own account.
+ *
+ * The gap is NOT hardcoded — it's `reviewerCooldownHours` on the AppSettings
+ * singleton, editable by admin at /admin/pricing (default 4 hours). Setting it
+ * to 0 switches the cooldown off entirely.
+ *
+ * What starts the clock: the reviewer's most recent NON-rejected submission
+ * (pending or approved) — the same "what counts as landed" rule the
+ * per-campaign pacing above uses. A rejected attempt deliberately does not
+ * start it, otherwise a reviewer whose screenshot was auto-rejected would be
+ * locked out for hours before they could retry with a correct one.
+ */
+export async function checkReviewerCooldown(reviewerId, cooldownHours) {
+  // Callers that already loaded settings pass the hours in; the rest let this
+  // read them, so no route can forget and silently skip the cooldown.
+  const hours = cooldownHours === undefined ? (await getSettings()).reviewerCooldownHours : Number(cooldownHours);
+  if (!Number.isFinite(hours) || hours <= 0) return { blocked: false, cooldownHours: 0 };
+
+  const last = await Submission.findOne({ reviewer: reviewerId, status: { $ne: "rejected" } })
+    .sort({ createdAt: -1 })
+    .select("createdAt")
+    .lean();
+  if (!last) return { blocked: false, cooldownHours: hours };
+
+  const nextAvailableAt = new Date(last.createdAt.getTime() + hours * 60 * 60 * 1000);
+  const msLeft = nextAvailableAt.getTime() - Date.now();
+  if (msLeft <= 0) return { blocked: false, cooldownHours: hours, lastSubmittedAt: last.createdAt };
+  return { blocked: true, cooldownHours: hours, nextAvailableAt, msLeft, lastSubmittedAt: last.createdAt };
 }

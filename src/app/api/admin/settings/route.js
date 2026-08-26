@@ -4,7 +4,8 @@ import { ROLES } from "../../../../lib/auth/roles";
 import { getSettings, updateSettings } from "../../../../lib/settings";
 
 /**
- * Admin-only global pricing control. Only an active admin may read/update.
+ * Admin-only global platform settings — pricing plus the reviewer cooldown.
+ * Only an active admin may read/update.
  */
 async function requireAdminApi() {
   const user = await getCurrentUser();
@@ -21,6 +22,10 @@ const schema = z
     minWithdrawal: z.number().int().positive().max(100000),
     minTopup: z.number().int().positive().max(100000),
     referralReward: z.number().int().positive().max(100000),
+    // Hours between one reviewer submission and the next, platform-wide.
+    // 0 is valid and switches the cooldown off — hence min(0), not positive().
+    // Capped at a week so a typo can't lock every reviewer out indefinitely.
+    reviewerCooldownHours: z.number().int().min(0).max(168),
   })
   .strict();
 

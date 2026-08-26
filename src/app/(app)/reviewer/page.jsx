@@ -6,8 +6,9 @@ import dbConnect from "../../../lib/db";
 import User from "../../../models/User";
 import Submission from "../../../models/Submission";
 import { getSettings, inr } from "../../../lib/settings";
-import { getAvailableCampaignsForReviewer } from "../../../lib/reviewerCampaigns";
+import { getAvailableCampaignsForReviewer, getReviewerCooldownState } from "../../../lib/reviewerCampaigns";
 import OverviewStats from "../../../components/reviewer/OverviewStats";
+import ReviewerCooldownNotice from "../../../components/reviewer/ReviewerCooldownNotice";
 
 export const metadata = { title: "Your dashboard · RapportLook" };
 
@@ -17,13 +18,14 @@ export default async function ReviewerHomePage() {
   await dbConnect();
   const settings = await getSettings();
 
-  const [me, mySubs, available] = await Promise.all([
+  const [me, mySubs, available, cooldown] = await Promise.all([
     User.findById(user.id).select("walletBalance").lean(),
     Submission.find({ reviewer: user.id }).select("campaign status").lean(),
     // Same city/pacing/claimed-slots rules as /reviewer/campaigns — this used
     // to be its own shortcut filter (collected-only, no city, no pacing) so
     // the count here could say "4" while the actual list showed fewer/none.
     getAvailableCampaignsForReviewer(user.id),
+    getReviewerCooldownState(user.id),
   ]);
 
   const approved = mySubs.filter((s) => s.status === "approved").length;
@@ -40,6 +42,10 @@ export default async function ReviewerHomePage() {
         Earn {inr(settings.reviewerReward)} for every verified review. Rewards are for verified
         participation, never for positive ratings.
       </p>
+
+      {/* Sits above the "N campaigns waiting" CTA on purpose — otherwise the
+          dashboard invites a booking the server is about to refuse. */}
+      <ReviewerCooldownNotice cooldown={cooldown} />
 
       {/* Special CTA — the stat tile below still has the same number, but
           this is the one thing on the page that actually wants a click:
