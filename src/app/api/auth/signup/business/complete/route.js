@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { completePhoneSignup, isValidPhone } from "../../../../../../lib/auth/phoneAuth";
 import { ROLES } from "../../../../../../lib/auth/roles";
+import { readClientPlatform } from "../../../../../../lib/clientPlatform";
 
 /**
  * Final step of business signup — only reached for a phone that had NO
@@ -26,7 +27,14 @@ export async function POST(request) {
     return Response.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const result = await completePhoneSignup({ ...parsed.data, role: ROLES.BUSINESS_OWNER });
+  // Where the signup is happening from decides whether the referrer is paid
+  // now or left pending until an install — see lib/referral.js. Read from the
+  // X-App-Platform header, never the body, so a payload can't claim to be the app.
+  const result = await completePhoneSignup({
+    ...parsed.data,
+    role: ROLES.BUSINESS_OWNER,
+    platform: readClientPlatform(request),
+  });
   if (!result.ok) {
     return Response.json({ error: result.message, code: result.code, role: result.role }, { status: 400 });
   }

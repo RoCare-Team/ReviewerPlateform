@@ -2,7 +2,8 @@ import { z } from "zod";
 import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
-import { getReferralSummary } from "../../../../lib/referral";
+import { getReferralSummary, markAppInstall } from "../../../../lib/referral";
+import { readClientPlatform } from "../../../../lib/clientPlatform";
 
 /**
  * Self-service profile update. Guarded by the profile:update permission (see
@@ -64,11 +65,17 @@ export async function PATCH(request) {
  * return the caller's own record. `passwordHash` and `totpSecret` are
  * `select: false` on the model and are not requested here either.
  */
-export async function GET() {
+export async function GET(request) {
   const { user, response } = await apiRequirePermission("profile:update");
   if (response) return response;
 
   await dbConnect();
+
+  // Catches an account that was already signed in on the app before the
+  // install rule existed — its referrer's pending bonus is released the next
+  // time the app loads this screen. No-op from a browser, and no-op once the
+  // install is already recorded. See lib/referral.js#markAppInstall.
+  await markAppInstall(user.id, readClientPlatform(request));
 
   const doc = await User.findById(user.id)
     .select(
@@ -96,8 +103,16 @@ export async function GET() {
       location: { city: doc.location?.city ?? "" },
       referralCode: referral.referralCode,
       referredCount: referral.referredCount,
+      // Only the installs earned anything — the app should headline this,
+      // not referredCount, or it advertises rewards that were never paid.
+      referralInstalledCount: referral.installedCount,
+      referralPaidCount: referral.paidCount,
+      referralPendingCount: referral.pendingCount,
       referralReward: referral.referralReward,
+      // Play Store link carrying the code; see lib/referral.js. The web
+      // signup link is kept as a fallback that pays nothing on its own.
       referralLink: referral.referralLink,
+      referralWebLink: referral.webSignupLink,
       bankAccountHolder: doc.bankAccountHolder ?? "",
       bankAccountNumber: doc.bankAccountNumber ?? "",
       bankIfsc: doc.bankIfsc ?? "",

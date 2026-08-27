@@ -8,7 +8,7 @@ import { getSettings, inr } from "../../../../lib/settings";
 import ProfileForm from "../../../../components/reviewer/ProfileForm";
 import WalletCard from "../../../../components/business/WalletCard";
 import ReferralCard from "../../../../components/shared/ReferralCard";
-import { generateUniqueReferralCode } from "../../../../lib/referral";
+import { getReferralSummary, getReferralHistory } from "../../../../lib/referral";
 
 export const metadata = { title: "Settings · RapportLook Business" };
 
@@ -18,16 +18,16 @@ export default async function BusinessSettingsPage() {
   await dbConnect();
   let doc = await User.findById(sessionUser.id).select("name phone bio walletBalance referralCode").lean();
 
-  // Backfill for accounts created before the referral program existed.
-  if (doc && !doc.referralCode) {
-    const code = await generateUniqueReferralCode();
-    await User.updateOne({ _id: sessionUser.id, referralCode: { $exists: false } }, { $set: { referralCode: code } });
-    doc = { ...doc, referralCode: code };
-  }
+  // Summary handles the lazy code backfill for accounts older than the
+  // referral program, and builds the Play Store share link — see
+  // lib/referral.js. History is what the owner sees under the card.
+  const [referral, referralHistory] = await Promise.all([
+    getReferralSummary(sessionUser.id, doc?.referralCode),
+    getReferralHistory(sessionUser.id),
+  ]);
   const txns = await WalletTransaction.find({ user: sessionUser.id }).sort({ createdAt: -1 }).limit(10).lean();
   const settings = await getSettings();
   const { minTopup } = settings;
-  const referredCount = await User.countDocuments({ referredBy: sessionUser.id });
 
   const initial = {
     name: doc?.name ?? "",
@@ -77,11 +77,14 @@ export default async function BusinessSettingsPage() {
       {/* Invite & earn */}
       <div className="mt-10">
         <ReferralCard
-          code={doc?.referralCode}
-          signupPath="/login"
-          rewardDisplay={inr(settings.referralReward)}
-          referredCount={referredCount}
-          appUrl={process.env.APP_URL ?? "http://localhost:3000"}
+          code={referral.referralCode}
+          rewardDisplay={inr(referral.referralReward)}
+          referredCount={referral.referredCount}
+          installedCount={referral.installedCount}
+          paidCount={referral.paidCount}
+          referralLink={referral.referralLink}
+          webSignupLink={referral.webSignupLink}
+          history={referralHistory}
         />
       </div>
     </div>

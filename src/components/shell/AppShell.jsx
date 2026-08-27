@@ -18,6 +18,7 @@ import {
   Settings,
   ShieldAlert,
   ShieldCheck,
+  Smartphone,
   Star,
   User,
   Users,
@@ -61,6 +62,7 @@ const ICONS = {
   trust: ShieldAlert,
   withdraw: Landmark,
   cron: Activity,
+  app: Smartphone,
 };
 
 function NavLink({ item, active, onNavigate, collapsed }) {

@@ -2,7 +2,8 @@ import { z } from "zod";
 import dbConnect from "../../../../lib/db";
 import User from "../../../../models/User";
 import { apiRequirePermission } from "../../../../lib/auth/guards";
-import { getReferralSummary } from "../../../../lib/referral";
+import { getReferralSummary, markAppInstall } from "../../../../lib/referral";
+import { readClientPlatform } from "../../../../lib/clientPlatform";
 
 /**
  * Business-owner self-service profile update. Guarded by profile:update (see
@@ -61,11 +62,18 @@ export async function PATCH(request) {
  *
  * The id comes from the session, never the request.
  */
-export async function GET() {
+export async function GET(request) {
   const { user, response } = await apiRequirePermission("profile:update");
   if (response) return response;
 
   await dbConnect();
+
+  // Catches an account that was already signed in on the app before the
+  // install rule existed — its referrer's pending bonus is released the next
+  // time the app loads this screen. No-op from a browser, and no-op once the
+  // install is already recorded. See lib/referral.js#markAppInstall.
+  await markAppInstall(user.id, readClientPlatform(request));
+
   const doc = await User.findById(user.id)
     .select("name phone bio image role status walletBalance referralCode createdAt")
     .lean();
@@ -85,8 +93,16 @@ export async function GET() {
       walletBalance: doc.walletBalance ?? 0,
       referralCode: referral.referralCode,
       referredCount: referral.referredCount,
+      // Only the installs earned anything — the app should headline this,
+      // not referredCount, or it advertises rewards that were never paid.
+      referralInstalledCount: referral.installedCount,
+      referralPaidCount: referral.paidCount,
+      referralPendingCount: referral.pendingCount,
       referralReward: referral.referralReward,
+      // Play Store link carrying the code; see lib/referral.js. The web
+      // signup link is kept as a fallback that pays nothing on its own.
       referralLink: referral.referralLink,
+      referralWebLink: referral.webSignupLink,
       createdAt: doc.createdAt,
     },
   });

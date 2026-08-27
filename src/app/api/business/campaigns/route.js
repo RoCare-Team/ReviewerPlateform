@@ -17,10 +17,13 @@ import { getSettings } from "../../../../lib/settings";
  *
  * Two request shapes:
  *  - Single campaign (any platform): { name, platform, budget, notes, targetUrl, locationId }.
- *  - Multi-location batch, Google only: { name, platform: "google", notes, locations: [{locationId, budget, targetUrl?}, ...] }
+ *  - Multi-location batch, Google only: { name, platform: "google", notes, locations: [{locationId?, label?, budget, targetUrl?}, ...] }
  *    — one Campaign doc per selected location, each with its own budget slice.
  *    targetUrl defaults to that location's synced GmbLocation.reviewUrl but the
- *    owner can override it per location. The whole batch is funded by a single
+ *    owner can override it per location. An item can also skip locationId
+ *    entirely and carry a pasted targetUrl (+ optional label) instead — an
+ *    outlet that isn't on the connected Google account still gets a campaign.
+ *    The whole batch is funded by a single
  *    atomic wallet debit (sum of the per-location budgets) so it can't
  *    partially succeed against the wallet.
  */
@@ -38,7 +41,14 @@ function normalizeDrafts(drafts) {
 }
 
 const locationItemSchema = z.object({
-  locationId: z.string().min(1),
+  // Optional: a batch item is EITHER a connected GMB location or a review
+  // link the owner pasted by hand (outlet not on the connected account, or
+  // not synced yet). See the refine below — one of the two is required.
+  locationId: z.string().min(1).optional(),
+  // Manual items only — what to call the business behind the pasted link.
+  // Snapshotted as the campaign's businessName and used to name the campaign
+  // in a multi-item batch, the way a location's title is.
+  label: z.string().trim().max(120).optional(),
   budget: z.number().int().positive().max(10_000_000),
   // Defaults to the location's own synced reviewUrl when omitted — this lets
   // the owner override it per-location (see createBatch below).
@@ -72,6 +82,13 @@ const locationItemSchema = z.object({
   .refine((l) => Boolean(l.pacingLimit) === Boolean(l.pacingWindowHours), {
     message: "Pacing needs both a review count and a time window.",
     path: ["pacingLimit"],
+  })
+  // Nothing auto-fills a manual item's URL, so an item with no locationId
+  // must bring a real link — otherwise the campaign would go live pointing
+  // reviewers at an empty targetUrl.
+  .refine((l) => Boolean(l.locationId) || /^https?:\/\//i.test(l.targetUrl ?? ""), {
+    message: "Add a review link (starting with http:// or https://) for each manual location.",
+    path: ["targetUrl"],
   });
 
 const createSchema = z
@@ -249,12 +266,15 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
     );
   }
 
-  const ids = locations.map((l) => l.locationId);
+  // Manual items carry no locationId — only the connected ones are deduped
+  // and looked up. Two manual rows pointing at the same pasted link are the
+  // owner's call (different review counts, different pacing), not an error.
+  const ids = locations.map((l) => l.locationId).filter(Boolean);
   if (new Set(ids).size !== ids.length) {
     return Response.json({ error: "The same location was selected more than once." }, { status: 400 });
   }
 
-  const locDocs = await GmbLocation.find({ _id: { $in: ids }, user: user.id });
+  const locDocs = ids.length > 0 ? await GmbLocation.find({ _id: { $in: ids }, user: user.id }) : [];
   if (locDocs.length !== ids.length) {
     return Response.json({ error: "One or more locations weren't found." }, { status: 400 });
   }
@@ -262,7 +282,7 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
 
   for (const l of locations) {
     if (l.budget < reviewRate) {
-      const label = locMap.get(l.locationId)?.title || "a location";
+      const label = (l.locationId ? locMap.get(l.locationId)?.title : l.label) || "a location";
       return Response.json({ error: `Minimum budget for ${label} is ₹${reviewRate} (one review).` }, { status: 400 });
     }
   }
@@ -298,28 +318,34 @@ async function createBatch({ user, name, platform, notes, locations, reviewRate 
   let created;
   try {
     created = await Campaign.insertMany(
-      locations.map((l) => {
-        const loc = locMap.get(l.locationId);
+      locations.map((l, i) => {
+        const loc = l.locationId ? locMap.get(l.locationId) : null;
         // See lib/campaigns.js#deriveCityFromAddress — same parse the
-        // create-campaign UI uses to label each location's city.
-        const derivedCity = deriveCityFromAddress(loc.address);
+        // create-campaign UI uses to label each location's city. A manual
+        // item has no address to parse, so it has no derived city either —
+        // it falls back to whatever cities the owner picked (or All India).
+        const derivedCity = loc ? deriveCityFromAddress(loc.address) : "";
+        // What this item is called: the connected location's own title,
+        // else the label typed next to the pasted link, else its position —
+        // a batch of unnamed links still reads as distinct campaigns.
+        const itemLabel = loc ? loc.title || loc.locationName : l.label || `Location ${i + 1}`;
         return {
           user: user.id,
-          name: locations.length > 1 ? `${name} — ${loc.title || loc.locationName}` : name,
+          name: locations.length > 1 ? `${name} — ${itemLabel}` : name,
           platform: "google",
           budget: l.budget,
           ratePerReview: reviewRate,
           targetReviews: approxReviews(l.budget, reviewRate),
           notes,
-          targetUrl: l.targetUrl || loc.reviewUrl || "",
+          targetUrl: l.targetUrl || loc?.reviewUrl || "",
           cities: l.allIndia
             ? []
             : l.cities?.length > 0
               ? [...new Set(l.cities.map((c) => canonicalizeCity(c)).filter(Boolean))]
               : [canonicalizeCity(derivedCity)].filter(Boolean),
-          location: loc._id,
-          businessName: loc.title || "",
-          businessCategory: loc.category || "",
+          location: loc?._id ?? null,
+          businessName: loc?.title || l.label || "",
+          businessCategory: loc?.category || "",
           status: "active",
           reviewDrafts: normalizeDrafts(l.reviewDrafts).map((d) => ({ ...d, assignedTo: null, assignedAt: null })),
           reviewImages: (l.reviewImages ?? []).map((url) => ({ url, assignedTo: null, assignedAt: null })),

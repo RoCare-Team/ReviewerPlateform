@@ -4,7 +4,8 @@ import { sendSmsOtp, verifySmsOtp } from "../smsOtp";
 import { issueToken, consumeToken } from "./tokens";
 import { rateLimit, clientIp } from "../rate-limit";
 import { canSelfSignup } from "./roles";
-import { generateUniqueReferralCode, findReferrer, payReferralBonus } from "../referral";
+import { generateUniqueReferralCode, findReferrer, payReferralBonus, markAppInstall } from "../referral";
+import { readClientPlatform, isAppPlatform } from "../clientPlatform";
 
 /**
  * Phone+OTP login/signup for reviewer & business_owner — these two roles no
@@ -129,6 +130,11 @@ export async function verifyPhoneOtp({ phone, otp, intent, role }, request) {
       { $set: { phoneVerified: new Date(), status: "active", lastLoginAt: new Date() } }
     );
 
+    // Logging in from the app is what proves the install. For an account that
+    // was referred but signed up on the website, THIS is the moment their
+    // referrer finally gets paid — see lib/referral.js#markAppInstall.
+    await markAppInstall(user._id, readClientPlatform(request));
+
     const otpToken = await issueToken(phone, "phone_login");
     return { ok: true, status: "existing", otpToken };
   }
@@ -153,8 +159,12 @@ export async function verifyPhoneOtp({ phone, otp, intent, role }, request) {
  * first login (LocationGate) — a reviewer now declares their city once,
  * up front, instead of granting browser geolocation. Campaign matching
  * (reviewer/campaigns/page.jsx) reads this same field either way.
+ *
+ * `platform` ("web" | "android" | "ios") comes from the X-App-Platform header
+ * the calling route reads, never the body — see lib/clientPlatform.js. It
+ * decides whether a referral bonus is paid now or stays pending.
  */
-export async function completePhoneSignup({ phone, name, role, verifiedToken, city, ageConfirmed, referralCode }) {
+export async function completePhoneSignup({ phone, name, role, verifiedToken, city, ageConfirmed, referralCode, platform = "web" }) {
   if (!canSelfSignup(role)) return { ok: false, message: "Signup isn't available for this account type." };
 
   // Reviewer-only, but enforced here (not just in the route's zod schema) —
@@ -188,6 +198,7 @@ export async function completePhoneSignup({ phone, name, role, verifiedToken, ci
       { _id: existing._id },
       { $set: { phoneVerified: new Date(), status: "active", lastLoginAt: new Date() } }
     );
+    await markAppInstall(existing._id, platform);
     const otpToken = await issueToken(phone, "phone_login");
     return { ok: true, otpToken };
   }
@@ -206,11 +217,18 @@ export async function completePhoneSignup({ phone, name, role, verifiedToken, ci
     passwordHash: null,
     referralCode: ownReferralCode,
     referredBy: referrer?._id ?? null,
+    // Where the account was born, and — when that's the app — the install
+    // stamp that makes the referral bonus payable right away. A website
+    // signup records `web` and leaves the bonus pending until they install.
+    signupSource: platform,
+    ...(isAppPlatform(platform) ? { appInstalledAt: new Date(), appPlatform: platform } : {}),
     // Reviewer-only — business accounts don't carry a location/age field.
     ...(role === "reviewer" && city ? { location: { city, updatedAt: new Date() } } : {}),
     ...(role === "reviewer" ? { ageConfirmed: true } : {}),
   });
 
+  // No-op unless the signup came from the app — payReferralBonus() checks
+  // that itself, so a web signup simply leaves the bonus pending.
   if (referrer) await payReferralBonus(created);
 
   const otpToken = await issueToken(phone, "phone_login");

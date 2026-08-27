@@ -30,6 +30,14 @@ import { toast } from "../../lib/toast";
 const selectClass =
   "w-full appearance-none rounded-btn border border-default bg-surface py-2.5 pl-10 pr-3 text-primary outline-none transition-all duration-200 hover:border-strong focus:border-accent focus:ring-2 focus:ring-accent/50";
 
+// A location row can either point at a connected GMB location or carry a
+// review link the owner pastes in by hand — an outlet that isn't on the
+// connected Google account (or hasn't synced yet) would otherwise have no
+// way into a multi-location campaign at all. This is the dropdown value
+// standing in for that second case; it can't collide with a real location
+// id, which is always an ObjectId.
+const MANUAL_LOCATION = "__manual__";
+
 // "N reviews every Y day(s)" is how the owner thinks about pacing, but it's
 // enforced as a single fixed gap between reviews (see lib/pacing.js) — this
 // converts the two numbers into that gap and a human sentence, so the owner
@@ -90,6 +98,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
       ? [
           {
             locationId: "",
+            manualLabel: "",
             reviews: "",
             targetUrl: "",
             cities: [],
@@ -182,8 +191,19 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
 
   const rowsTotal = rows.reduce((sum, r) => sum + (Number(r.reviews) || 0) * rate, 0);
   const rowsOverBudget = rowsTotal > walletBalance;
-  const usedLocationIds = new Set(rows.map((r) => r.locationId).filter(Boolean));
-  const canAddRow = rows.length < locations.length;
+  // Manual rows are never "used up" — the same sentinel can sit in as many
+  // rows as the owner wants, each holding a different pasted link.
+  const usedLocationIds = new Set(rows.map((r) => r.locationId).filter((id) => id && id !== MANUAL_LOCATION));
+  // With manual links the row count is no longer bounded by how many
+  // locations are connected — 25 is the batch size the API accepts.
+  const canAddRow = rows.length < 25;
+
+  // What to call a row in error messages: its connected location's title,
+  // else whatever the owner typed next to the pasted link, else its position.
+  function rowLabel(row, i) {
+    if (row.locationId === MANUAL_LOCATION) return row.manualLabel?.trim() || `Location ${i + 1}`;
+    return locations.find((l) => l.id === row.locationId)?.title || `Location ${i + 1}`;
+  }
 
   function set(key) {
     return (e) => {
@@ -253,6 +273,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
       ...r,
       {
         locationId: "",
+        manualLabel: "",
         reviews: "",
         targetUrl: "",
         cities: [],
@@ -291,12 +312,15 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
       if (key === "locationId") {
         const prevLoc = locations.find((l) => l.id === next[index].locationId);
         const untouched = !row.targetUrl || row.targetUrl === prevLoc?.reviewUrl;
-        const newLoc = locations.find((l) => l.id === value);
-        if (untouched && newLoc?.reviewUrl) row.targetUrl = newLoc.reviewUrl;
+        const newLoc = locations.find((l) => l.id === row.locationId);
+        // Switching to "paste a link manually" has nothing to auto-fill —
+        // blank the previous location's link/city rather than leaving the
+        // owner staring at another outlet's URL.
+        if (untouched) row.targetUrl = newLoc?.reviewUrl || "";
 
         const citiesUntouched = row.cities.length === 0 || (row.cities.length === 1 && row.cities[0] === prevLoc?.city);
-        if (citiesUntouched && newLoc?.city) {
-          row.cities = [newLoc.city];
+        if (citiesUntouched) {
+          row.cities = newLoc?.city ? [newLoc.city] : [];
         }
       }
 
@@ -459,7 +483,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
     const res = await fetch("/api/business/campaigns/suggest-keywords", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: loc?.title || values.name.trim(), category: loc?.category || "", count: Math.min(n, 50) }),
+      body: JSON.stringify({ name: loc?.title || row.manualLabel?.trim() || values.name.trim(), category: loc?.category || "", count: Math.min(n, 50) }),
     });
     setRowKeywordsPending((p) => ({ ...p, [index]: false }));
     const data = await res.json().catch(() => ({}));
@@ -506,7 +530,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: loc?.title || values.name.trim(),
+        name: loc?.title || row.manualLabel?.trim() || values.name.trim(),
         platform: "google",
         notes: values.notes.trim(),
         category: loc?.category || "",
@@ -553,7 +577,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: loc?.title || values.name.trim(),
+        name: loc?.title || row.manualLabel?.trim() || values.name.trim(),
         platform: "google",
         notes: values.notes.trim(),
         category: loc?.category || "",
@@ -687,18 +711,24 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
       const filled = rows.filter((r) => r.locationId && r.reviews);
       if (filled.length === 0) return setError("Add at least one location with a number of reviews.");
       for (const r of filled) {
-        const loc = locations.find((l) => l.id === r.locationId);
+        const label = rowLabel(r, rows.indexOf(r));
         if (!r.targetUrl?.trim()) {
-          return setError(`Add a review URL for ${loc?.title || "each location"}.`);
+          return setError(`Add a review URL for ${label}.`);
+        }
+        // A pasted link is the only thing standing behind a manual row —
+        // nothing auto-filled it, so check it at least looks like a URL
+        // before a live campaign points reviewers at nothing.
+        if (r.locationId === MANUAL_LOCATION && !/^https?:\/\//i.test(r.targetUrl.trim())) {
+          return setError(`The review link for ${label} must start with http:// or https://.`);
         }
         if (r.cityMode !== "all_india" && (!r.cities || r.cities.length === 0)) {
-          return setError(`Add at least one city for ${loc?.title || "each location"}, or switch it to All India.`);
+          return setError(`Add at least one city for ${label}, or switch it to All India.`);
         }
         if ((Number(r.reviews) || 0) < 1) {
-          return setError(`Ask for at least 1 review for ${loc?.title || "each location"}.`);
+          return setError(`Ask for at least 1 review for ${label}.`);
         }
         if (r.pacingOn && (!(Number(r.pacingCount) >= 1) || !(Number(r.pacingDays) >= 1))) {
-          return setError(`Enter valid pacing numbers for ${loc?.title || "each location"}.`);
+          return setError(`Enter valid pacing numbers for ${label}.`);
         }
       }
       if (rowsOverBudget) {
@@ -722,8 +752,12 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
           const rowPacing = r.pacingOn
             ? { pacingLimit: Math.floor(Number(r.pacingCount)), pacingWindowHours: Math.floor(Number(r.pacingDays)) * 24 }
             : {};
+          const isManual = r.locationId === MANUAL_LOCATION;
           return {
-            locationId: r.locationId,
+            // A manual row has no connected location behind it — just the
+            // pasted link and, optionally, what to call the business on it.
+            locationId: isManual ? undefined : r.locationId,
+            label: isManual ? r.manualLabel?.trim() || undefined : undefined,
             budget: n * rate,
             targetUrl: r.targetUrl?.trim() || undefined,
             cities: r.cityMode === "all_india" ? [] : (r.cities ?? []),
@@ -791,6 +825,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
         ? [
             {
               locationId: "",
+              manualLabel: "",
               reviews: "",
               targetUrl: "",
               cities: [],
@@ -913,11 +948,12 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="c-loc-0">Locations</Label>
-                      <span className="text-xs text-muted">Pick a location, its review URL fills in automatically.</span>
+                      <span className="text-xs text-muted">Pick a location (its link auto-fills) or paste one yourself.</span>
                     </div>
 
                     {rows.map((row, i) => {
                       const loc = locations.find((l) => l.id === row.locationId);
+                      const isManual = row.locationId === MANUAL_LOCATION;
                       const rowReviews = Number(row.reviews) || 0;
                       const rowPrice = rowReviews * rate;
                       return (
@@ -957,10 +993,23 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
                                     {l.areaLabel ? ` — ${l.areaLabel}` : ""}
                                   </option>
                                 ))}
+                              <option value={MANUAL_LOCATION}>Paste a review link manually…</option>
                             </select>
 
                             {row.locationId && (
                               <div>
+                                {isManual && (
+                                  <div className="mb-2.5">
+                                    <Input
+                                      id={`c-label-${i}`}
+                                      value={row.manualLabel}
+                                      onChange={(e) => setRow(i, "manualLabel", e.target.value)}
+                                      placeholder="Business name (optional)"
+                                      icon={Tag}
+                                      className="text-sm"
+                                    />
+                                  </div>
+                                )}
                                 <Input
                                   id={`c-url-${i}`}
                                   type="url"
@@ -971,7 +1020,9 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
                                   icon={Link2}
                                   className="text-sm"
                                 />
-                                {row.targetUrl && row.targetUrl === loc?.reviewUrl ? (
+                                {isManual ? (
+                                  <p className="mt-1 text-xs text-muted">Paste the link where reviewers should leave their review.</p>
+                                ) : row.targetUrl && row.targetUrl === loc?.reviewUrl ? (
                                   <p className="mt-1 flex items-center gap-1 text-xs font-medium text-verified">
                                     <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
                                     Auto-filled — edit if this isn&apos;t right.
@@ -1373,7 +1424,7 @@ export default function NewCampaignModal({ walletBalance, locations = [], playSt
                       if (filledCount === 0) {
                         return (
                           <div className="rounded-card border border-dashed border-default bg-surface px-4 py-3 text-center text-xs text-muted">
-                            Pick a location and set the number of reviews to see the price.
+                            Pick a location (or paste a link) and set the number of reviews to see the price.
                           </div>
                         );
                       }

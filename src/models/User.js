@@ -79,6 +79,17 @@ const UserSchema = new mongoose.Schema(
     referralCode: { type: String, trim: true, uppercase: true, unique: true, sparse: true, index: true },
     referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     referralBonusPaid: { type: Boolean, default: false },
+    referralBonusPaidAt: { type: Date, default: null },
+
+    // Where this account was CREATED, and when we first saw it used from the
+    // native app — declared by the X-App-Platform header, see
+    // lib/clientPlatform.js. The referral bonus is only paid once the referred
+    // person has actually installed the app, so `appInstalledAt` is what
+    // releases a pending bonus: someone who signs up on the website earns
+    // their referrer nothing until they install and log in from the app.
+    signupSource: { type: String, enum: ["web", "android", "ios"], default: "web" },
+    appInstalledAt: { type: Date, default: null },
+    appPlatform: { type: String, enum: ["", "android", "ios"], default: "" },
 
     // Denormalised from Role.key — no join on every request.
     // NEVER set from a client payload. Derive server-side from the route.
