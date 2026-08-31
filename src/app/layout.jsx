@@ -1,6 +1,7 @@
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "react-hot-toast";
+import MetaPixel from "../components/site/MetaPixel";
 
 // APP_URL is used for server-side redirects/emails (localhost in dev is correct
 // there). For SEO metadata we must always resolve against the real production
@@ -116,6 +117,11 @@ export default function RootLayout({ children }) {
             },
           }}
         />
+
+        {/* Meta ad attribution. Mounted at the root so it also catches the
+            client-side route changes the base snippet can't see — see
+            components/site/MetaPixel.jsx. */}
+        <MetaPixel />
       </body>
     </html>
   );
