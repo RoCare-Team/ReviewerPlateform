@@ -15,6 +15,8 @@ export const PRICING_DEFAULTS = {
   referralReward: 25,
   currency: "INR",
   reviewerCooldownHours: 4,
+  // See models/AppSettings.js — manual until RazorpayX is activated.
+  payoutMode: "manual",
 };
 
 export async function getSettings() {
@@ -36,6 +38,8 @@ export async function getSettings() {
     // whole app (and the mobile client, via /api/settings) already reads.
     // `?? ` on purpose, not `||`: 0 is a valid value meaning "no cooldown".
     reviewerCooldownHours: doc?.reviewerCooldownHours ?? PRICING_DEFAULTS.reviewerCooldownHours,
+    // "manual" | "razorpayx" — how an approved withdrawal is actually paid.
+    payoutMode: doc?.payoutMode ?? PRICING_DEFAULTS.payoutMode,
   };
 }
 
@@ -54,6 +58,7 @@ export async function updateSettings(patch) {
     referralReward: doc.referralReward,
     currency: doc.currency,
     reviewerCooldownHours: doc.reviewerCooldownHours ?? PRICING_DEFAULTS.reviewerCooldownHours,
+    payoutMode: doc.payoutMode ?? PRICING_DEFAULTS.payoutMode,
   };
 }
 

@@ -66,6 +66,20 @@ export function verifyWebhookSignature({ rawBody, signature }) {
 
 const RAZORPAYX_BASE = "https://api.razorpay.com/v1";
 
+/**
+ * Can a payout even be attempted? Checked BEFORE a withdrawal is claimed for
+ * approval, because the alternative is worse than an error: a payout that
+ * can't be created gets the request auto-rejected and the reviewer refunded,
+ * which reads to everyone involved as "the admin declined it" when in fact
+ * nothing was ever configured. Keys alone aren't enough — RazorpayX debits a
+ * specific current account, and its endpoints 404 until X is activated.
+ */
+export function isPayoutConfigured() {
+  return Boolean(
+    process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET && process.env.RAZORPAYX_ACCOUNT_NUMBER
+  );
+}
+
 function authHeader() {
   const key_id = process.env.RAZORPAY_KEY_ID;
   const key_secret = process.env.RAZORPAY_KEY_SECRET;

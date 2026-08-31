@@ -24,16 +24,24 @@ function inr(n) {
 
 /**
  * Admin withdrawal-request queue. Same tab pattern as VerificationQueue —
- * defaults to Pending, other tabs surface the full decided history. Approve
- * just records the payout as sent (manual, no gateway yet); reject refunds
- * the held amount back to the reviewer's wallet server-side.
+ * defaults to Pending, other tabs surface the full decided history. Reject
+ * refunds the held amount back to the reviewer's wallet server-side.
+ *
+ * What "Mark paid" means depends on `payoutMode` (AppSettings.payoutMode):
+ * in "manual" it records a transfer the admin already made by hand — so it
+ * asks for an optional UTR/UPI reference first, the only trace such a payment
+ * leaves. In "razorpayx" it fires a real payout and there's nothing to type.
  */
-export default function WithdrawalQueue({ requests }) {
+export default function WithdrawalQueue({ requests, payoutMode = "manual" }) {
   const router = useRouter();
+  const manual = payoutMode !== "razorpayx";
   const [tab, setTab] = useState("pending");
   const [busy, setBusy] = useState(null);
   const [rejecting, setRejecting] = useState(null);
   const [reason, setReason] = useState("");
+  // Manual mode only — which row is asking for its payment reference.
+  const [paying, setPaying] = useState(null);
+  const [reference, setReference] = useState("");
 
   const counts = {
     pending: requests.filter((r) => r.status === "pending").length,
@@ -44,16 +52,18 @@ export default function WithdrawalQueue({ requests }) {
 
   const visible = tab === "all" ? requests : requests.filter((r) => r.status === tab);
 
-  async function act(id, action, reasonText = "") {
+  async function act(id, action, reasonText = "", referenceText = "") {
     setBusy(id);
     const res = await fetch(`/api/admin/withdrawals/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, reason: reasonText }),
+      body: JSON.stringify({ action, reason: reasonText, reference: referenceText }),
     });
     setBusy(null);
     setRejecting(null);
     setReason("");
+    setPaying(null);
+    setReference("");
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -67,7 +77,13 @@ export default function WithdrawalQueue({ requests }) {
       return;
     }
 
-    toast.success(action === "approve" ? "Marked as paid." : "Request rejected and refunded.");
+    toast.success(
+      action === "approve"
+        ? manual
+          ? "Marked as paid."
+          : "Payout sent to RazorpayX."
+        : "Request rejected and refunded."
+    );
     router.refresh();
   }
 
@@ -169,12 +185,46 @@ export default function WithdrawalQueue({ requests }) {
                 )}
                 {r.status === "approved" && (
                   <p className="mt-3 text-xs font-semibold text-verified">
-                    Marked paid{r.reviewedDate ? ` · ${r.reviewedDate}` : ""}
+                    {r.paidManually ? "Paid by hand" : "Marked paid"}
+                    {r.reviewedDate ? ` · ${r.reviewedDate}` : ""}
+                    {r.paymentReference ? ` · ref ${r.paymentReference}` : ""}
                   </p>
                 )}
 
                 {r.status === "pending" && (
-                  rejecting === r.id ? (
+                  paying === r.id ? (
+                    <div className="mt-4 animate-fade-up" style={{ animationDuration: "200ms" }}>
+                      <p className="text-xs text-secondary">
+                        Send {inr(r.amount)} to the account above first, then record it here. The reviewer&apos;s
+                        wallet was already debited when they requested it — marking it paid does not move money.
+                      </p>
+                      <input
+                        value={reference}
+                        onChange={(e) => setReference(e.target.value)}
+                        placeholder="UTR / UPI reference (optional)"
+                        autoFocus
+                        className="mt-2 w-full rounded-btn border border-default bg-surface px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/50"
+                      />
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => act(r.id, "approve", "", reference)}
+                          disabled={busy === r.id}
+                          className="rounded-btn bg-verified px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0"
+                        >
+                          {busy === r.id ? "Working…" : "Confirm paid"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setPaying(null); setReference(""); }}
+                          disabled={busy === r.id}
+                          className="rounded-btn border border-default bg-surface px-3 py-1.5 text-sm font-semibold text-secondary transition-colors duration-200 hover:bg-surface-sunken"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : rejecting === r.id ? (
                     <div className="mt-4 animate-fade-up" style={{ animationDuration: "200ms" }}>
                       <input
                         value={reason}
@@ -206,7 +256,7 @@ export default function WithdrawalQueue({ requests }) {
                     <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => act(r.id, "approve")}
+                        onClick={() => (manual ? setPaying(r.id) : act(r.id, "approve"))}
                         disabled={busy === r.id}
                         className="inline-flex items-center gap-1.5 rounded-btn bg-verified px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60 disabled:hover:translate-y-0"
                       >

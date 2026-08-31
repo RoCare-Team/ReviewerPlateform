@@ -1,6 +1,6 @@
 import { requireRole } from "../../../../lib/auth/guards";
 import { ROLES } from "../../../../lib/auth/roles";
-import { getAvailableCampaignsForReviewer, getReviewerCooldownState } from "../../../../lib/reviewerCampaigns";
+import { getReviewerCampaignFeed, getReviewerCooldownState } from "../../../../lib/reviewerCampaigns";
 import CampaignParticipation from "../../../../components/reviewer/CampaignParticipation";
 import ReviewerCooldownNotice from "../../../../components/reviewer/ReviewerCooldownNotice";
 
@@ -11,8 +11,10 @@ export default async function ReviewerCampaignsPage() {
 
   // Campaigns stay listed during a cooldown — only the booking buttons lock,
   // with the notice above spelling out the wait. See lib/reviewerCampaigns.js.
-  const [available, cooldown] = await Promise.all([
-    getAvailableCampaignsForReviewer(user.id),
+  // `waiting` is what turns an empty screen into an explanation — campaigns
+  // in this reviewer's own city that are merely full or mid-pacing right now.
+  const [{ available, waiting, city }, cooldown] = await Promise.all([
+    getReviewerCampaignFeed(user.id),
     getReviewerCooldownState(user.id),
   ]);
 
@@ -27,7 +29,7 @@ export default async function ReviewerCampaignsPage() {
       <ReviewerCooldownNotice cooldown={cooldown} />
 
       <div className="mt-8">
-        <CampaignParticipation campaigns={available} cooldown={cooldown} />
+        <CampaignParticipation campaigns={available} cooldown={cooldown} waiting={waiting} city={city} />
       </div>
     </div>
   );

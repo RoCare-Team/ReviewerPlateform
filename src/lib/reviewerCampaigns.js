@@ -18,6 +18,26 @@ import { campaignCities, campaignOpenToCity } from "./campaigns";
  * see the bug report this fixes.
  */
 export async function getAvailableCampaignsForReviewer(userId) {
+  const { available } = await getReviewerCampaignFeed(userId);
+  return available;
+}
+
+/**
+ * The same pass, but it also hands back WHY the list is short: every campaign
+ * this reviewer's city qualifies them for that is merely busy right now —
+ * every slot taken, or the campaign's own drip pacing (lib/pacing.js) hasn't
+ * elapsed yet.
+ *
+ * Worth the extra bookkeeping because "No campaigns available right now" is
+ * indistinguishable from a broken page. A reviewer in a city with two paced
+ * campaigns sees an empty screen for most of the day and reasonably concludes
+ * the app is broken; "2 campaigns in Gurugram, next one opens in about 4
+ * hours" is the same fact, minus the support ticket.
+ *
+ * Campaigns for OTHER cities are deliberately not counted — they are not this
+ * reviewer's to wait for, and listing them would only read as a tease.
+ */
+export async function getReviewerCampaignFeed(userId) {
   await dbConnect();
   const settings = await getSettings();
 
@@ -55,6 +75,13 @@ export async function getAvailableCampaignsForReviewer(userId) {
   const pacingBlockedIds = new Set(
     pacedCampaigns.filter((c, i) => pacingResults[i].blocked).map((c) => String(c._id))
   );
+  // …and WHEN each of those frees up, so a blocked campaign can say "opens in
+  // about 4 hours" instead of just vanishing.
+  const pacingNextById = new Map(
+    pacedCampaigns
+      .map((c, i) => [String(c._id), pacingResults[i].nextAvailableAt])
+      .filter(([, at]) => at)
+  );
 
   // campaignId → this reviewer's status on it. Only an approved or still-
   // pending submission makes a campaign unavailable — a rejected one doesn't,
@@ -68,6 +95,10 @@ export async function getAvailableCampaignsForReviewer(userId) {
   // resolves the legacy single-city field batch campaigns still use.
   const reviewerCity = (me?.location?.city || "").trim();
 
+  // Filled in by the filter below — campaigns this reviewer WOULD see if they
+  // weren't momentarily busy. See the docblock above.
+  const waiting = [];
+
   const available = openCampaigns
     .filter((c) => {
       const claimed = claimedById.get(String(c._id)) ?? 0;
@@ -77,12 +108,28 @@ export async function getAvailableCampaignsForReviewer(userId) {
       // is what makes the campaign read as "full" — it's their reserved
       // slot, not a new one.
       const hasMyClaim = myClaimByCampaign.has(String(c._id));
-      if (!hasMyClaim && (c.collected ?? 0) + claimed >= c.targetReviews) return false;
-      if (!hasMyClaim && pacingBlockedIds.has(String(c._id))) return false;
+      // City and "already done" are checked FIRST so the waiting list only
+      // ever describes campaigns that are genuinely this reviewer's to wait
+      // for — not another city's, and not one they already reviewed.
+      if (!campaignOpenToCity(c, reviewerCity)) return false;
       const status = statusByCampaign.get(String(c._id));
       if (status && status !== "rejected") return false;
 
-      if (!campaignOpenToCity(c, reviewerCity)) return false;
+      if (!hasMyClaim && (c.collected ?? 0) + claimed >= c.targetReviews) {
+        waiting.push({ id: String(c._id), name: c.name, reason: "full", availableAt: null });
+        return false;
+      }
+      if (!hasMyClaim && pacingBlockedIds.has(String(c._id))) {
+        waiting.push({
+          id: String(c._id),
+          name: c.name,
+          reason: "paced",
+          // When the campaign's own gap elapses — the client turns this into
+          // a live "opens in ~4 hours".
+          availableAt: pacingNextById.get(String(c._id))?.toISOString() ?? null,
+        });
+        return false;
+      }
       return true;
     })
     .map((c) => {
@@ -113,7 +160,9 @@ export async function getAvailableCampaignsForReviewer(userId) {
       };
     });
 
-  return available;
+  // Soonest first — the empty state only quotes the next one to open.
+  waiting.sort((a, b) => new Date(a.availableAt ?? 8.64e15) - new Date(b.availableAt ?? 8.64e15));
+  return { available, waiting, city: reviewerCity };
 }
 
 /**

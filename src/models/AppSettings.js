@@ -20,6 +20,16 @@ const AppSettingsSchema = new mongoose.Schema(
     // is the pattern Google's fake-engagement detection flags. 0 turns it off.
     // Enforced in lib/pacing.js#checkReviewerCooldown.
     reviewerCooldownHours: { type: Number, default: 4, min: 0, max: 168 },
+    // How a reviewer's approved withdrawal actually gets paid:
+    //   "manual"    — an admin transfers the money themselves (UPI/bank) and
+    //                 records it here. Nothing is called out to any gateway.
+    //   "razorpayx" — approving fires a real RazorpayX payout.
+    // Defaults to MANUAL: RazorpayX has to be activated on the Razorpay
+    // account before its payout endpoints even exist (they 404 otherwise),
+    // and an approval that quietly failed used to auto-reject the request and
+    // refund the reviewer — the money never moved, but the admin had already
+    // decided it should. Manual is the honest default until X is live.
+    payoutMode: { type: String, enum: ["manual", "razorpayx"], default: "manual" },
   },
   { timestamps: true }
 );

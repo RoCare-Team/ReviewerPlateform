@@ -22,6 +22,8 @@ export default function PricingForm({ initial }) {
   const [minTopup, setMinTopup] = useState(String(initial.minTopup));
   const [referralReward, setReferralReward] = useState(String(initial.referralReward));
   const [cooldownHours, setCooldownHours] = useState(String(initial.reviewerCooldownHours ?? 4));
+  // "manual" | "razorpayx" — see models/AppSettings.js#payoutMode.
+  const [payoutMode, setPayoutMode] = useState(initial.payoutMode ?? "manual");
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -74,6 +76,7 @@ export default function PricingForm({ initial }) {
         minTopup: minIn,
         referralReward: referral,
         reviewerCooldownHours: cooldown,
+        payoutMode,
       }),
     });
     setPending(false);
@@ -156,6 +159,46 @@ export default function PricingForm({ initial }) {
             switch the cooldown off.
           </p>
         </div>
+      </div>
+
+      {/* Also not a price — how an approved withdrawal actually reaches the
+          reviewer. Lives here because it's the same platform-wide save. */}
+      <div className="mt-6 border-t border-default pt-6">
+        <h3 className="text-sm font-bold text-primary">Reviewer payouts</h3>
+        <div className="mt-3 inline-flex rounded-lg border border-default bg-surface p-0.5" role="tablist" aria-label="How approved withdrawals are paid">
+          {[
+            { key: "manual", label: "Manual" },
+            { key: "razorpayx", label: "Automatic (RazorpayX)" },
+          ].map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              role="tab"
+              aria-selected={payoutMode === m.key}
+              onClick={() => setPayoutMode(m.key)}
+              className={`rounded-[5px] px-3.5 py-1.5 text-sm font-semibold transition-all duration-200 ${
+                payoutMode === m.key ? "bg-accent text-on-brand" : "text-secondary hover:text-primary"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 max-w-xl text-xs text-muted">
+          {payoutMode === "razorpayx" ? (
+            <>
+              Approving a withdrawal fires a real RazorpayX payout to the reviewer&apos;s bank account.
+              Needs RazorpayX activated on the Razorpay account plus{" "}
+              <span className="font-semibold">RAZORPAYX_ACCOUNT_NUMBER</span> set — until then approvals are
+              refused with an explanation rather than failing halfway.
+            </>
+          ) : (
+            <>
+              You transfer the money yourself (UPI/bank), then mark the request paid on the Withdrawals page.
+              Nothing is sent to any payment gateway. Switch to Automatic once RazorpayX is live.
+            </>
+          )}
+        </p>
       </div>
 
       {msg && (

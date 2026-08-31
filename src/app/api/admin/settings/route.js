@@ -26,6 +26,9 @@ const schema = z
     // 0 is valid and switches the cooldown off — hence min(0), not positive().
     // Capped at a week so a typo can't lock every reviewer out indefinitely.
     reviewerCooldownHours: z.number().int().min(0).max(168),
+    // Optional so an older client (or the mobile app) PATCHing the pricing
+    // fields alone can't accidentally reset how payouts are made.
+    payoutMode: z.enum(["manual", "razorpayx"]).optional(),
   })
   .strict();
 

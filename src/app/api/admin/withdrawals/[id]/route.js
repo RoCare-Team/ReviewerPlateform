@@ -5,20 +5,38 @@ import WalletTransaction from "../../../../../models/WalletTransaction";
 import WithdrawalRequest from "../../../../../models/WithdrawalRequest";
 import { getCurrentUser } from "../../../../../lib/auth/session";
 import { ROLES } from "../../../../../lib/auth/roles";
-import { createContact, createFundAccount, createPayout } from "../../../../../lib/razorpay";
+import { createContact, createFundAccount, createPayout, isPayoutConfigured } from "../../../../../lib/razorpay";
+import { getSettings } from "../../../../../lib/settings";
 
 /**
- * Admin verifies a reviewer's withdrawal request.
- *   approve → the amount was already held/deducted when the request was
- *             created. This creates (or reuses) a RazorpayX contact + fund
- *             account for the reviewer's saved bank details and fires a real
- *             payout. The request moves to "processing" here; the webhook
- *             (api/webhooks/razorpay) flips it to "approved" once RazorpayX
- *             confirms the money actually landed, or refunds it if the
- *             payout fails/reverses at the bank.
- *   reject  → refunds the held amount back to the reviewer's wallet.
+ * Admin verifies a reviewer's withdrawal request. The amount was already
+ * held (deducted) when the request was created, so approving never moves
+ * money out of the wallet again and rejecting is what gives it back.
  *
- * The status guard ({ status: "pending" }) makes both actions idempotent — a
+ * What "approve" DOES depends on AppSettings.payoutMode:
+ *
+ *   manual (default) → the admin has already sent the money themselves
+ *             (UPI/bank transfer). This only records that: status becomes
+ *             "approved", with an optional reference (UTR / UPI ref) for the
+ *             audit trail. No gateway is contacted, and nothing is refunded —
+ *             the held amount is now genuinely spent.
+ *   razorpayx → creates (or reuses) a RazorpayX contact + fund account for
+ *             the reviewer's saved bank details and fires a real payout. The
+ *             request moves to "processing"; the webhook
+ *             (api/webhooks/razorpay) flips it to "approved" once RazorpayX
+ *             confirms the money landed, or refunds it if the payout
+ *             fails/reverses at the bank.
+ *
+ * ★ In razorpayx mode the request is NOT claimed until the credentials are
+ * actually present. A payout that can't even be attempted used to auto-reject
+ * the request and refund the reviewer — which reads as "the admin declined
+ * you" when the truth is "RazorpayX was never switched on". It now fails
+ * loudly, leaves the request pending, and tells the admin what to fix.
+ *
+ *   reject  → refunds the held amount back to the reviewer's wallet, with the
+ *             reason recorded and shown to them.
+ *
+ * The status guard ({ status: "pending" }) makes every action idempotent — a
  * second click matches nothing, so a reviewer can never be refunded twice or
  * have a paid request silently reprocessed.
  */
@@ -26,6 +44,9 @@ const schema = z
   .object({
     action: z.enum(["approve", "reject"]),
     reason: z.string().trim().max(300).optional().default(""),
+    // Manual payouts only — UTR / UPI reference for the transfer the admin
+    // already made. Optional; an approval is valid without one.
+    reference: z.string().trim().max(120).optional().default(""),
   })
   .strict();
 
@@ -49,6 +70,42 @@ export async function PATCH(request, { params }) {
   await dbConnect();
 
   if (parsed.data.action === "approve") {
+    const { payoutMode } = await getSettings();
+
+    // Manual mode — the money has already left the admin's own account, so
+    // all that's left is to record it. Deliberately does NOT touch the
+    // wallet: the hold taken at request time is what was just paid out.
+    if (payoutMode !== "razorpayx") {
+      const paid = await WithdrawalRequest.findOneAndUpdate(
+        { _id: id, status: "pending" },
+        {
+          $set: {
+            status: "approved",
+            paidManually: true,
+            paymentReference: parsed.data.reference,
+            reviewedBy: admin.id,
+            reviewedAt: new Date(),
+          },
+        },
+        { returnDocument: "after" }
+      );
+      if (!paid) return Response.json({ error: "Request not found or already reviewed." }, { status: 404 });
+      return Response.json({ ok: true, mode: "manual" });
+    }
+
+    // Automatic mode, but nothing to pay with — refuse before claiming, so
+    // the request stays pending and the reviewer keeps their place in the
+    // queue instead of being rejected for an admin-side misconfiguration.
+    if (!isPayoutConfigured()) {
+      return Response.json(
+        {
+          error:
+            "Automatic payouts aren't configured (RazorpayX keys / account number missing). Switch Payout mode to Manual in Pricing settings, or finish the RazorpayX setup.",
+        },
+        { status: 400 }
+      );
+    }
+
     // Claim it first (atomic) so a double-click can't fire two payouts.
     const claimed = await WithdrawalRequest.findOneAndUpdate(
       { _id: id, status: "pending" },

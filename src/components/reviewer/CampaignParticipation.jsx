@@ -622,19 +622,58 @@ function useHashHighlight() {
   return highlightId;
 }
 
-export default function CampaignParticipation({ campaigns, cooldown }) {
+/**
+ * "Nothing here" is the screen a reviewer sees most often, and on its own it
+ * is indistinguishable from a broken app — which is exactly how it kept being
+ * reported. `waiting` (see lib/reviewerCampaigns.js) says whether their city
+ * HAS campaigns that are simply busy: every slot taken, or the campaign's own
+ * drip pacing still running. Quoting the next one to open turns a dead end
+ * into a wait.
+ */
+function EmptyState({ waiting = [], city = "" }) {
+  const paced = waiting.filter((w) => w.reason === "paced" && w.availableAt);
+  const soonest = paced[0]?.availableAt ? new Date(paced[0].availableAt) : null;
+  const minutesAway = soonest ? Math.max(1, Math.round((soonest - Date.now()) / 60000)) : null;
+  const opensIn =
+    minutesAway === null
+      ? ""
+      : minutesAway < 60
+        ? `about ${minutesAway} minute${minutesAway === 1 ? "" : "s"}`
+        : `about ${Math.round(minutesAway / 60)} hour${Math.round(minutesAway / 60) === 1 ? "" : "s"}`;
+
+  return (
+    <div className="rounded-card border border-dashed border-default bg-surface-raised p-10 text-center">
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface-sunken">
+        <Megaphone className="h-6 w-6 text-muted" aria-hidden="true" />
+      </span>
+      <p className="mt-4 text-sm font-semibold text-primary">No campaigns available right now</p>
+      {waiting.length === 0 ? (
+        <p className="mt-1 text-sm text-secondary">
+          {city
+            ? `Nothing is running for ${city} at the moment. Check back soon — new campaigns open up regularly.`
+            : "Check back soon — new campaigns open up regularly."}
+        </p>
+      ) : (
+        <>
+          <p className="mt-1 text-sm text-secondary">
+            {waiting.length} campaign{waiting.length === 1 ? " is" : "s are"} running{city ? ` in ${city}` : ""}, but{" "}
+            {waiting.length === 1 ? "it is" : "they are"} busy right now — every spot is either taken or spaced out to
+            keep reviews looking natural.
+          </p>
+          {opensIn && (
+            <p className="mt-2 text-sm font-semibold text-accent">The next one opens in {opensIn}.</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function CampaignParticipation({ campaigns, cooldown, waiting = [], city = "" }) {
   const highlightId = useHashHighlight();
 
   if (campaigns.length === 0) {
-    return (
-      <div className="rounded-card border border-dashed border-default bg-surface-raised p-10 text-center">
-        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface-sunken">
-          <Megaphone className="h-6 w-6 text-muted" aria-hidden="true" />
-        </span>
-        <p className="mt-4 text-sm font-semibold text-primary">No campaigns available right now</p>
-        <p className="mt-1 text-sm text-secondary">Check back soon — new campaigns open up regularly.</p>
-      </div>
-    );
+    return <EmptyState waiting={waiting} city={city} />;
   }
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
