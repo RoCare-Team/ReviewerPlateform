@@ -23,6 +23,15 @@ import { getAppVersionConfig } from "./appVersion";
  *
  * Beyond the install, nothing further is required of the new user: no first
  * review, no campaign. Phone-OTP on a real number plus an install is the bar.
+ *
+ * ★ Detection is not the last word. An app build that announces itself in
+ * none of the ways lib/clientPlatform.js understands looks exactly like the
+ * website, so a real install can sit there reading "web only — no app yet"
+ * and never pay. Every referral is therefore reviewable by an admin at
+ * /admin/referrals: approve() credits it by hand (the same money, the same
+ * ledger entry, marked as admin-approved), reject() settles it as ineligible
+ * and stops the automatic payout from firing later. Three states in total —
+ * pending, paid, rejected — see referralStatus() below.
  */
 
 // Unambiguous alphabet — no 0/O/1/I — so a code read aloud or handwritten
@@ -84,26 +93,59 @@ export function referralBonusEarned(user) {
 }
 
 /**
+ * Where one referral stands, from the referred user's own document:
+ *   "none"     — this account wasn't referred at all.
+ *   "paid"     — the referrer has the money (automatically, or admin-approved).
+ *   "rejected" — an admin settled it as ineligible; nothing will ever pay.
+ *   "pending"  — everything else: waiting on an install, or on an admin.
+ * The single place this is decided, so the admin queue, the referrer's own
+ * card and the API can never disagree about what a row means.
+ */
+export function referralStatus(user) {
+  if (!user?.referredBy) return "none";
+  if (user.referralBonusPaid) return "paid";
+  if (user.referralBonusRejectedAt) return "rejected";
+  return "pending";
+}
+
+/**
  * Credits the referrer's wallet for a referred user who has reached the app.
  * Idempotent via `referralBonusPaid` on the NEW user's own document — even
  * if this were called twice for the same signup, the second call is a no-op.
  *
- * Called from two places, both of which may legitimately be a no-op:
- * completePhoneSignup() (paid immediately when the signup came from the app)
- * and markAppInstall() (pays a pending bonus when a web signup installs the
- * app later).
+ * Called from three places, the first two of which may legitimately be a
+ * no-op: completePhoneSignup() (paid immediately when the signup came from
+ * the app), markAppInstall() (pays a pending bonus when a web signup installs
+ * the app later), and approveReferral() — an admin crediting a referral the
+ * automatic signal missed, which is the one case that passes `by` and skips
+ * the install check.
+ *
+ * Returns true only when this call is the one that moved the money.
  */
-export async function payReferralBonus(newUser) {
-  if (!newUser.referredBy || newUser.referralBonusPaid) return;
+export async function payReferralBonus(newUser, { by = null } = {}) {
+  if (!newUser.referredBy || newUser.referralBonusPaid) return false;
+  // An admin decision outranks the automatic path in both directions: a
+  // rejected referral never pays itself later, and an approval pays even
+  // though nothing was ever seen on the app.
+  if (newUser.referralBonusRejectedAt && !by) return false;
   // The whole point of the program — no install, no payout. Stays pending
-  // rather than being refused outright, so it can still be earned later.
-  if (!referralBonusEarned(newUser)) return;
+  // rather than being refused outright, so it can still be earned later
+  // (by an install, or by an admin looking at it).
+  if (!by && !referralBonusEarned(newUser)) return false;
 
   const claimed = await User.findOneAndUpdate(
     { _id: newUser._id, referralBonusPaid: false },
-    { $set: { referralBonusPaid: true, referralBonusPaidAt: new Date() } }
+    {
+      $set: {
+        referralBonusPaid: true,
+        referralBonusPaidAt: new Date(),
+        // An approval also clears any earlier rejection, so the row can't
+        // read as both paid and rejected.
+        ...(by ? { referralBonusApprovedBy: by, referralBonusRejectedAt: null, referralBonusRejectedBy: null } : {}),
+      },
+    }
   );
-  if (!claimed) return; // already paid by a concurrent call
+  if (!claimed) return false; // already paid by a concurrent call
 
   const settings = await getSettings();
   const reward = settings.referralReward;
@@ -113,15 +155,82 @@ export async function payReferralBonus(newUser) {
     { $inc: { walletBalance: reward } },
     { returnDocument: "after" }
   ).select("walletBalance");
-  if (!referrer) return;
+  if (!referrer) {
+    // The referrer's account is gone. Undo the claim rather than leaving this
+    // referral marked paid with no money and no ledger entry behind it — an
+    // admin clicking Approve would otherwise see it flip to "credited" while
+    // being told it failed.
+    await User.updateOne(
+      { _id: newUser._id },
+      { $set: { referralBonusPaid: false, referralBonusPaidAt: null, referralBonusApprovedBy: null } }
+    );
+    return false;
+  }
 
   await WalletTransaction.create({
     user: newUser.referredBy,
     amount: reward,
     type: "referral",
-    note: `Referral bonus — ${newUser.name || "a new user"} installed the app using your code`,
+    // `by` is the admin who approved it — WalletTransaction.by is exactly
+    // "money an admin moved on someone's behalf", so a manual credit is
+    // always attributable in the ledger.
+    by: by ?? null,
+    note: by
+      ? `Referral bonus — ${newUser.name || "a new user"} joined with your code (approved by admin)`
+      : `Referral bonus — ${newUser.name || "a new user"} installed the app using your code`,
     balanceAfter: referrer.walletBalance,
   });
+  return true;
+}
+
+/**
+ * Admin: credit a referral by hand.
+ *
+ * The escape hatch for the case the automatic rule can't see — a genuine
+ * install from a build that doesn't declare itself, a code typed in manually
+ * after installing, anything where the referrer plainly earned it but
+ * `appInstalledAt` never got stamped. Same money, same ledger entry, tagged
+ * with the admin who approved it.
+ *
+ * Idempotent: approving an already-paid referral changes nothing.
+ */
+export async function approveReferral(referredUserId, adminId, note = "") {
+  const referred = await User.findById(referredUserId).select(
+    "referredBy referralBonusPaid referralBonusRejectedAt appInstalledAt signupSource name"
+  );
+  if (!referred) return { ok: false, message: "Account not found." };
+  if (!referred.referredBy) return { ok: false, message: "This account wasn't referred by anyone." };
+  if (referred.referralBonusPaid) return { ok: false, message: "This referral is already credited." };
+
+  const paid = await payReferralBonus(referred, { by: adminId });
+  if (!paid) return { ok: false, message: "Couldn't credit this referral — the referrer's account may be gone." };
+
+  if (note) await User.updateOne({ _id: referred._id }, { $set: { referralBonusNote: note } });
+  return { ok: true };
+}
+
+/**
+ * Admin: settle a referral as ineligible.
+ *
+ * Sticky by design — markAppInstall() checks it, so a rejected referral
+ * doesn't quietly pay itself the next time that account opens the app. Money
+ * already paid is never clawed back here; an already-credited referral is
+ * refused rather than reversed, since the wallet may well have spent it.
+ */
+export async function rejectReferral(referredUserId, adminId, reason = "") {
+  const rejected = await User.findOneAndUpdate(
+    { _id: referredUserId, referredBy: { $ne: null }, referralBonusPaid: false },
+    {
+      $set: {
+        referralBonusRejectedAt: new Date(),
+        referralBonusRejectedBy: adminId,
+        referralBonusNote: reason,
+      },
+    },
+    { returnDocument: "after" }
+  ).select("_id");
+  if (!rejected) return { ok: false, message: "Not found, or already credited." };
+  return { ok: true };
 }
 
 /**
@@ -139,7 +248,7 @@ export async function payReferralBonus(newUser) {
 export async function markAppInstall(userId, platform) {
   if (!isAppPlatform(platform)) return;
 
-  const SELECT = "referredBy referralBonusPaid appInstalledAt signupSource name";
+  const SELECT = "referredBy referralBonusPaid referralBonusRejectedAt appInstalledAt signupSource name";
 
   // First sighting: stamp the install date and pay in one go. The filter is
   // what keeps `appInstalledAt` the FIRST install rather than creeping
@@ -162,6 +271,8 @@ export async function markAppInstall(userId, platform) {
     _id: userId,
     referredBy: { $ne: null },
     referralBonusPaid: false,
+    // An admin already said no — don't keep re-offering it a payout.
+    referralBonusRejectedAt: null,
   }).select(SELECT);
   if (stillOwed) await payReferralBonus(stillOwed);
 }
@@ -204,7 +315,7 @@ export async function ensureReferralCode(userId, existing) {
  * changing the store listing is an admin edit, not a release.
  */
 export async function getReferralSummary(userId, existingCode, { signupPath = "/login" } = {}) {
-  const [referralCode, referredCount, installedCount, paidCount, settings, appVersion] = await Promise.all([
+  const [referralCode, referredCount, installedCount, paidCount, rejectedCount, settings, appVersion] = await Promise.all([
     ensureReferralCode(userId, existingCode),
     User.countDocuments({ referredBy: userId }),
     // On the app — signed up there, or installed later. This is what
@@ -214,6 +325,10 @@ export async function getReferralSummary(userId, existingCode, { signupPath = "/
     // referred BEFORE the install rule existed were paid without ever
     // reaching the app, and a just-installed one is paid a beat later.
     User.countDocuments({ referredBy: userId, referralBonusPaid: true }),
+    // Settled as ineligible by an admin — neither paid nor still waiting, so
+    // it has to come out of the pending count below or that number never
+    // stops nagging about a referral nothing more will happen to.
+    User.countDocuments({ referredBy: userId, referralBonusPaid: false, referralBonusRejectedAt: { $ne: null } }),
     getSettings(),
     getAppVersionConfig(),
   ]);
@@ -225,7 +340,9 @@ export async function getReferralSummary(userId, existingCode, { signupPath = "/
     referredCount,
     installedCount,
     paidCount,
-    pendingCount: Math.max(0, referredCount - installedCount),
+    rejectedCount,
+    // Still in play: not yet credited, not written off.
+    pendingCount: Math.max(0, referredCount - paidCount - rejectedCount),
     referralReward: settings.referralReward,
     // What actually gets shared. The reward is earned on an app INSTALL, so
     // the link has to land on the store, not the web signup form — sharing
@@ -269,7 +386,9 @@ export async function getReferralHistory(userId, { limit = 50 } = {}) {
     User.find({ referredBy: userId })
       .sort({ createdAt: -1 })
       .limit(limit)
-      .select("name phone createdAt signupSource appInstalledAt referralBonusPaid referralBonusPaidAt")
+      .select(
+        "name phone createdAt signupSource appInstalledAt referralBonusPaid referralBonusPaidAt referredBy referralBonusRejectedAt"
+      )
       .lean(),
     getSettings(),
   ]);
@@ -284,6 +403,9 @@ export async function getReferralHistory(userId, { limit = 50 } = {}) {
     installedAt: u.appInstalledAt ?? null,
     bonusPaid: Boolean(u.referralBonusPaid),
     bonusPaidAt: u.referralBonusPaidAt ?? null,
+    // "paid" | "rejected" | "pending" — what the referrer is actually told.
+    // The admin's note behind a rejection is deliberately NOT included.
+    status: referralStatus({ ...u, referredBy: u.referredBy ?? userId }),
     // The amount that WAS paid isn't stored per-user (WalletTransaction has
     // it), so a pending row quotes today's rate — which is what it would pay
     // if the install happened now.

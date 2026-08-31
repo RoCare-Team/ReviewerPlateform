@@ -6,6 +6,7 @@ import {
   Building2,
   Coins,
   CreditCard,
+  Gift,
   Landmark,
   LayoutDashboard,
   Link2,
@@ -61,6 +62,7 @@ const ICONS = {
   payments: CreditCard,
   trust: ShieldAlert,
   withdraw: Landmark,
+  referrals: Gift,
   cron: Activity,
   app: Smartphone,
 };

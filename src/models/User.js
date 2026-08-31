@@ -81,6 +81,23 @@ const UserSchema = new mongoose.Schema(
     referralBonusPaid: { type: Boolean, default: false },
     referralBonusPaidAt: { type: Date, default: null },
 
+    // Admin review of that credit — the queue at /admin/referrals. A referral
+    // is PENDING until either the automatic install signal pays it (see
+    // lib/referral.js) or an admin settles it by hand. Both extra states are
+    // stored on the REFERRED user, next to the flags above, so one document
+    // holds the whole story of one referral.
+    //
+    // `referralBonusApprovedBy` set = an admin credited it manually, which is
+    // how a real install that the app never announced (lib/clientPlatform.js)
+    // still pays out. `referralBonusRejectedAt` is sticky: it also stops the
+    // automatic payout from firing for this account later.
+    referralBonusApprovedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    referralBonusRejectedAt: { type: Date, default: null },
+    referralBonusRejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    // Admin-only note — why it was approved or rejected. Never shown to the
+    // referrer, who only ever sees the decision itself.
+    referralBonusNote: { type: String, trim: true, default: "" },
+
     // Where this account was CREATED, and when we first saw it used from the
     // native app — declared by the X-App-Platform header, see
     // lib/clientPlatform.js. The referral bonus is only paid once the referred

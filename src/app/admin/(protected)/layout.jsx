@@ -19,6 +19,7 @@ const NAV = [
   { href: "/admin", label: "Overview", icon: "dashboard" },
   { href: "/admin/verification", label: "Verification", icon: "moderation" },
   { href: "/admin/withdrawals", label: "Withdrawals", icon: "withdraw" },
+  { href: "/admin/referrals", label: "Referrals", icon: "referrals" },
   { href: "/admin/campaigns", label: "Campaigns", icon: "campaigns" },
   { href: "/admin/users", label: "Users", icon: "users" },
   { href: "/admin/organisations", label: "Businesses", icon: "organisations" },

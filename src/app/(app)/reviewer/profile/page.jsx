@@ -54,6 +54,7 @@ export default async function ReviewerProfilePage() {
           referredCount={referral.referredCount}
           installedCount={referral.installedCount}
           paidCount={referral.paidCount}
+          pendingCount={referral.pendingCount}
           referralLink={referral.referralLink}
           webSignupLink={referral.webSignupLink}
           history={referralHistory}

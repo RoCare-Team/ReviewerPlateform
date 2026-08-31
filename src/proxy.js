@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { ROLES } from "./lib/auth/roles";
+import { PLATFORM_COOKIE, readDeclaredPlatform } from "./lib/clientPlatform";
 
 /**
  * COARSE ROUTING ONLY. This is a fast reject, not the authority.
@@ -34,7 +35,41 @@ const HOME = {
 // 301-redirects it to /login, which handles both login and signup inline).
 const AUTH_PAGES = ["/login", "/verify-otp", "/forgot-password", "/reset-password"];
 
+/**
+ * Second, unrelated job (see lib/clientPlatform.js): remember that this
+ * browser is the mobile app.
+ *
+ * A WebView build can tag the URL it opens (`?platform=android`) or send the
+ * X-App-Platform header, but the query string is gone by the second
+ * navigation and a WebView adds no headers to page loads. So the first
+ * request that declares itself gets a year-long cookie, and everything after
+ * it — page loads, form posts, API calls — reads as the app. Without it an
+ * install can sign up, type a referral code, and still be recorded as a
+ * WEBSITE signup, which is exactly the case that leaves a referrer unpaid.
+ *
+ * Applied to whatever response the routing below produced, redirects
+ * included, so the tag survives the login bounce.
+ */
+function tagPlatform(request, response) {
+  const declared = readDeclaredPlatform(request);
+  if (!declared) return response;
+  if (request.cookies?.get?.(PLATFORM_COOKIE)?.value === declared) return response;
+
+  response.cookies.set(PLATFORM_COOKIE, declared, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+  return response;
+}
+
 export async function proxy(request) {
+  return tagPlatform(request, await route(request));
+}
+
+async function route(request) {
   const { pathname } = request.nextUrl;
 
   const token = await getToken({

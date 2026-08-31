@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Gift, Copy, Check, Share2, Users, Smartphone, Clock, Globe } from "lucide-react";
+import { Gift, Copy, Check, Share2, Users, Smartphone, Clock, XCircle } from "lucide-react";
 import { toast } from "../../lib/toast";
 
 /**
@@ -19,33 +19,48 @@ import { toast } from "../../lib/toast";
  * the share buttons.
  */
 /**
- * The badge reports whether they got onto the APP — not whether the bonus was
- * paid. Those came apart the moment the install rule landed: accounts referred
- * before it were paid without ever installing, and saying "App installed" for
- * one of those would be a claim the data doesn't support.
+ * What actually happened to this referral's reward — paid, refused, or still
+ * open. This used to report only whether the app had been seen, which read as
+ * a flat "web only — no app yet" for anyone whose install the app never
+ * announced (lib/clientPlatform.js), with no hint that the credit could still
+ * come. An admin can settle any referral by hand (/admin/referrals), so
+ * "waiting" is the honest word for everything not yet decided.
  */
-function SourceBadge({ row }) {
-  if (row.installedApp) {
+function StatusBadge({ row }) {
+  const status = row.status ?? (row.bonusPaid ? "paid" : "pending");
+
+  if (status === "paid") {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-verified-subtle px-2 py-0.5 text-[11px] font-bold text-verified">
-        <Smartphone className="h-3 w-3" aria-hidden="true" />
-        App installed
+        <Check className="h-3 w-3" aria-hidden="true" />
+        Reward credited
       </span>
     );
   }
-  if (row.bonusPaid) {
-    // Paid under the old rules, before the reward required an install.
+  if (status === "rejected") {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-danger-subtle px-2 py-0.5 text-[11px] font-bold text-danger">
+        <XCircle className="h-3 w-3" aria-hidden="true" />
+        Not eligible
+      </span>
+    );
+  }
+  // Still open. Which half of "waiting" it is matters to the referrer: an
+  // install we can already see means the payout is a beat away, while no
+  // install yet is something they can actually do something about (nudge
+  // their friend) — or ask support to check, if the friend HAS installed.
+  if (row.installedApp) {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-bold text-secondary">
-        <Clock className="h-3 w-3" aria-hidden="true" />
-        Paid earlier
+        <Smartphone className="h-3 w-3" aria-hidden="true" />
+        App installed · reward being released
       </span>
     );
   }
   return (
     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-bold text-muted">
-      <Globe className="h-3 w-3" aria-hidden="true" />
-      Web only — no app yet
+      <Clock className="h-3 w-3" aria-hidden="true" />
+      Waiting for their app install
     </span>
   );
 }
@@ -61,6 +76,10 @@ export default function ReferralCard({
   referredCount,
   installedCount,
   paidCount,
+  // Referrals still in play — referred, minus paid, minus the ones an admin
+  // settled as ineligible. Computed server-side (lib/referral.js) so a
+  // rejected referral stops being counted as something still owed.
+  pendingCount,
   referralLink,
   webSignupLink,
   history = [],
@@ -93,7 +112,7 @@ export default function ReferralCard({
 
   if (!code) return null;
 
-  const pending = Math.max(0, (referredCount ?? 0) - (installedCount ?? 0));
+  const pending = pendingCount ?? Math.max(0, (referredCount ?? 0) - (paidCount ?? 0));
 
   return (
     <div className="rounded-card border border-default bg-surface-raised p-6 shadow-sm sm:p-8">
@@ -128,7 +147,7 @@ export default function ReferralCard({
           <span className="inline-flex items-center gap-1.5 text-sm text-secondary">
             <Users className="h-4 w-4 text-muted" aria-hidden="true" />
             <span className="font-semibold text-primary">{paidCount} paid</span>
-            {pending > 0 && <span className="text-muted">· {pending} yet to install</span>}
+            {pending > 0 && <span className="text-muted">· {pending} waiting</span>}
           </span>
         )}
       </div>
@@ -162,7 +181,9 @@ export default function ReferralCard({
           >
             your website link
           </button>{" "}
-          — but the reward is only released once they install the app.
+          — but the reward is only released once they install the app. Already
+          installed and still shown as waiting? Contact support and we&apos;ll
+          check it by hand.
         </p>
       )}
 
@@ -179,7 +200,7 @@ export default function ReferralCard({
                   {row.name}
                   {row.phoneLast4 && <span className="text-muted"> ···{row.phoneLast4}</span>}
                 </span>
-                <SourceBadge row={row} />
+                <StatusBadge row={row} />
                 {row.bonusPaid && (
                   <span className="nums shrink-0 text-xs font-bold text-verified">+₹{row.reward}</span>
                 )}
