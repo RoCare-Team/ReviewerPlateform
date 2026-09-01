@@ -528,6 +528,12 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
                     onChange={setReviews}
                     icon={Star}
                   />
+                  {campaign.status === "completed" && (
+                    <p className="mt-1.5 text-xs font-medium text-accent">
+                      This campaign is finished. Raise the target above {campaign.collected} and it reopens for
+                      reviewers — you&apos;re only charged for the extra reviews.
+                    </p>
+                  )}
                   <p className="mt-1.5 flex items-center justify-between text-xs text-muted">
                     <span>{campaign.collected} already collected — target can&apos;t go lower.</span>
                     <span className="nums font-semibold text-primary">

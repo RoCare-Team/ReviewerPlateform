@@ -180,9 +180,10 @@ export default function CampaignsTable({ campaigns, locations = [], walletBalanc
 
                     <td className="px-5 py-4">
                       <div className="flex items-start gap-1.5">
-                        {c.status !== "completed" && (
-                          <EditCampaignModal campaign={c} locations={locations} walletBalance={walletBalance} />
-                        )}
+                        {/* Completed campaigns are editable too — raising the
+                            target is what reopens one (see
+                            api/business/campaigns/[id]). */}
+                        <EditCampaignModal campaign={c} locations={locations} walletBalance={walletBalance} />
                         {!canToggle ? null : confirming ? (
                           <div className="animate-fade-up flex flex-col gap-1.5" style={{ animationDuration: "200ms" }}>
                             <button

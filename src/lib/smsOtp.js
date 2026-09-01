@@ -18,8 +18,17 @@ const OTP_TOKEN = process.env.OTP_TOKEN;
  * Test numbers that skip the real SMS gateway entirely — no OTP is sent, and
  * "1234" always verifies. Add more 10-digit numbers here as needed (e.g. for
  * app-store review accounts or internal QA).
+ *
+ * The role isn't decided here — these are just numbers the gateway is skipped
+ * for. Whichever account type each one signs up as is what it becomes; the
+ * pairing below is only a note of what they're currently used for.
  */
-const TEST_PHONES = ["8709877815","8709877816", "8709877817"];
+const TEST_PHONES = [
+  "9891234890", // reviewer
+  "9354679089", // business
+  "7740847114", // reviewer
+  "7740847112", // business
+];
 const TEST_OTP = "1234";
 
 function isTestPhone(phone) {

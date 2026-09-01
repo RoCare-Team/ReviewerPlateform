@@ -137,9 +137,8 @@ export default function CampaignCard({ campaign, locations = [], walletBalance =
           <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_STYLES[c.status]}`}>
             {c.status}
           </span>
-          {c.status !== "completed" && (
-            <EditCampaignModal campaign={c} locations={locations} walletBalance={walletBalance} />
-          )}
+          {/* Completed included: raising the target reopens the campaign. */}
+          <EditCampaignModal campaign={c} locations={locations} walletBalance={walletBalance} />
         </div>
       </div>
 

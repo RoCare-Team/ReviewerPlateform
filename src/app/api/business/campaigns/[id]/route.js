@@ -34,8 +34,17 @@ import { canonicalizeCity } from "../../../../../lib/campaigns";
  *    never had any, not just edit ones that already exist.
  *    Deliberately still NOT editable: ratePerReview (admin-controlled),
  *    platform (reviewer-side matching differs per platform), reviewerReward
- *    (admin-only), status (has its own action above), and collected/claimed
- *    (driven by reviewer activity). Blocked entirely once "completed".
+ *    (admin-only), and collected/claimed (driven by reviewer activity).
+ *
+ *    ★ A COMPLETED campaign can be edited too, and raising its target is how
+ *    it comes back to life: a campaign that finished its 3 reviews and is now
+ *    set to 5 has real work outstanding again, so editCampaign() flips it
+ *    back to "active" and reviewers see it in their list. Buying more reviews
+ *    on a finished campaign is otherwise a dead end — the owner's only option
+ *    would be a brand-new campaign, losing the history, the drafts and the
+ *    collected count. Status is still not editable DIRECTLY (the pause /
+ *    activate action above owns that); this is a consequence of the new
+ *    target, not a field the client can set.
  */
 const toggleSchema = z.object({ action: z.enum(["pause", "activate"]) }).strict();
 // Same shape as api/business/campaigns/route.js's reviewDraftSchema — kept
@@ -111,9 +120,9 @@ export async function PATCH(request, { params }) {
 async function editCampaign(id, user, data) {
   const { name, notes, targetUrl, cities, reviews, locationId, reviewDrafts, reviewImages } = data;
 
-  const existing = await Campaign.findOne({ _id: id, user: user.id, status: { $ne: "completed" } });
+  const existing = await Campaign.findOne({ _id: id, user: user.id });
   if (!existing) {
-    return Response.json({ error: "Campaign not found, or it's already completed." }, { status: 409 });
+    return Response.json({ error: "Campaign not found." }, { status: 404 });
   }
 
   if (reviews < existing.collected) {
@@ -173,6 +182,16 @@ async function editCampaign(id, user, data) {
   existing.city = "";
   existing.targetReviews = reviews;
   existing.budget = newBudget;
+
+  // Raising a finished campaign's target reopens it — there are unfilled
+  // slots again, and a campaign nobody can see would just be money parked in
+  // a closed listing. A completed campaign edited WITHOUT more reviews (a
+  // typo in the name, say) stays completed, and a paused one stays paused:
+  // reopening that one is the owner's explicit "activate" action, not a
+  // side effect of saving a form.
+  if (existing.status === "completed" && reviews > existing.collected) {
+    existing.status = "active";
+  }
 
   // Omitted entirely → leave the pool untouched. Sent (even as `[]`) →
   // replace the UNASSIGNED portion only; anything already assigned to a
