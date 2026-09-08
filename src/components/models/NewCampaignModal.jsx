@@ -22,7 +22,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { inr } from "../../lib/campaigns";
+import { inr, formatPacingGap } from "../../lib/campaigns";
 import { Label, Input, FormError } from "../auth/Field";
 import CityMultiSelect from "../business/CityMultiSelect";
 import { toast } from "../../lib/toast";
@@ -37,24 +37,6 @@ const selectClass =
 // standing in for that second case; it can't collide with a real location
 // id, which is always an ObjectId.
 const MANUAL_LOCATION = "__manual__";
-
-// "N reviews every Y day(s)" is how the owner thinks about pacing, but it's
-// enforced as a single fixed gap between reviews (see lib/pacing.js) — this
-// converts the two numbers into that gap and a human sentence, so the owner
-// sees exactly what they're actually setting up before they save it.
-function formatPacingGap(count, days) {
-  const n = Number(count);
-  const d = Number(days);
-  if (!(n > 0) || !(d > 0)) return "";
-  const gapHours = (d * 24) / n;
-  const round = (v) => (Number.isInteger(v) ? v : v.toFixed(1));
-  if (gapHours >= 24) {
-    const gapDays = round(gapHours / 24);
-    return `≈ 1 review every ${gapDays} day${gapDays === 1 ? "" : "s"}`;
-  }
-  const h = round(gapHours);
-  return `≈ 1 review every ${h} hour${h === 1 ? "" : "s"}`;
-}
 
 /**
  * Create-campaign modal. The owner enters how many reviews they want, not a

@@ -73,8 +73,19 @@ const editSchema = z
     // the image pool. URLs only — already uploaded via
     // /api/business/campaigns/upload-image before this request.
     reviewImages: z.array(z.string().trim().url()).max(200).optional(),
+    // Drip pacing — see models/Campaign.js pacingLimit/pacingWindowHours and
+    // lib/pacing.js. Nullable, unlike the create route's version: null is how
+    // EditCampaignModal switches an existing pace back OFF. Omitting both
+    // leaves whatever the campaign already has alone, so a client that
+    // doesn't know about the fields can't silently unpace a campaign.
+    pacingLimit: z.number().int().min(1).max(1000).nullable().optional(),
+    pacingWindowHours: z.number().int().min(1).max(24 * 90).nullable().optional(),
   })
-  .strict();
+  .strict()
+  .refine((d) => Boolean(d.pacingLimit) === Boolean(d.pacingWindowHours), {
+    message: "Pacing needs both a review count and a time window.",
+    path: ["pacingLimit"],
+  });
 const schema = z.union([toggleSchema, editSchema]);
 
 function normalizeDrafts(drafts) {
@@ -118,7 +129,7 @@ export async function PATCH(request, { params }) {
 }
 
 async function editCampaign(id, user, data) {
-  const { name, notes, targetUrl, cities, reviews, locationId, reviewDrafts, reviewImages } = data;
+  const { name, notes, targetUrl, cities, reviews, locationId, reviewDrafts, reviewImages, pacingLimit, pacingWindowHours } = data;
 
   const existing = await Campaign.findOne({ _id: id, user: user.id });
   if (!existing) {
@@ -182,6 +193,15 @@ async function editCampaign(id, user, data) {
   existing.city = "";
   existing.targetReviews = reviews;
   existing.budget = newBudget;
+
+  // Both fields move together (the schema's refine guarantees it): sent →
+  // this is the campaign's pace now, null → pacing off; absent → untouched.
+  // Only affects reviews from here on — a gap already being served out just
+  // gets measured against the new number next time a reviewer asks.
+  if (pacingLimit !== undefined || pacingWindowHours !== undefined) {
+    existing.pacingLimit = pacingLimit ?? null;
+    existing.pacingWindowHours = pacingWindowHours ?? null;
+  }
 
   // Raising a finished campaign's target reopens it — there are unfilled
   // slots again, and a campaign nobody can see would just be money parked in

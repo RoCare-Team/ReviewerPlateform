@@ -19,6 +19,28 @@ export function inr(n) {
 }
 
 /**
+ * "N reviews every Y day(s)" is how the owner thinks about drip pacing, but
+ * it's enforced as a single fixed gap between reviews (see lib/pacing.js) —
+ * this converts the two numbers into that gap and a human sentence, so the
+ * owner sees exactly what they're actually setting up before they save it.
+ * Shared by the create and edit campaign modals so the two can't word the
+ * same setting differently.
+ */
+export function formatPacingGap(count, days) {
+  const n = Number(count);
+  const d = Number(days);
+  if (!(n > 0) || !(d > 0)) return "";
+  const gapHours = (d * 24) / n;
+  const round = (v) => (Number.isInteger(v) ? v : v.toFixed(1));
+  if (gapHours >= 24) {
+    const gapDays = round(gapHours / 24);
+    return `≈ 1 review every ${gapDays} day${gapDays === 1 ? "" : "s"}`;
+  }
+  const h = round(gapHours);
+  return `≈ 1 review every ${h} hour${h === 1 ? "" : "s"}`;
+}
+
+/**
  * Best-effort city/locality out of a Google-formatted address string, for a
  * compact location label (the create-campaign location dropdown) and as the
  * default city a batch campaign's location falls back to when the owner

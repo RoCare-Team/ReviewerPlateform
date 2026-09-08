@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Check, CheckCircle2, Globe2, ImagePlus, IndianRupee, Link2, Loader2, MapPinned, Pencil, Sparkles, Star, Tag, Target, Trash2, Wallet, X } from "lucide-react";
 import { Label, Input, FormError } from "../auth/Field";
 import CityMultiSelect from "../business/CityMultiSelect";
-import { inr, campaignCities } from "../../lib/campaigns";
+import { inr, campaignCities, formatPacingGap } from "../../lib/campaigns";
 import { toast } from "../../lib/toast";
 
 const PLATFORM_LABEL = { google: "Google", trustpilot: "Trustpilot", capterra: "Capterra", amazon: "Amazon", playstore: "Play Store" };
@@ -57,6 +57,32 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
 
   const [values, setValues] = useState(initialValues);
   const [pending, setPending] = useState(false);
+
+  /**
+   * Drip pacing — the same "Frequency of review per day" control the create
+   * form has (NewCampaignModal, single-campaign mode), so a pace set at
+   * creation is visible and changeable afterwards instead of being a
+   * write-once setting. Stored on the campaign as pacingLimit /
+   * pacingWindowHours and enforced as a fixed gap between reviews — see
+   * lib/pacing.js.
+   *
+   * The saved pair is mapped back onto the Daily / Alternate / Custom tabs:
+   * 1 review a day and 1 every 2 days are the two shortcuts, anything else
+   * lands on Custom with the raw numbers showing. Days, not hours, is what
+   * the owner enters, so a window that isn't a whole number of days (only
+   * reachable via the API) also falls through to Custom, rounded up.
+   */
+  function initialPacing() {
+    const limit = campaign.pacingLimit ?? null;
+    const hours = campaign.pacingWindowHours ?? null;
+    if (!limit || !hours) return { on: false, mode: "daily", count: "1", days: "1" };
+    const days = Math.max(1, Math.round(hours / 24));
+    const mode = limit === 1 && days === 1 ? "daily" : limit === 1 && days === 2 ? "alternate" : "custom";
+    return { on: true, mode, count: String(limit), days: String(days) };
+  }
+
+  const [pacing, setPacing] = useState(initialPacing);
+  const setPacingField = (key, value) => setPacing((p) => ({ ...p, [key]: value }));
 
   // Reviews for reviewers to copy — same AI keyword→review pipeline as
   // NewCampaignModal's single-campaign mode, just seeded from whatever this
@@ -289,6 +315,7 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
     setValues(initialValues());
     setKeywords(initialKeywords());
     setImages(initialImages());
+    setPacing(initialPacing());
     setError("");
     setOpen(true);
   }
@@ -326,6 +353,9 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
       return;
     }
     if (images.some((im) => im.uploading)) return setError("Wait for the image uploads to finish.");
+    if (pacing.on && (!(Number(pacing.count) >= 1) || !(Number(pacing.days) >= 1))) {
+      return setError("Enter valid pacing numbers.");
+    }
 
     setPending(true);
     const res = await fetch(`/api/business/campaigns/${campaign.id}`, {
@@ -347,6 +377,11 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
           .filter((k) => k.selected && k.review?.trim())
           .map((k) => ({ text: k.review.trim(), keyword: k.text?.trim() || undefined })),
         reviewImages: images.filter((im) => !im.uploading && im.url).map((im) => im.url),
+        // Always sent, both fields together: nulls are how the owner turns
+        // pacing back OFF here, which omitting them couldn't express (the
+        // route leaves pacing untouched when they're absent).
+        pacingLimit: pacing.on ? Math.floor(Number(pacing.count)) : null,
+        pacingWindowHours: pacing.on ? Math.floor(Number(pacing.days)) * 24 : null,
       }),
     });
     setPending(false);
@@ -754,6 +789,83 @@ export default function EditCampaignModal({ campaign, locations = [], walletBala
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Drip pacing — mirrors NewCampaignModal's single-campaign
+                    control. Editable whatever the campaign's platform or
+                    location setup is: unlike the create form there's exactly
+                    one campaign in front of the owner here, so there's no
+                    per-location variant to choose between. */}
+                <div className="rounded-card border border-default bg-surface p-3">
+                  <label className="flex cursor-pointer items-center justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-primary">Frequency of review per day</span>
+                      <span className="mt-0.5 block text-xs text-muted">
+                        Spread reviews over time instead of all at once — safer for Google&apos;s spam detection. Off means all
+                        reviews can come in the same day.
+                      </span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={pacing.on}
+                      onChange={(e) => setPacingField("on", e.target.checked)}
+                      className="h-4.5 w-4.5 shrink-0 rounded border-default accent-accent"
+                    />
+                  </label>
+
+                  <div className={`mt-3 border-t border-default pt-3 transition-opacity duration-150 ${pacing.on ? "" : "pointer-events-none opacity-40"}`}>
+                    <div className="inline-flex rounded-lg border border-default bg-surface-sunken p-0.5" role="tablist" aria-label="Review frequency">
+                      {[
+                        { key: "daily", label: "Daily" },
+                        { key: "alternate", label: "Alternate" },
+                        { key: "custom", label: "Custom" },
+                      ].map((t) => (
+                        <button
+                          key={t.key}
+                          type="button"
+                          role="tab"
+                          aria-selected={pacing.mode === t.key}
+                          onClick={() => {
+                            if (t.key === "daily") setPacing((p) => ({ ...p, mode: t.key, count: "1", days: "1" }));
+                            else if (t.key === "alternate") setPacing((p) => ({ ...p, mode: t.key, count: "1", days: "2" }));
+                            else setPacingField("mode", t.key);
+                          }}
+                          className={`rounded-[5px] px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                            pacing.mode === t.key ? "bg-accent text-on-brand" : "text-secondary hover:text-primary"
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {pacing.mode === "custom" && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-sm text-secondary">
+                        <span>Allow</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          value={pacing.count}
+                          disabled={!pacing.on}
+                          onChange={(e) => setPacingField("count", e.target.value)}
+                          className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
+                        />
+                        <span>review{Number(pacing.count) === 1 ? "" : "s"} every</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={90}
+                          value={pacing.days}
+                          disabled={!pacing.on}
+                          onChange={(e) => setPacingField("days", e.target.value)}
+                          className="w-16 rounded-btn border border-default bg-surface-sunken px-2 py-1.5 text-center text-sm text-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/50"
+                        />
+                        <span>day{Number(pacing.days) === 1 ? "" : "s"}.</span>
+                      </div>
+                    )}
+                  </div>
+                  {pacing.on && <p className="mt-1.5 text-xs font-medium text-accent">{formatPacingGap(pacing.count, pacing.days)}</p>}
                 </div>
 
                 <div>
