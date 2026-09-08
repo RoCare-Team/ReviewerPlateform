@@ -9,7 +9,13 @@ import { verifyScreenshot, AI_CONFIDENCE_THRESHOLD } from "../../../../lib/aiVer
 import { verifyAgainstGmb } from "../../../../lib/gmbVerification";
 import { approveSubmission, rejectSubmission } from "../../../../lib/verification";
 import { releaseClaim } from "../../../../lib/claims";
-import { checkReviewerDailyLimit, checkReviewerCooldown, REVIEWER_DAILY_SUBMISSION_LIMIT } from "../../../../lib/pacing";
+import {
+  checkReviewerDailyLimit,
+  checkReviewerCooldown,
+  checkIpDailyLimit,
+  REVIEWER_DAILY_SUBMISSION_LIMIT,
+} from "../../../../lib/pacing";
+import { clientIp } from "../../../../lib/rate-limit";
 import { formatWait, getSettings } from "../../../../lib/settings";
 
 /**
@@ -101,16 +107,44 @@ export async function POST(request) {
     return Response.json({ error: "You've already submitted for this campaign." }, { status: 409 });
   }
 
-  // Platform-wide daily cap — see lib/pacing.js#checkReviewerDailyLimit. The
-  // authoritative check (the claim route checks too, but only as an early
-  // UX nicety before the link is even revealed — a claim reserved just
-  // before midnight could otherwise slip a submission through past the cap).
-  const { blocked } = await checkReviewerDailyLimit(user.id);
-  if (blocked) {
-    return Response.json(
-      { error: `You've reached today's limit of ${REVIEWER_DAILY_SUBMISSION_LIMIT} reviews. Try again tomorrow.` },
-      { status: 400 }
-    );
+  // A retry on a rejected attempt is exempt from the two daily caps below: it
+  // overwrites the Submission found above instead of adding one, and that
+  // original attempt already spent today's allowance for both the account and
+  // the IP. Without the exemption a cap of one would make "resubmit with a
+  // better screenshot" impossible until tomorrow — the retry path would be dead.
+  const isRetry = Boolean(existing);
+  const ip = clientIp(request);
+
+  if (!isRetry) {
+    // Platform-wide daily cap — see lib/pacing.js#checkReviewerDailyLimit. The
+    // authoritative check (the claim route checks too, but only as an early
+    // UX nicety before the link is even revealed — a claim reserved just
+    // before midnight could otherwise slip a submission through past the cap).
+    const { blocked } = await checkReviewerDailyLimit(user.id);
+    if (blocked) {
+      return Response.json(
+        {
+          error: `You've reached today's limit of ${REVIEWER_DAILY_SUBMISSION_LIMIT} review${REVIEWER_DAILY_SUBMISSION_LIMIT === 1 ? "" : "s"}. Try again tomorrow.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // The same cap, per connection — see lib/pacing.js#checkIpDailyLimit. It
+    // catches the second account on the same phone/router, which the
+    // per-account cap above can't see. Authoritative here rather than at claim
+    // time: a link can be opened on one network and submitted from another,
+    // and this is the request whose IP actually lands on the Submission.
+    const byIp = await checkIpDailyLimit(ip);
+    if (byIp.blocked) {
+      return Response.json(
+        {
+          error:
+            "A review has already been submitted from this network today. Only one review per connection per day is allowed.",
+        },
+        { status: 400 }
+      );
+    }
   }
 
   // Platform-wide cooldown between submissions — the reviewer has to leave
@@ -183,6 +217,7 @@ export async function POST(request) {
           screenshotUrl: upload.url,
           screenshotPublicId: upload.publicId,
           screenshotHash,
+          submitIp: ip,
           note,
           status: "pending",
           rejectionReason: "",
@@ -215,6 +250,7 @@ export async function POST(request) {
         screenshotUrl: upload.url,
         screenshotPublicId: upload.publicId,
         screenshotHash,
+        submitIp: ip,
         note,
         status: "pending",
         ...aiFields,

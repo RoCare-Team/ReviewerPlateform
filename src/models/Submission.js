@@ -22,6 +22,13 @@ const SubmissionSchema = new mongoose.Schema(
     screenshotHash: { type: String, default: "", index: true }, // sha256 for dedupe
     note: { type: String, trim: true, default: "" },
 
+    // Client IP this was submitted from (lib/rate-limit.js#clientIp reading the
+    // proxy chain). Recorded so lib/pacing.js can hold one review per
+    // connection per day — several accounts behind one router is the cheapest
+    // review farm there is, and the per-reviewer cap alone doesn't see it.
+    // "" when the proxy gave us nothing, which is never counted against anyone.
+    submitIp: { type: String, default: "" },
+
     // AI verification verdict (OpenAI vision). verifiedBy: "ai" | "admin" | "".
     verifiedBy: { type: String, default: "" },
     aiDecision: { type: String, default: "" }, // approve | reject | uncertain
@@ -66,5 +73,7 @@ const SubmissionSchema = new mongoose.Schema(
 );
 
 SubmissionSchema.index({ campaign: 1, reviewer: 1 }, { unique: true });
+// Backs the per-IP daily check — "submissions from this IP since midnight".
+SubmissionSchema.index({ submitIp: 1, createdAt: -1 });
 
 export default mongoose.models.Submission || mongoose.model("Submission", SubmissionSchema);

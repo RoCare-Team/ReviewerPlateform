@@ -3,7 +3,13 @@ import Submission from "../../../../../../models/Submission";
 import Claim from "../../../../../../models/Claim";
 import { apiRequirePermission } from "../../../../../../lib/auth/guards";
 import { claimSlot, releaseClaim } from "../../../../../../lib/claims";
-import { checkReviewerDailyLimit, checkReviewerCooldown, REVIEWER_DAILY_SUBMISSION_LIMIT } from "../../../../../../lib/pacing";
+import {
+  checkReviewerDailyLimit,
+  checkReviewerCooldown,
+  checkIpDailyLimit,
+  REVIEWER_DAILY_SUBMISSION_LIMIT,
+} from "../../../../../../lib/pacing";
+import { clientIp } from "../../../../../../lib/rate-limit";
 import { formatWait } from "../../../../../../lib/settings";
 
 /**
@@ -29,17 +35,41 @@ export async function POST(request, { params }) {
     return Response.json({ error: "You've already submitted for this campaign." }, { status: 409 });
   }
 
-  // Platform-wide cap — see lib/pacing.js#checkReviewerDailyLimit. Checked
-  // here (before the link is even revealed) so a reviewer who's already hit
-  // today's limit never gets as far as opening it; api/reviewer/submissions
-  // re-checks at actual submit time too, since a claim reserved just before
-  // midnight could otherwise slip a 3rd submission through after it rolls over.
-  const { blocked } = await checkReviewerDailyLimit(user.id);
-  if (blocked) {
-    return Response.json(
-      { error: `You've reached today's limit of ${REVIEWER_DAILY_SUBMISSION_LIMIT} reviews. Try again tomorrow.` },
-      { status: 400 }
-    );
+  // Re-opening the link to retry a rejected attempt is exempt from the daily
+  // caps below, matching api/reviewer/submissions — that attempt already spent
+  // today's allowance, and the retry overwrites it rather than adding one.
+  const isRetry = Boolean(existingSub); // rejected by here; live ones returned above
+
+  if (!isRetry) {
+    // Platform-wide cap — see lib/pacing.js#checkReviewerDailyLimit. Checked
+    // here (before the link is even revealed) so a reviewer who's already hit
+    // today's limit never gets as far as opening it; api/reviewer/submissions
+    // re-checks at actual submit time too, since a claim reserved just before
+    // midnight could otherwise slip an extra submission through after it rolls over.
+    const { blocked } = await checkReviewerDailyLimit(user.id);
+    if (blocked) {
+      return Response.json(
+        {
+          error: `You've reached today's limit of ${REVIEWER_DAILY_SUBMISSION_LIMIT} review${REVIEWER_DAILY_SUBMISSION_LIMIT === 1 ? "" : "s"}. Try again tomorrow.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // The same cap per connection — see lib/pacing.js#checkIpDailyLimit. Same
+    // reason as above: no point revealing the link and burning a slot on a
+    // review the submit route is going to refuse. That route stays the
+    // authoritative check, since it sees the IP the review is posted from.
+    const byIp = await checkIpDailyLimit(clientIp(request));
+    if (byIp.blocked) {
+      return Response.json(
+        {
+          error:
+            "A review has already been submitted from this network today. Only one review per connection per day is allowed.",
+        },
+        { status: 400 }
+      );
+    }
   }
 
   // Platform-wide cooldown between submissions (AppSettings.reviewerCooldownHours,

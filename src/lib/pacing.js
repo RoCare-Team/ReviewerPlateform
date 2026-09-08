@@ -74,7 +74,7 @@ export async function isPacingBlocked(campaign) {
  * in a timezone library; a review at 12:01am UTC and one at 11:59pm UTC the
  * same day both count, same as any two on the same date would.
  */
-export const REVIEWER_DAILY_SUBMISSION_LIMIT = 2;
+export const REVIEWER_DAILY_SUBMISSION_LIMIT = 1;
 
 function startOfTodayUTC() {
   const now = new Date();
@@ -83,11 +83,13 @@ function startOfTodayUTC() {
 
 /**
  * How many submissions this reviewer has made today, counting every attempt
- * regardless of status (approved/pending/rejected all still used up one of
- * today's two tries) — but NOT a resubmission after a rejection, which
- * overwrites the same Submission doc in place rather than creating a new
- * one, so it doesn't touch `createdAt` and can't inflate today's count on
- * retry. See api/reviewer/submissions/route.js.
+ * regardless of status (approved/pending/rejected all still spend today's
+ * single try) — but NOT a resubmission after a rejection, which overwrites
+ * the same Submission doc in place rather than creating a new one, so it
+ * doesn't touch `createdAt` and can't inflate today's count on retry. That
+ * retry is also exempted from this cap at the call site, otherwise a cap of
+ * one would make "resubmit with a better screenshot" impossible until
+ * tomorrow. See api/reviewer/submissions/route.js.
  */
 export async function reviewerSubmissionsToday(reviewerId) {
   return Submission.countDocuments({ reviewer: reviewerId, createdAt: { $gte: startOfTodayUTC() } });
@@ -100,13 +102,54 @@ export async function checkReviewerDailyLimit(reviewerId) {
 }
 
 /**
+ * Platform-wide cap per CONNECTION — at most this many reviews submitted per
+ * client IP per calendar day, whoever submits them.
+ *
+ * The per-reviewer cap above is per account, so it does nothing against the
+ * cheapest farm there is: several accounts on one phone/router taking turns.
+ * Same day, same connection, different logins is exactly the pattern Google's
+ * fake-engagement detection flags, so the IP gets one review a day too.
+ *
+ * The IP comes from the proxy chain (lib/rate-limit.js#clientIp) and is
+ * recorded on each Submission as `submitIp`. Two honest caveats:
+ *   - It is only as trustworthy as the edge that sets x-forwarded-for; verify
+ *     yours strips a client-supplied one (same caveat as the rate limiter).
+ *   - Shared NAT (an office, a college, a mobile carrier) means genuine
+ *     separate reviewers can share an IP and the second one is turned away.
+ *     That's the deliberate trade — the farm case is the one being priced in.
+ * An unknown/blank IP is never counted, so a missing header can't lock out
+ * every reviewer at once.
+ */
+export const IP_DAILY_SUBMISSION_LIMIT = 1;
+
+/** True for an IP we can't actually attribute — never enforced against. */
+function usableIp(ip) {
+  return Boolean(ip) && ip !== "unknown";
+}
+
+/** How many submissions came from this IP today, any reviewer, any status. */
+export async function submissionsFromIpToday(ip) {
+  if (!usableIp(ip)) return 0;
+  return Submission.countDocuments({ submitIp: ip, createdAt: { $gte: startOfTodayUTC() } });
+}
+
+/** { blocked, count } — true once this IP has spent today's allowance. */
+export async function checkIpDailyLimit(ip) {
+  if (!usableIp(ip)) return { blocked: false, count: 0 };
+  const count = await submissionsFromIpToday(ip);
+  return { blocked: count >= IP_DAILY_SUBMISSION_LIMIT, count };
+}
+
+/**
  * Platform-wide reviewer COOLDOWN — the minimum gap a reviewer must leave
  * between two submissions, across every campaign combined.
  *
  * Sits alongside the daily cap above but answers a different question: the cap
- * is "how many in a day", this is "how close together". Two reviews in one day
- * are fine; two reviews five minutes apart are the burst pattern Google's
- * fake-engagement detection flags on the reviewer's own account.
+ * is "how many in a day", this is "how close together". With the daily cap at
+ * one it rarely binds on its own, but it still spaces out the cases the cap
+ * doesn't count — a retry after a rejection, or the first review of a new day
+ * landing minutes after yesterday's last one, which is the burst pattern
+ * Google's fake-engagement detection flags on the reviewer's own account.
  *
  * The gap is NOT hardcoded — it's `reviewerCooldownHours` on the AppSettings
  * singleton, editable by admin at /admin/pricing (default 4 hours). Setting it
