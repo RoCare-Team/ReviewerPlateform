@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/release-expired-claims",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/review-recheck",
+      "schedule": "20 * * * *"
     }
   ]
 }

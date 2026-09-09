@@ -19,6 +19,14 @@ import { approveSubmission, unverifySubmission } from "../../../../../lib/verifi
  *             Claws back the reward from the reviewer's wallet, gives the
  *             campaign slot back, flips status to "rejected". Requires a
  *             reason, same as reject.
+ *   dismiss_removal → the review-recheck cron flagged this paid submission
+ *             because the review is no longer on Google (see
+ *             api/cron/review-recheck), and the admin has looked and judged
+ *             it fine anyway. Changes no money and no status — it only takes
+ *             the row out of /admin/removed-reviews. The reviewer is never
+ *             shown anything, so no reason is required; one given is kept as
+ *             the check note for the next admin who looks. A later check that
+ *             finds the review live again clears the dismissal on its own.
  *   dismiss_appeal → a reviewer disputed a rejection (Submission.appealStatus
  *             "pending", see api/reviewer/submissions/[id]/appeal) and the
  *             admin is upholding the original rejection rather than
@@ -34,7 +42,7 @@ import { approveSubmission, unverifySubmission } from "../../../../../lib/verifi
  */
 const schema = z
   .object({
-    action: z.enum(["approve", "reject", "unverify", "dismiss_appeal"]),
+    action: z.enum(["approve", "reject", "unverify", "dismiss_removal", "dismiss_appeal"]),
     reason: z.string().trim().max(300).optional().default(""),
   })
   .strict();
@@ -67,6 +75,24 @@ export async function PATCH(request, { params }) {
   }
 
   await dbConnect();
+
+  if (parsed.data.action === "dismiss_removal") {
+    // Guarded on reviewLiveStatus:"missing" so this can only ever settle a
+    // submission the checker actually flagged — never quietly mark an
+    // unflagged one as judged.
+    const dismissed = await Submission.findOneAndUpdate(
+      { _id: id, status: "approved", reviewLiveStatus: "missing" },
+      {
+        $set: {
+          reviewLiveStatus: "dismissed",
+          reviewCheckNote: parsed.data.reason.trim() || `Dismissed by ${admin.email} — judged fine despite the review not being found.`,
+        },
+      },
+      { returnDocument: "after" }
+    );
+    if (!dismissed) return Response.json({ error: "This submission isn't flagged as a removed review." }, { status: 404 });
+    return Response.json({ ok: true });
+  }
 
   if (parsed.data.action === "dismiss_appeal") {
     const dismissed = await Submission.findOneAndUpdate(

@@ -13,6 +13,12 @@ import {
   Star,
   Wallet,
   ArrowRight,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Banknote,
+  Landmark,
+  PiggyBank,
+  ShieldAlert,
 } from "lucide-react";
 import { requireAdmin } from "../../../lib/auth/guards";
 import dbConnect from "../../../lib/db";
@@ -20,8 +26,8 @@ import User from "../../../models/User";
 import Campaign from "../../../models/Campaign";
 import Submission from "../../../models/Submission";
 import GmbReview from "../../../models/GmbReview";
-import WalletTransaction from "../../../models/WalletTransaction";
 import { inr } from "../../../lib/settings";
+import { getFinanceSummary } from "../../../lib/finance";
 import DonutChart from "../../../components/charts/DonutChart";
 import StatCard from "../../../components/shared/StatCard";
 
@@ -66,8 +72,9 @@ export default async function AdminOverviewPage() {
     subsApproved,
     subsRejected,
     reviewsFetched,
-    rewardAgg,
     collectedAgg,
+    reviewsRemoved,
+    money,
   ] = await Promise.all([
     User.countDocuments({ role: "business_owner" }),
     User.countDocuments({ role: "reviewer" }),
@@ -81,11 +88,16 @@ export default async function AdminOverviewPage() {
     Submission.countDocuments({ status: "approved" }),
     Submission.countDocuments({ status: "rejected" }),
     GmbReview.countDocuments({}),
-    WalletTransaction.aggregate([{ $match: { type: "reward" } }, { $group: { _id: null, sum: { $sum: "$amount" } } }]),
     Campaign.aggregate([{ $group: { _id: null, collected: { $sum: "$collected" }, target: { $sum: "$targetReviews" } } }]),
+    // Reviews the platform already paid for that the recheck cron can no
+    // longer find on Google — see api/cron/review-recheck.
+    Submission.countDocuments({ status: "approved", reviewLiveStatus: "missing" }),
+    // Every money figure below comes from here, so the overview and
+    // /admin/finance can never disagree about what a deposit is.
+    getFinanceSummary(),
   ]);
 
-  const rewardsPaid = rewardAgg[0]?.sum ?? 0;
+  const rewardsPaid = money.rewards.total;
   const totalCollected = collectedAgg[0]?.collected ?? 0;
   const totalTarget = collectedAgg[0]?.target ?? 0;
   const totalUsers = businesses + reviewers + admins;
@@ -125,11 +137,31 @@ export default async function AdminOverviewPage() {
         <StatCard label="Pending" value={subsPending} Icon={Clock} tone="text-pending" href="/admin/verification" />
         <StatCard label="Approved" value={subsApproved} Icon={ThumbsUp} tone="text-verified" href="/admin/verification?tab=approved" />
         <StatCard label="Rejected" value={subsRejected} Icon={ThumbsDown} tone="text-danger" href="/admin/verification?tab=rejected" />
+        <StatCard
+          label="Removed after payment"
+          value={reviewsRemoved}
+          Icon={ShieldAlert}
+          tone={reviewsRemoved > 0 ? "text-danger" : "text-accent"}
+          sub="Paid, but gone from Google"
+          href="/admin/removed-reviews"
+        />
+      </Section>
+
+      {/* Money — the four figures the dashboard is asked for most, each
+          linking through to the full breakdown on /admin/finance. "Today" is
+          since midnight IST; see lib/finance.js for what each one counts. */}
+      <Section title="Money">
+        <StatCard label="Total deposits" value={inr(money.deposits.total)} Icon={ArrowDownToLine} tone="text-verified" sub="Business wallet top-ups" href="/admin/finance" />
+        <StatCard label="Total withdrawals paid" value={inr(money.withdrawals.paid)} Icon={ArrowUpFromLine} tone="text-danger" sub={`${inr(money.withdrawals.held)} still held`} href="/admin/finance" />
+        <StatCard label="Deposits today" value={inr(money.deposits.today)} Icon={Banknote} tone="text-verified" href="/admin/finance" />
+        <StatCard label="Withdrawals today" value={inr(money.withdrawals.paidToday)} Icon={Landmark} tone="text-danger" sub={`${money.withdrawals.paidTodayCount} payout${money.withdrawals.paidTodayCount === 1 ? "" : "s"}`} href="/admin/finance" />
       </Section>
 
       <Section title="Platform">
         <StatCard label="Google reviews fetched" value={reviewsFetched} Icon={Star} href="/admin/organisations" />
-        <StatCard label="Rewards paid to reviewers" value={inr(rewardsPaid)} Icon={Wallet} tone="text-verified" href="/admin/users?role=reviewer" />
+        <StatCard label="Rewards paid to reviewers" value={inr(rewardsPaid)} Icon={Wallet} tone="text-verified" sub={`${inr(money.rewards.today)} today`} href="/admin/users?role=reviewer" />
+        <StatCard label="Held in wallets" value={inr(money.holding.total)} Icon={Wallet} tone="text-pending" sub={`${inr(money.holding.business)} business · ${inr(money.holding.reviewer)} reviewer`} href="/admin/finance" />
+        <StatCard label="Platform margin" value={inr(money.margin)} Icon={PiggyBank} tone="text-accent" sub="Campaign spend − reviewer payouts" href="/admin/finance" />
       </Section>
 
       <section className="mt-8">

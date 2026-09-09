@@ -30,6 +30,17 @@ const AppSettingsSchema = new mongoose.Schema(
     // refund the reviewer — the money never moved, but the admin had already
     // decided it should. Manual is the honest default until X is live.
     payoutMode: { type: String, enum: ["manual", "razorpayx"], default: "manual" },
+    // When a paid review is confirmed gone from Google, take the reward back
+    // out of the reviewer's wallet automatically instead of queueing it for an
+    // admin. See lib/reviewMonitor.js#runReviewRecheck for exactly which
+    // findings qualify — notably NOT the ones where Google's own review count
+    // says the listing has more reviews than its API handed us, which still go
+    // to /admin/removed-reviews for a human.
+    //
+    // This is the one switch that stops money moving on its own. Kept in
+    // settings rather than hardcoded so it can be turned off from /admin/pricing
+    // the moment it misfires, without a deploy.
+    autoReverseRemovedReviews: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

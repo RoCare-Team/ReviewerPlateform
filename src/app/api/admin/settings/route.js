@@ -29,6 +29,10 @@ const schema = z
     // Optional so an older client (or the mobile app) PATCHing the pricing
     // fields alone can't accidentally reset how payouts are made.
     payoutMode: z.enum(["manual", "razorpayx"]).optional(),
+    // Optional for the same reason as payoutMode: a client that only knows
+    // about the price fields must not silently switch automatic clawback back
+    // on (or off) as a side effect of saving them.
+    autoReverseRemovedReviews: z.boolean().optional(),
   })
   .strict();
 

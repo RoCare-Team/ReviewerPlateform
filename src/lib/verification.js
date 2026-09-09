@@ -143,8 +143,14 @@ export async function rejectSubmission(submissionId, reason, { verifiedBy = "", 
  * (reviewer's wallet can't cover the clawback — e.g. already withdrawn; the
  * balance goes negative rather than silently failing, so the shortfall stays
  * visible and collectible, but the caller is told so it can be surfaced).
+ *
+ * `verifiedBy` defaults to "admin" because that was the only caller for a
+ * long time. The review-recheck run (lib/reviewMonitor.js) passes "system"
+ * when it reverses a reward on its own, so the submission records that no
+ * human made this call — and `reviewedBy` stays null, rather than blaming
+ * whichever admin happened to be around.
  */
-export async function unverifySubmission(submissionId, reason, { reviewedBy = null } = {}) {
+export async function unverifySubmission(submissionId, reason, { reviewedBy = null, verifiedBy = "admin" } = {}) {
   const current = await Submission.findOne({ _id: submissionId, status: "approved" }).select(
     "campaign reviewer rewardAmount"
   );
@@ -156,7 +162,7 @@ export async function unverifySubmission(submissionId, reason, { reviewedBy = nu
       $set: {
         status: "rejected",
         rejectionReason: reason,
-        verifiedBy: "admin",
+        verifiedBy,
         reviewedBy,
         reviewedAt: new Date(),
         rewardAmount: 0,

@@ -11,10 +11,13 @@ export const dynamic = "force-dynamic";
 const JOB_LABELS = {
   "gmb-recheck": "GMB recheck",
   "gmb-auto-reply": "GMB auto-reply",
+  "review-recheck": "Paid-review recheck",
 };
 const JOB_DESCRIPTIONS = {
   "gmb-recheck": "Retries the Google match for pending, AI-approved submissions until Google's own listing catches up.",
   "gmb-auto-reply": "Drafts and posts AI replies to newly synced Google reviews.",
+  "review-recheck":
+    "Re-checks reviews already paid for and flags the ones that have disappeared from Google, for review at /admin/removed-reviews.",
 };
 // Turns each job's raw `lastResult` into a short, plain-English line instead
 // of dumping JSON at an admin who isn't reading this to debug the shape of
@@ -25,6 +28,10 @@ const RESULT_SUMMARY = {
   "gmb-auto-reply": (r) =>
     r
       ? `Checked ${r.connectionsChecked ?? 0} connection${r.connectionsChecked === 1 ? "" : "s"}, posted ${r.repliesPosted ?? 0} repl${r.repliesPosted === 1 ? "y" : "ies"}${r.skipped ? `, skipped ${r.skipped}` : ""}.`
+      : null,
+  "review-recheck": (r) =>
+    r
+      ? `Re-checked ${r.checked ?? 0} paid review${r.checked === 1 ? "" : "s"}${r.reversed ? `, reversed ${r.reversed} (₹${r.reclaimed ?? 0} taken back)` : ""}${r.missing ? `, flagged ${r.missing} for review` : ""}${r.inconclusive ? `, ${r.inconclusive} couldn't be confirmed` : ""}.`
       : null,
 };
 

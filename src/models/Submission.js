@@ -50,6 +50,42 @@ const SubmissionSchema = new mongoose.Schema(
       default: "pending",
       index: true,
     },
+
+    // --- Post-payment review monitoring (lib/reviewMonitor.js) ---
+    // An approved submission is money already paid out. If the review later
+    // disappears from Google — the reviewer deleted it, or Google removed it —
+    // nothing else in the app would ever notice: the GMB cross-check only runs
+    // on the way in, and the review sync only ever upserts, so our own copy of
+    // a deleted review lives on forever. api/cron/review-recheck looks the
+    // review up on Google again and records what it saw here.
+    //
+    //   unchecked — never looked at (or never had a Google review id to look for)
+    //   present   — last check found it live
+    //   missing   — gone, confirmed MISSING_STREAK_TO_FLAG checks running;
+    //               surfaces at /admin/removed-reviews for a human decision
+    //   dismissed — an admin looked and judged it fine; only a later "present"
+    //               check undoes this
+    // Nothing here ever moves money on its own — see the cron's docblock.
+    reviewLiveStatus: {
+      type: String,
+      enum: ["unchecked", "present", "missing", "dismissed"],
+      default: "unchecked",
+      index: true,
+    },
+    reviewCheckedAt: { type: Date, default: null },
+    // Consecutive CONCLUSIVE misses. An inconclusive check (API error, revoked
+    // Google connection, listing too big to page through) deliberately leaves
+    // this alone, so an outage can never accumulate into an accusation.
+    reviewMissingStreak: { type: Number, default: 0 },
+    reviewMissingSince: { type: Date, default: null },
+    // Why the last check concluded what it did, in words an admin can act on.
+    reviewCheckNote: { type: String, default: "" },
+    // Set when the recheck itself clawed the reward back (AppSettings
+    // .autoReverseRemovedReviews) rather than an admin doing it by hand. The
+    // submission is "rejected" by then, so this is what keeps it findable —
+    // /admin/removed-reviews lists these so an admin can see what the system
+    // did overnight, and approve it again if the review turns out to be there.
+    reviewAutoReversedAt: { type: Date, default: null },
     rewardAmount: { type: Number, default: 0 },
     rejectionReason: { type: String, default: "" },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
@@ -75,5 +111,8 @@ const SubmissionSchema = new mongoose.Schema(
 SubmissionSchema.index({ campaign: 1, reviewer: 1 }, { unique: true });
 // Backs the per-IP daily check — "submissions from this IP since midnight".
 SubmissionSchema.index({ submitIp: 1, createdAt: -1 });
+// Backs the recheck cron's candidate query — approved submissions that were
+// matched on Google, oldest-checked first.
+SubmissionSchema.index({ status: 1, gmbMatched: 1, reviewCheckedAt: 1 });
 
 export default mongoose.models.Submission || mongoose.model("Submission", SubmissionSchema);

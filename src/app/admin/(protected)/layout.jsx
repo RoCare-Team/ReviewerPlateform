@@ -18,6 +18,8 @@ const BRAND_NAME = getContact("brand.productName", "RapportLook");
 const NAV = [
   { href: "/admin", label: "Overview", icon: "dashboard" },
   { href: "/admin/verification", label: "Verification", icon: "moderation" },
+  { href: "/admin/removed-reviews", label: "Removed reviews", icon: "trust" },
+  { href: "/admin/finance", label: "Finance", icon: "finance" },
   { href: "/admin/withdrawals", label: "Withdrawals", icon: "withdraw" },
   { href: "/admin/referrals", label: "Referrals", icon: "referrals" },
   { href: "/admin/campaigns", label: "Campaigns", icon: "campaigns" },

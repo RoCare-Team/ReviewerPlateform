@@ -24,6 +24,9 @@ export default function PricingForm({ initial }) {
   const [cooldownHours, setCooldownHours] = useState(String(initial.reviewerCooldownHours ?? 4));
   // "manual" | "razorpayx" — see models/AppSettings.js#payoutMode.
   const [payoutMode, setPayoutMode] = useState(initial.payoutMode ?? "manual");
+  // The off switch for the only thing on this platform that moves money
+  // without a human — see models/AppSettings.js#autoReverseRemovedReviews.
+  const [autoReverse, setAutoReverse] = useState(initial.autoReverseRemovedReviews ?? true);
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState(null);
 
@@ -77,6 +80,7 @@ export default function PricingForm({ initial }) {
         referralReward: referral,
         reviewerCooldownHours: cooldown,
         payoutMode,
+        autoReverseRemovedReviews: autoReverse,
       }),
     });
     setPending(false);
@@ -199,6 +203,29 @@ export default function PricingForm({ initial }) {
             </>
           )}
         </p>
+      </div>
+
+      {/* Also not a price — whether a paid review that vanishes from Google is
+          clawed back on its own. Same platform-wide save. */}
+      <div className="mt-6 border-t border-default pt-6">
+        <h3 className="text-sm font-bold text-primary">Removed reviews</h3>
+        <label className="mt-3 flex cursor-pointer items-start justify-between gap-4 rounded-card border border-default bg-surface p-3.5">
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-primary">Reverse the reward automatically</span>
+            <span className="mt-1 block max-w-xl text-xs leading-relaxed text-muted">
+              Every paid review is re-checked on Google once a day. When the whole listing can be read and the review
+              isn&apos;t on it, the reward is taken straight back out of the reviewer&apos;s wallet — their balance can
+              go negative if they already withdrew it. Reads that can&apos;t account for the whole listing never deduct
+              anything; they go to Removed reviews for you to judge. Turn this off to send every case there instead.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={autoReverse}
+            onChange={(e) => setAutoReverse(e.target.checked)}
+            className="mt-0.5 h-4.5 w-4.5 shrink-0 rounded border-default accent-accent"
+          />
+        </label>
       </div>
 
       {msg && (

@@ -277,10 +277,15 @@ export async function listLocations(accessToken, accountName) {
  * the project; if it isn't, this throws with the API's error message, which the
  * route surfaces to the UI.
  */
-export async function listReviews(accessToken, accountName, locationName) {
-  const url = `${V4_API}/${accountName}/${locationName}/reviews?pageSize=50`;
+export async function listReviews(accessToken, accountName, locationName, { pageToken = "", pageSize = 50 } = {}) {
+  const params = new URLSearchParams({ pageSize: String(pageSize) });
+  // Paging matters for lib/reviewMonitor.js, which has to establish that a
+  // review is ABSENT from a listing — "not on the first page" is not absence.
+  // Every other caller reads the first page only, exactly as before.
+  if (pageToken) params.set("pageToken", pageToken);
+  const url = `${V4_API}/${accountName}/${locationName}/reviews?${params}`;
   const data = await gapi(url, accessToken);
-  return data; // { reviews, averageRating, totalReviewCount }
+  return data; // { reviews, averageRating, totalReviewCount, nextPageToken }
 }
 
 /**

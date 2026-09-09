@@ -17,6 +17,9 @@ export const PRICING_DEFAULTS = {
   reviewerCooldownHours: 4,
   // See models/AppSettings.js — manual until RazorpayX is activated.
   payoutMode: "manual",
+  // See models/AppSettings.js — auto-clawback for reviews that vanish from
+  // Google after being paid for.
+  autoReverseRemovedReviews: true,
 };
 
 export async function getSettings() {
@@ -40,6 +43,9 @@ export async function getSettings() {
     reviewerCooldownHours: doc?.reviewerCooldownHours ?? PRICING_DEFAULTS.reviewerCooldownHours,
     // "manual" | "razorpayx" — how an approved withdrawal is actually paid.
     payoutMode: doc?.payoutMode ?? PRICING_DEFAULTS.payoutMode,
+    // `??` again, not `||`: false is a real value here and means "queue it
+    // for an admin instead", which `||` would silently flip back to true.
+    autoReverseRemovedReviews: doc?.autoReverseRemovedReviews ?? PRICING_DEFAULTS.autoReverseRemovedReviews,
   };
 }
 
@@ -59,6 +65,7 @@ export async function updateSettings(patch) {
     currency: doc.currency,
     reviewerCooldownHours: doc.reviewerCooldownHours ?? PRICING_DEFAULTS.reviewerCooldownHours,
     payoutMode: doc.payoutMode ?? PRICING_DEFAULTS.payoutMode,
+    autoReverseRemovedReviews: doc.autoReverseRemovedReviews ?? PRICING_DEFAULTS.autoReverseRemovedReviews,
   };
 }
 

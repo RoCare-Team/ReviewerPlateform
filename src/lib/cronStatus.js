@@ -12,6 +12,7 @@ const EXPECTED = {
   "gmb-recheck": 10, // minutes — vercel.json: */10 * * * *
   "gmb-auto-reply": 15, // minutes — vercel.json: */15 * * * *
   "release-expired-claims": 5, // minutes — vercel.json: */5 * * * *
+  "review-recheck": 60, // minutes — vercel.json: 20 * * * *
 };
 const MISSED_TICKS_BEFORE_DOWN = 3;
 

@@ -63,6 +63,7 @@ const ICONS = {
   trust: ShieldAlert,
   withdraw: Landmark,
   referrals: Gift,
+  finance: Coins,
   cron: Activity,
   app: Smartphone,
 };
