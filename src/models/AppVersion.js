@@ -26,14 +26,19 @@ const PlatformSchema = new mongoose.Schema(
 const AppVersionSchema = new mongoose.Schema(
   {
     key: { type: String, default: "global", unique: true },
-    // Android's store URL is seeded with the live listing so the referral
-    // link (lib/referral.js) works before anyone has opened the admin page —
-    // a shared invite that 404s is worse than one pointing at a stale listing.
+    // Both store URLs are seeded with the live listings so the referral link
+    // (lib/referral.js) and the shared /download link (lib/storeLinks.js) work
+    // before anyone has opened the admin page — a shared invite that 404s is
+    // worse than one pointing at a stale listing. The "/in/" in the Apple URL
+    // is the Indian storefront, which is the only one this platform serves.
     android: {
       type: PlatformSchema,
       default: () => ({ storeUrl: "https://play.google.com/store/apps/details?id=com.rapportlook.app" }),
     },
-    ios: { type: PlatformSchema, default: () => ({}) },
+    ios: {
+      type: PlatformSchema,
+      default: () => ({ storeUrl: "https://apps.apple.com/in/app/rapportlook/id6807688227" }),
+    },
     // Emergency override — forces every build that isn't already on
     // `latestVersion`. Never forces someone who IS on the latest build; see
     // lib/appVersion.js#resolveUpdateState.

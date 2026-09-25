@@ -45,7 +45,10 @@ export async function POST() {
   // Captured once, before any work: this is what makes the sweep finite.
   const before = new Date();
   const startedAt = Date.now();
-  const total = { checked: 0, present: 0, missing: 0, watching: 0, inconclusive: 0, skipped: 0, reversed: 0, reclaimed: 0, errors: [] };
+  const total = {
+    checked: 0, present: 0, missing: 0, watching: 0, inconclusive: 0,
+    skipped: 0, reversed: 0, reclaimed: 0, restored: 0, errors: [],
+  };
   let batches = 0;
   let done = false;
 
@@ -57,7 +60,7 @@ export async function POST() {
         done = true;
         break;
       }
-      for (const k of ["checked", "present", "missing", "watching", "inconclusive", "skipped", "reversed", "reclaimed"]) {
+      for (const k of ["checked", "present", "missing", "watching", "inconclusive", "skipped", "reversed", "reclaimed", "restored"]) {
         total[k] += batch[k];
       }
       total.errors.push(...batch.errors);

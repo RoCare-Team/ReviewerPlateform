@@ -213,10 +213,11 @@ export default function PricingForm({ initial }) {
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-primary">Reverse the reward automatically</span>
             <span className="mt-1 block max-w-xl text-xs leading-relaxed text-muted">
-              Every paid review is re-checked on Google once a day. When the whole listing can be read and the review
-              isn&apos;t on it, the reward is taken straight back out of the reviewer&apos;s wallet — their balance can
-              go negative if they already withdrew it. Reads that can&apos;t account for the whole listing never deduct
-              anything; they go to Removed reviews for you to judge. Turn this off to send every case there instead.
+              Every paid review is re-checked on Google once a day. A reward is taken back only when the whole listing
+              could be read and the review was missing from two checks a day apart — a single bad read, or a listing
+              that can&apos;t be fully accounted for, never deducts anything and goes to Removed reviews instead. If a
+              reversed review turns up again, the reward is credited back on its own. Balances can go negative when the
+              money was already withdrawn. Turn this off to send every case to Removed reviews for a human.
             </span>
           </span>
           <input

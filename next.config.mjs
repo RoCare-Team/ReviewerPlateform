@@ -31,6 +31,12 @@ const nextConfig = {
       { source: "/signup", destination: "/login", permanent: true },
       { source: "/signup/business", destination: "/login", permanent: true },
       { source: "/signup/reviewer", destination: "/login", permanent: true },
+
+      // Short aliases for the one shareable install link (src/app/download).
+      // Kept as redirects rather than extra routes so there is a single
+      // canonical URL for SEO and a single place the logic lives.
+      { source: "/app", destination: "/download", permanent: false },
+      { source: "/get", destination: "/download", permanent: false },
     ];
   },
 };

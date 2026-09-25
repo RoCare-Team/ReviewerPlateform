@@ -45,6 +45,7 @@ export default function RecheckNowButton() {
 
     const parts = [`${data.checked} checked`, `${data.present} still live`];
     if (data.reversed) parts.push(`${data.reversed} reversed automatically (₹${data.reclaimed} taken back)`);
+    if (data.restored) parts.push(`${data.restored} credited back — the review returned`);
     if (data.missing) parts.push(`${data.missing} flagged for you`);
     if (data.inconclusive) parts.push(`${data.inconclusive} couldn't be confirmed`);
     setSummary(

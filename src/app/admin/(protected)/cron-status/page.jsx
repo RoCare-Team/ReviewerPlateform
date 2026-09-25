@@ -31,7 +31,7 @@ const RESULT_SUMMARY = {
       : null,
   "review-recheck": (r) =>
     r
-      ? `Re-checked ${r.checked ?? 0} paid review${r.checked === 1 ? "" : "s"}${r.reversed ? `, reversed ${r.reversed} (₹${r.reclaimed ?? 0} taken back)` : ""}${r.missing ? `, flagged ${r.missing} for review` : ""}${r.inconclusive ? `, ${r.inconclusive} couldn't be confirmed` : ""}.`
+      ? `Re-checked ${r.checked ?? 0} paid review${r.checked === 1 ? "" : "s"}${r.reversed ? `, reversed ${r.reversed} (₹${r.reclaimed ?? 0} taken back)` : ""}${r.restored ? `, credited ${r.restored} back` : ""}${r.missing ? `, flagged ${r.missing} for review` : ""}${r.inconclusive ? `, ${r.inconclusive} couldn't be confirmed` : ""}.`
       : null,
 };
 

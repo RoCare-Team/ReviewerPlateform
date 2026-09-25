@@ -4,7 +4,7 @@ import GmbLocation from "../models/GmbLocation";
 import Submission from "../models/Submission";
 import { getValidAccessToken, listReviews } from "./gmb";
 import { getSettings } from "./settings";
-import { unverifySubmission } from "./verification";
+import { approveSubmission, unverifySubmission } from "./verification";
 
 /**
  * Post-payment review monitoring — "the reviewer was paid ₹50, is the review
@@ -38,9 +38,26 @@ import { unverifySubmission } from "./verification";
  *     is not thrown away: it accrues a streak and, at MISSING_STREAK_TO_FLAG,
  *     lands in /admin/removed-reviews for a human to judge.
  *
+ * Two more guards sit on top of "complete", both aimed at the same failure:
+ * a review that is briefly not there — Google re-indexing an edit, a listing
+ * mid-update — costing a reviewer money they earned.
+ *
+ *   - AUTO_REVERSE_MIN_MISSES: it has to be absent on two separate complete
+ *     reads, not one. A single unlucky read never costs anyone anything.
+ *   - AUTO_REVERSE_MIN_HOURS: those reads have to be spread over roughly a
+ *     day. Without this, an admin pressing "Check now" twice in five minutes
+ *     would satisfy the count while proving nothing — two reads of the same
+ *     momentary state are one observation, not two.
+ *
+ * And if it turns out to have been wrong anyway, it fixes itself: an
+ * auto-reversed submission keeps being checked for AUTO_REVERSE_WATCH_DAYS,
+ * and the moment the review is seen live again the reward is credited back
+ * automatically (reviewRestoredAt). Nobody has to notice for the reviewer to
+ * get their money.
+ *
  * Every automatic reversal is recorded on the submission
- * (reviewAutoReversedAt) and stays listed for an admin, who can approve it
- * again if the review turns out to be there after all.
+ * (reviewAutoReversedAt) and stays listed for an admin, who can also approve
+ * it again by hand.
  */
 
 /**
@@ -61,6 +78,24 @@ export const MISSING_STREAK_TO_FLAG = 2;
  * which is what gets recorded.
  */
 const MAX_PAGES = 5;
+
+/**
+ * Complete-read misses required before money moves, and the minimum age of
+ * the first of them. See this module's docblock — together they mean "gone on
+ * two separate days", which is what a real deletion looks like and a
+ * re-indexing flicker does not. 20 hours, not 24, so a daily cron whose runs
+ * drift slightly earlier still qualifies on the second day.
+ */
+export const AUTO_REVERSE_MIN_MISSES = 2;
+export const AUTO_REVERSE_MIN_HOURS = 20;
+
+/**
+ * How long an automatically reversed submission keeps being re-checked, so a
+ * review that comes back can credit the reviewer again. Long enough to cover
+ * a listing that was down for a while; not forever, because a genuinely
+ * deleted review never returns and re-reading it costs Google quota.
+ */
+export const AUTO_REVERSE_WATCH_DAYS = 30;
 
 /**
  * Every review id currently live on one location's Google listing.
@@ -148,14 +183,22 @@ export async function fetchLiveReviewIds(location) {
 
 /**
  * Write one check's outcome onto the submission and decide whether it belongs
- * in the admin queue. Returns "inconclusive" | "present" | "watching" (a
- * conclusive miss that hasn't hit the streak yet) | "missing" | "gone" (the
- * submission stopped being approved mid-run).
+ * in the admin queue.
+ *
+ * Returns { outcome, completeStreak, missingSince }, where outcome is
+ * "inconclusive" | "present" | "watching" (a conclusive miss that hasn't hit
+ * the streak yet) | "missing" | "gone" (the submission stopped being approved
+ * mid-run). The caller needs the streak and the age to decide whether the
+ * evidence is strong enough to take money back — see runReviewRecheck.
+ *
+ * `complete` says the listing read accounted for every review Google claims
+ * the listing has. A miss on an incomplete read still counts towards the
+ * admin flag, but never towards the complete-read streak that money hangs on.
  *
  * Guarded on status:"approved" throughout — a submission an admin reversed
  * while this run was in flight must not get its monitoring fields rewritten.
  */
-export async function recordReviewCheck(submissionId, { conclusive, present, reason }) {
+export async function recordReviewCheck(submissionId, { conclusive, present, reason, complete = false }) {
   const now = new Date();
 
   if (!conclusive) {
@@ -166,7 +209,7 @@ export async function recordReviewCheck(submissionId, { conclusive, present, rea
       { _id: submissionId, status: "approved" },
       { $set: { reviewCheckedAt: now, reviewCheckNote: reason } }
     );
-    return "inconclusive";
+    return { outcome: "inconclusive", completeStreak: 0, missingSince: null };
   }
 
   if (present) {
@@ -180,20 +223,25 @@ export async function recordReviewCheck(submissionId, { conclusive, present, rea
           reviewLiveStatus: "present",
           reviewCheckedAt: now,
           reviewMissingStreak: 0,
+          reviewMissingCompleteStreak: 0,
           reviewMissingSince: null,
           reviewCheckNote: reason,
         },
       }
     );
-    return "present";
+    return { outcome: "present", completeStreak: 0, missingSince: null };
   }
 
   const sub = await Submission.findOneAndUpdate(
     { _id: submissionId, status: "approved" },
-    { $inc: { reviewMissingStreak: 1 }, $set: { reviewCheckedAt: now, reviewCheckNote: reason } },
+    {
+      // Only a complete read moves the streak that money hangs on.
+      $inc: { reviewMissingStreak: 1, ...(complete ? { reviewMissingCompleteStreak: 1 } : {}) },
+      $set: { reviewCheckedAt: now, reviewCheckNote: reason },
+    },
     { returnDocument: "after" }
   );
-  if (!sub) return "gone";
+  if (!sub) return { outcome: "gone", completeStreak: 0, missingSince: null };
 
   const patch = {};
   // First miss of a streak — remember when the review was last seen alive.
@@ -208,7 +256,11 @@ export async function recordReviewCheck(submissionId, { conclusive, present, rea
     await Submission.updateOne({ _id: submissionId, status: "approved" }, { $set: patch });
   }
 
-  return sub.reviewMissingStreak >= MISSING_STREAK_TO_FLAG ? "missing" : "watching";
+  return {
+    outcome: sub.reviewMissingStreak >= MISSING_STREAK_TO_FLAG ? "missing" : "watching",
+    completeStreak: sub.reviewMissingCompleteStreak || 0,
+    missingSince: patch.reviewMissingSince ?? sub.reviewMissingSince ?? null,
+  };
 }
 
 /** Submissions per batch — caps the Google reads one invocation can do. */
@@ -241,24 +293,41 @@ export const RECHECK_BATCH_LIMIT = 15;
  * repeatedly would just cycle the same rows forever.
  */
 export async function runReviewRecheck({ before, limit = RECHECK_BATCH_LIMIT, fetchLive = fetchLiveReviewIds } = {}) {
+  const watchSince = new Date(Date.now() - AUTO_REVERSE_WATCH_DAYS * 24 * 60 * 60 * 1000);
   const candidates = await Submission.find({
-    status: "approved",
     gmbMatched: true,
     gmbReviewId: { $nin: ["", null] },
-    // Ascending sort puts nulls (never checked) first, then the
-    // longest-unchecked — so every approved submission comes round eventually
-    // instead of the same few being re-read every time.
-    $or: [{ reviewCheckedAt: null }, { reviewCheckedAt: { $lte: before } }],
+    // Two independent OR groups, so they go in $and — as sibling $or keys on
+    // one object the second silently replaces the first, which dropped the
+    // status filter entirely and pulled in pending submissions the run could
+    // do nothing with.
+    $and: [
+      // Live submissions, PLUS the ones this run reversed by itself — those
+      // keep being watched so a review that comes back can pay the reviewer
+      // again without anyone noticing it went wrong. See the restore branch.
+      {
+        $or: [
+          { status: "approved" },
+          { status: "rejected", reviewAutoReversedAt: { $gte: watchSince } },
+        ],
+      },
+      // Never checked, or not since the caller's cutoff. The ascending sort
+      // below puts nulls (never checked) first, then the longest-unchecked, so
+      // everything comes round eventually instead of the same few being
+      // re-read every time.
+      { $or: [{ reviewCheckedAt: null }, { reviewCheckedAt: { $lte: before } }] },
+    ],
   })
     .sort({ reviewCheckedAt: 1 })
     .limit(limit)
-    .select("campaign gmbReviewId reviewLiveStatus rewardAmount")
+    .select("campaign gmbReviewId reviewLiveStatus rewardAmount status reviewedAt reviewAutoReversedAt")
     .lean();
 
-  const empty = { checked: 0, present: 0, missing: 0, watching: 0, inconclusive: 0, skipped: 0, reversed: 0, reclaimed: 0, errors: [] };
+  const empty = { checked: 0, present: 0, missing: 0, watching: 0, inconclusive: 0, skipped: 0, reversed: 0, reclaimed: 0, restored: 0, errors: [] };
   if (candidates.length === 0) return empty;
 
-  const { autoReverseRemovedReviews } = await getSettings();
+  const settings = await getSettings();
+  const autoReverseRemovedReviews = settings.autoReverseRemovedReviews;
 
   // Resolve each submission's campaign → location, then group by location so
   // one listing is read once however many submissions point at it.
@@ -304,14 +373,72 @@ export async function runReviewRecheck({ before, limit = RECHECK_BATCH_LIMIT, fe
 
       for (const sub of subs) {
         const isPresent = live.ok && live.ids.has(sub.gmbReviewId);
+        out.checked += 1;
+
+        // --- Already reversed by us: the only question is whether it's back.
+        if (sub.status === "rejected") {
+          if (isPresent) {
+            // The system was wrong, or the review returned. Either way the
+            // reviewer earns it again — pay it back without waiting for anyone
+            // to notice. approveSubmission re-takes the campaign slot too.
+            try {
+              const { outcome: restored, reward } = await approveSubmission(sub._id, settings.reviewerReward, {
+                verifiedBy: "system",
+                allowFrom: ["rejected"],
+              });
+              if (restored === "approved") {
+                await Submission.updateOne(
+                  { _id: sub._id },
+                  {
+                    $set: {
+                      reviewAutoReversedAt: null,
+                      reviewRestoredAt: new Date(),
+                      reviewLiveStatus: "present",
+                      reviewMissingStreak: 0,
+                      reviewMissingCompleteStreak: 0,
+                      reviewMissingSince: null,
+                      reviewCheckedAt: new Date(),
+                      reviewCheckNote: `Review is back on Google — ₹${reward} credited again automatically.`,
+                    },
+                  }
+                );
+                out.restored += 1;
+                out.present += 1;
+                continue;
+              }
+              // Couldn't re-approve (campaign full, or gone) — leave it for an
+              // admin rather than silently pretending nothing happened.
+              out.errors.push(`restore ${sub._id}: ${restored}`);
+            } catch (e) {
+              out.errors.push(`restore ${sub._id}: ${e.message}`);
+            }
+          }
+          // Still gone, or unreadable: just record that we looked, so it
+          // rotates to the back of the queue instead of being re-read hourly.
+          await Submission.updateOne(
+            { _id: sub._id },
+            {
+              $set: {
+                reviewCheckedAt: new Date(),
+                reviewCheckNote: live.ok
+                  ? "Still not on the listing — reward stays reversed."
+                  : `Couldn't confirm whether the reversed review is back — ${live.reason}`,
+              },
+            }
+          );
+          continue;
+        }
+
+        // --- Live submission: the normal path.
         const gone = live.ok && !isPresent;
         // A miss we may act on by ourselves, versus one that only means
         // "somebody should look at this".
         const provenGone = gone && live.complete;
 
-        const outcome = await recordReviewCheck(sub._id, {
+        const { outcome, completeStreak, missingSince } = await recordReviewCheck(sub._id, {
           conclusive: live.ok,
           present: isPresent,
+          complete: Boolean(live.complete),
           reason: live.ok
             ? isPresent
               ? "Review is still live on Google."
@@ -320,20 +447,25 @@ export async function runReviewRecheck({ before, limit = RECHECK_BATCH_LIMIT, fe
                 : `Review wasn't in the listing, but the read was incomplete — ${live.reason}`
             : live.reason,
         });
-        out.checked += 1;
         if (outcome === "present") out.present += 1;
         else if (outcome === "missing") out.missing += 1;
         else if (outcome === "watching") out.watching += 1;
         else if (outcome === "inconclusive") out.inconclusive += 1;
 
-        // Money moves only here, and only on proof. recordReviewCheck ran
-        // first on purpose: it guards on status "approved", which
-        // unverifySubmission is about to change.
-        if (provenGone && autoReverseRemovedReviews && (outcome === "watching" || outcome === "missing")) {
+        // Money moves only here, and only when every guard agrees: the read
+        // saw the whole listing, the review has been absent from two of them,
+        // and those two are a day apart rather than two clicks of "Check now".
+        const missingLongEnough =
+          missingSince && Date.now() - new Date(missingSince).getTime() >= AUTO_REVERSE_MIN_HOURS * 60 * 60 * 1000;
+        const proven = provenGone && completeStreak >= AUTO_REVERSE_MIN_MISSES && missingLongEnough;
+
+        if (proven && autoReverseRemovedReviews) {
           try {
+            // recordReviewCheck ran first on purpose: it guards on status
+            // "approved", which unverifySubmission is about to change.
             const result = await unverifySubmission(
               sub._id,
-              "The review you were paid for is no longer on the business's Google listing, so the reward has been reversed.",
+              "The review you were paid for is no longer on the business's Google listing, so the reward has been reversed. If it comes back, the reward is credited again automatically.",
               { verifiedBy: "system" }
             );
             if (result === "unverified" || result === "insufficient_balance") {

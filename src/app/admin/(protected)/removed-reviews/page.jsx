@@ -5,7 +5,7 @@ import Submission from "../../../../models/Submission";
 import Campaign from "../../../../models/Campaign";
 import User from "../../../../models/User";
 import { inr, getSettings } from "../../../../lib/settings";
-import { MISSING_STREAK_TO_FLAG } from "../../../../lib/reviewMonitor";
+import { AUTO_REVERSE_MIN_MISSES, MISSING_STREAK_TO_FLAG } from "../../../../lib/reviewMonitor";
 import StatCard from "../../../../components/shared/StatCard";
 import RemovedReviewQueue from "../../../../components/admin/RemovedReviewQueue";
 import RecheckNowButton from "../../../../components/admin/RecheckNowButton";
@@ -112,6 +112,11 @@ export default async function AdminRemovedReviewsPage() {
     sumOver(AUTO_REVERSED, "$rewardAmount"),
   ]);
 
+  // Reversed by the checker, then credited back by it when the review turned
+  // up again. Worth showing: it is the number that says the safeguards are
+  // doing something rather than just being described.
+  const nRestored = await Submission.countDocuments({ reviewRestoredAt: { $ne: null } });
+
   const nReversed = reversedSubs.length;
 
   const allSubs = [...flaggedSubs, ...reversedSubs];
@@ -162,10 +167,11 @@ export default async function AdminRemovedReviewsPage() {
   // Built as one string, not "text {expr} text": a bare space sitting next to
   // a JSX expression gets swallowed here, which read as "2 checksin a row".
   const intro = settings.autoReverseRemovedReviews
-    ? `Every paid review is re-checked on Google once a day. When the whole listing can be read and the review isn't ` +
-      `in it, the reward is taken back out of the reviewer's wallet automatically — no action needed here. When the ` +
-      `listing can't be read in full, nothing is deducted: those land below after ${MISSING_STREAK_TO_FLAG} failed ` +
-      `checks in a row, for you to decide.`
+    ? `Every paid review is re-checked on Google once a day. A reward is only taken back when the whole listing could ` +
+      `be read and the review was missing from ${AUTO_REVERSE_MIN_MISSES} of those checks a day apart — one bad read ` +
+      `never costs a reviewer anything, and if the review turns up later the reward is credited back automatically. ` +
+      `When the listing can't be read in full, nothing is deducted at all: those land below after ` +
+      `${MISSING_STREAK_TO_FLAG} failed checks, for you to decide.`
     : `Every paid review is re-checked on Google once a day. Automatic reversal is currently OFF, so nothing is ` +
       `deducted on its own — a review that can't be found for ${MISSING_STREAK_TO_FLAG} checks in a row lands below ` +
       `for you to reverse or dismiss. Turn it back on from Pricing.`;
@@ -181,7 +187,11 @@ export default async function AdminRemovedReviewsPage() {
           value={nReversed}
           Icon={RotateCcw}
           tone={nReversed > 0 ? "text-danger" : "text-accent"}
-          sub={`${inr(moneyReclaimed)} taken back automatically`}
+          sub={
+            nRestored > 0
+              ? `${inr(moneyReclaimed)} taken back · ${nRestored} credited back when the review returned`
+              : `${inr(moneyReclaimed)} taken back automatically`
+          }
         />
         <StatCard
           label="Needs a decision"
@@ -208,7 +218,7 @@ export default async function AdminRemovedReviewsPage() {
 
       {nWatching > 0 && (
         <p className="mt-4 text-sm text-secondary">
-          {`${nWatching} more failed one check on a listing that couldn't be read in full. Nothing was deducted for them.`}
+          {`${nWatching} more missed a check but haven't met the bar for anything yet — no money has moved for them.`}
         </p>
       )}
 

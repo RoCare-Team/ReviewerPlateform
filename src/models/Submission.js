@@ -77,6 +77,10 @@ const SubmissionSchema = new mongoose.Schema(
     // Google connection, listing too big to page through) deliberately leaves
     // this alone, so an outage can never accumulate into an accusation.
     reviewMissingStreak: { type: Number, default: 0 },
+    // Of those, the ones seen on a COMPLETE read — where Google's own review
+    // count agreed with what its API returned. Only this streak may cost a
+    // reviewer money; the wider one above only ever raises a flag for a human.
+    reviewMissingCompleteStreak: { type: Number, default: 0 },
     reviewMissingSince: { type: Date, default: null },
     // Why the last check concluded what it did, in words an admin can act on.
     reviewCheckNote: { type: String, default: "" },
@@ -86,6 +90,11 @@ const SubmissionSchema = new mongoose.Schema(
     // /admin/removed-reviews lists these so an admin can see what the system
     // did overnight, and approve it again if the review turns out to be there.
     reviewAutoReversedAt: { type: Date, default: null },
+    // Set when a later check found the review back on Google after an
+    // automatic reversal and the reward was credited again — the system
+    // correcting itself. Kept as a trail; reviewAutoReversedAt is cleared at
+    // the same time so the row leaves the admin's Auto-reversed list.
+    reviewRestoredAt: { type: Date, default: null },
     rewardAmount: { type: Number, default: 0 },
     rejectionReason: { type: String, default: "" },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
